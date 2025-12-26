@@ -1,0 +1,68 @@
+import SwiftUI
+
+struct FloatingTimerIndicator: View {
+    @ObservedObject private var timerManager = PomodoroTimerManager.shared
+    @State private var showTimer = false
+    
+    var body: some View {
+        if timerManager.isTimerRunning {
+            Button(action: {
+                showTimer = true
+            }) {
+                ZStack {
+                    Circle()
+                        .fill(Color.black.opacity(0.8))
+                        .frame(width: 60, height: 60)
+                    
+                    Circle()
+                        .trim(from: 0, to: CGFloat(timerManager.progress))
+                        .stroke(
+                            AngularGradient(
+                                gradient: Gradient(colors: [Color.purple, Color.blue, Color.purple]),
+                                center: .center
+                            ),
+                            style: StrokeStyle(lineWidth: 4, lineCap: .round)
+                        )
+                        .frame(width: 54, height: 54)
+                        .rotationEffect(.degrees(-90))
+                        .animation(.linear(duration: 1), value: timerManager.timeRemaining)
+                    
+                    Image(systemName: "timer")
+                        .font(.system(size: 24))
+                        .foregroundColor(.white)
+                }
+                .shadow(color: .black.opacity(0.5), radius: 10, x: 0, y: 5)
+            }
+            .sheet(isPresented: $showTimer) {
+                PomodoroTimerSheetView(isPresented: $showTimer)
+            }
+            .transition(.scale.combined(with: .opacity))
+        }
+    }
+}
+
+struct PomodoroTimerSheetView: View {
+    @Binding var isPresented: Bool
+    
+    var body: some View {
+        NavigationStack {
+            PomodoroTimerView(onDismiss: {
+                isPresented = false
+            })
+        }
+    }
+}
+
+#Preview {
+    ZStack {
+        Color.black.ignoresSafeArea()
+        VStack {
+            Spacer()
+            HStack {
+                FloatingTimerIndicator()
+                    .padding()
+                Spacer()
+            }
+        }
+    }
+}

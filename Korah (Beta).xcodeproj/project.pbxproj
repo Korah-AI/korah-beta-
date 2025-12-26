@@ -1,0 +1,595 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXContainerItemProxy section */
+		2C98C8D12EFE4F0A00BF141B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2C98C8BB2EFE4F0800BF141B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2C98C8C22EFE4F0800BF141B;
+			remoteInfo = "Korah (Beta)";
+		};
+		2C98C8DB2EFE4F0A00BF141B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2C98C8BB2EFE4F0800BF141B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2C98C8C22EFE4F0800BF141B;
+			remoteInfo = "Korah (Beta)";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		2C98C8C32EFE4F0800BF141B /* Korah (Beta).app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Korah (Beta).app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		2C98C8D02EFE4F0A00BF141B /* Korah (Beta)Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Korah (Beta)Tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		2C98C8DA2EFE4F0A00BF141B /* Korah (Beta)UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Korah (Beta)UITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		2C98C8C52EFE4F0800BF141B /* Korah (Beta) */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "Korah (Beta)";
+			sourceTree = "<group>";
+		};
+		2C98C8D32EFE4F0A00BF141B /* Korah (Beta)Tests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "Korah (Beta)Tests";
+			sourceTree = "<group>";
+		};
+		2C98C8DD2EFE4F0A00BF141B /* Korah (Beta)UITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "Korah (Beta)UITests";
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		2C98C8C02EFE4F0800BF141B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2C98C8CD2EFE4F0A00BF141B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2C98C8D72EFE4F0A00BF141B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		2C98C8BA2EFE4F0800BF141B = {
+			isa = PBXGroup;
+			children = (
+				2C98C8C52EFE4F0800BF141B /* Korah (Beta) */,
+				2C98C8D32EFE4F0A00BF141B /* Korah (Beta)Tests */,
+				2C98C8DD2EFE4F0A00BF141B /* Korah (Beta)UITests */,
+				2C98C8C42EFE4F0800BF141B /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		2C98C8C42EFE4F0800BF141B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				2C98C8C32EFE4F0800BF141B /* Korah (Beta).app */,
+				2C98C8D02EFE4F0A00BF141B /* Korah (Beta)Tests.xctest */,
+				2C98C8DA2EFE4F0A00BF141B /* Korah (Beta)UITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		2C98C8C22EFE4F0800BF141B /* Korah (Beta) */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2C98C8E42EFE4F0A00BF141B /* Build configuration list for PBXNativeTarget "Korah (Beta)" */;
+			buildPhases = (
+				2C98C8BF2EFE4F0800BF141B /* Sources */,
+				2C98C8C02EFE4F0800BF141B /* Frameworks */,
+				2C98C8C12EFE4F0800BF141B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				2C98C8C52EFE4F0800BF141B /* Korah (Beta) */,
+			);
+			name = "Korah (Beta)";
+			packageProductDependencies = (
+			);
+			productName = "Korah (Beta)";
+			productReference = 2C98C8C32EFE4F0800BF141B /* Korah (Beta).app */;
+			productType = "com.apple.product-type.application";
+		};
+		2C98C8CF2EFE4F0A00BF141B /* Korah (Beta)Tests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2C98C8E72EFE4F0A00BF141B /* Build configuration list for PBXNativeTarget "Korah (Beta)Tests" */;
+			buildPhases = (
+				2C98C8CC2EFE4F0A00BF141B /* Sources */,
+				2C98C8CD2EFE4F0A00BF141B /* Frameworks */,
+				2C98C8CE2EFE4F0A00BF141B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				2C98C8D22EFE4F0A00BF141B /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				2C98C8D32EFE4F0A00BF141B /* Korah (Beta)Tests */,
+			);
+			name = "Korah (Beta)Tests";
+			packageProductDependencies = (
+			);
+			productName = "Korah (Beta)Tests";
+			productReference = 2C98C8D02EFE4F0A00BF141B /* Korah (Beta)Tests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		2C98C8D92EFE4F0A00BF141B /* Korah (Beta)UITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2C98C8EA2EFE4F0A00BF141B /* Build configuration list for PBXNativeTarget "Korah (Beta)UITests" */;
+			buildPhases = (
+				2C98C8D62EFE4F0A00BF141B /* Sources */,
+				2C98C8D72EFE4F0A00BF141B /* Frameworks */,
+				2C98C8D82EFE4F0A00BF141B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				2C98C8DC2EFE4F0A00BF141B /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				2C98C8DD2EFE4F0A00BF141B /* Korah (Beta)UITests */,
+			);
+			name = "Korah (Beta)UITests";
+			packageProductDependencies = (
+			);
+			productName = "Korah (Beta)UITests";
+			productReference = 2C98C8DA2EFE4F0A00BF141B /* Korah (Beta)UITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		2C98C8BB2EFE4F0800BF141B /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2600;
+				LastUpgradeCheck = 2600;
+				TargetAttributes = {
+					2C98C8C22EFE4F0800BF141B = {
+						CreatedOnToolsVersion = 26.0.1;
+					};
+					2C98C8CF2EFE4F0A00BF141B = {
+						CreatedOnToolsVersion = 26.0.1;
+						TestTargetID = 2C98C8C22EFE4F0800BF141B;
+					};
+					2C98C8D92EFE4F0A00BF141B = {
+						CreatedOnToolsVersion = 26.0.1;
+						TestTargetID = 2C98C8C22EFE4F0800BF141B;
+					};
+				};
+			};
+			buildConfigurationList = 2C98C8BE2EFE4F0800BF141B /* Build configuration list for PBXProject "Korah (Beta)" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 2C98C8BA2EFE4F0800BF141B;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 2C98C8C42EFE4F0800BF141B /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				2C98C8C22EFE4F0800BF141B /* Korah (Beta) */,
+				2C98C8CF2EFE4F0A00BF141B /* Korah (Beta)Tests */,
+				2C98C8D92EFE4F0A00BF141B /* Korah (Beta)UITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		2C98C8C12EFE4F0800BF141B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2C98C8CE2EFE4F0A00BF141B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2C98C8D82EFE4F0A00BF141B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		2C98C8BF2EFE4F0800BF141B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2C98C8CC2EFE4F0A00BF141B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2C98C8D62EFE4F0A00BF141B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		2C98C8D22EFE4F0A00BF141B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2C98C8C22EFE4F0800BF141B /* Korah (Beta) */;
+			targetProxy = 2C98C8D12EFE4F0A00BF141B /* PBXContainerItemProxy */;
+		};
+		2C98C8DC2EFE4F0A00BF141B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2C98C8C22EFE4F0800BF141B /* Korah (Beta) */;
+			targetProxy = 2C98C8DB2EFE4F0A00BF141B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		2C98C8E22EFE4F0A00BF141B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 34JPJ689V8;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		2C98C8E32EFE4F0A00BF141B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 34JPJ689V8;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		2C98C8E52EFE4F0A00BF141B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 34JPJ689V8;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = Bracelet;
+				INFOPLIST_KEY_NSCameraUsageDescription = "A.I. Chat";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "A.I. Chat";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "A.I. Chat";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "A.I. Chat";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.korah.korah;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		2C98C8E62EFE4F0A00BF141B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 34JPJ689V8;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = Bracelet;
+				INFOPLIST_KEY_NSCameraUsageDescription = "A.I. Chat";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "A.I. Chat";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "A.I. Chat";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "A.I. Chat";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.korah.korah;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		2C98C8E82EFE4F0A00BF141B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 34JPJ689V8;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "oscar.Korah--Beta-Tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Korah (Beta).app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Korah (Beta)";
+			};
+			name = Debug;
+		};
+		2C98C8E92EFE4F0A00BF141B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 34JPJ689V8;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "oscar.Korah--Beta-Tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Korah (Beta).app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Korah (Beta)";
+			};
+			name = Release;
+		};
+		2C98C8EB2EFE4F0A00BF141B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 34JPJ689V8;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "oscar.Korah--Beta-UITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "Korah (Beta)";
+			};
+			name = Debug;
+		};
+		2C98C8EC2EFE4F0A00BF141B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 34JPJ689V8;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "oscar.Korah--Beta-UITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "Korah (Beta)";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		2C98C8BE2EFE4F0800BF141B /* Build configuration list for PBXProject "Korah (Beta)" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2C98C8E22EFE4F0A00BF141B /* Debug */,
+				2C98C8E32EFE4F0A00BF141B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2C98C8E42EFE4F0A00BF141B /* Build configuration list for PBXNativeTarget "Korah (Beta)" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2C98C8E52EFE4F0A00BF141B /* Debug */,
+				2C98C8E62EFE4F0A00BF141B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2C98C8E72EFE4F0A00BF141B /* Build configuration list for PBXNativeTarget "Korah (Beta)Tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2C98C8E82EFE4F0A00BF141B /* Debug */,
+				2C98C8E92EFE4F0A00BF141B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2C98C8EA2EFE4F0A00BF141B /* Build configuration list for PBXNativeTarget "Korah (Beta)UITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2C98C8EB2EFE4F0A00BF141B /* Debug */,
+				2C98C8EC2EFE4F0A00BF141B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 2C98C8BB2EFE4F0800BF141B /* Project object */;
+}

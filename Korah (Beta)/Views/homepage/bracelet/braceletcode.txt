@@ -1,0 +1,530 @@
+#include <ArduinoBLE.h>
+#include <Wire.h>
+#include <Adafruit_NeoPixel.h>
+#include <Adafruit_DRV2605.h>
+
+#define NEOPIXEL_PIN 6
+#define NUMPIXELS 12
+
+Adafruit_NeoPixel pixels(NUMPIXELS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_DRV2605 drv;
+
+// Global cancellation flag for interrupting animations
+volatile bool shouldCancel = false;
+
+// BLE setup
+BLEService focusService("180A");
+BLEStringCharacteristic commandChar("2A57", BLEWrite | BLEWriteWithoutResponse | BLERead, 32);
+
+void setup() {
+  Serial.begin(115200);
+  pixels.begin();
+  pixels.setBrightness(255); // default brightness (maximum)
+  pixels.clear();
+  pixels.show();
+
+  // start DRV2605
+  if (!drv.begin()) {
+    Serial.println("DRV2605L not found!");
+    while (1);
+  }
+  drv.selectLibrary(1);
+  drv.setMode(DRV2605_MODE_INTTRIG);
+
+  // start BLE
+  if (!BLE.begin()) {
+    Serial.println("BLE start failed!");
+    while (1);
+  }
+
+  BLE.setLocalName("FocusBracelet");
+  BLE.setAdvertisedService(focusService);
+  focusService.addCharacteristic(commandChar);
+  BLE.addService(focusService);
+  BLE.advertise();
+
+  Serial.println("FocusBracelet ready. Waiting for commands...");
+}
+
+void loop() {
+  BLEDevice central = BLE.central();
+  if (central) {
+    Serial.print("Connected to: ");
+    Serial.println(central.address());
+    while (central.connected()) {
+      if (commandChar.written()) {
+        String cmd = commandChar.value();
+        Serial.print("Received command: ");
+        Serial.println(cmd);
+        handleCommand(cmd);
+      }
+    }
+    Serial.println("Disconnected");
+  }
+}
+
+// ============================================================================
+// MAIN COMMAND HANDLER
+// ============================================================================
+// Routes incoming BLE commands to appropriate functions
+// CHANGED: Reordered commands to prioritize CHECK and COLOR (used for connection
+// verification and theme color setting in the new simplified BraceletConnectionView)
+void handleCommand(String cmd) {
+  cmd.trim();
+
+  // RESET command - Immediately stops any running animation and turns off bracelet
+  if (cmd == "RESET") {
+    shouldCancel = true;  // Signal all animations to stop
+    delay(50);            // Give animations time to check flag
+    resetMode();          // Force clear all LEDs
+    shouldCancel = false; // Reset flag for next command
+    return;
+  }
+  
+  // Clear cancellation flag before starting any new animation
+  shouldCancel = false;
+
+  // NEW: CHECK command - Blinks green to verify connection is working
+  if (cmd == "CHECK") checkConnectionMode();
+  
+  // PRIORITIZED: COLOR command - Sets theme color (moved up for importance)
+  else if (cmd.startsWith("COLOR:")) customColorMode(cmd);
+  
+  // Existing commands for timer/task-driven behaviors
+  else if (cmd == "FOCUS") focusMode();
+  else if (cmd == "DONE") taskCompleteMode();
+  
+  // UPDATED: PROGRESS command - Now used by Pomodoro timer to show progress in 25% increments
+  else if (cmd.startsWith("PROGRESS:")) progressMode(cmd);
+  
+  else if (cmd == "RELAX") relaxMode();
+  else if (cmd == "RESET") resetMode();
+  
+  // NEW: CELEBRATE command - Rainbow animation with vibration for task/timer completion
+  else if (cmd == "CELEBRATE") celebrateMode();
+  
+  // NEW: Play Around commands - Fun effects for user to test bracelet
+  else if (cmd == "PULSE") pulseMode();
+  else if (cmd == "FLASH") flashMode();
+  else if (cmd == "BREATHE") breatheMode();
+  else if (cmd == "SPARKLE") sparkleMode();
+  else if (cmd == "WAVE") waveMode();
+  
+  else Serial.println("Unknown command");
+
+}
+
+// ============================================================================
+// FUNCTIONAL MODES
+// ============================================================================
+
+void checkConnectionMode() {
+  Serial.println("Check connection");
+  for (int i = 0; i < 3; i++) {
+    pixels.setBrightness(255);
+    pixels.fill(pixels.Color(0, 255, 0)); // bright green blink
+    pixels.show();
+    delay(300);
+
+    pixels.clear();
+    pixels.show();
+    delay(300);
+  }
+}
+
+void focusMode() {
+  Serial.println("Focus mode");
+  for (int i = 0; i < 3; i++) {
+    if (shouldCancel) return;
+    
+    pixels.setBrightness(255);
+    pixels.fill(pixels.Color(0, 0, 255)); // blue
+    pixels.show();
+
+    drv.setWaveform(0, 83); // steady 
+    drv.setWaveform(1, 0);
+    drv.go();
+    delay(700);
+
+    if (shouldCancel) return;
+    
+    pixels.setBrightness(255);
+    pixels.show();
+    delay(700);
+  }
+  pixels.setBrightness(255);
+  pixels.show();
+}
+
+void taskCompleteMode() {
+  Serial.println("Task complete");
+  for (int i = 0; i < 3; i++) {
+    pixels.setBrightness(255);
+    pixels.fill(pixels.Color(0, 255, 0)); // green flashes
+    pixels.show();
+
+    drv.setWaveform(0, 14); // short pulse
+    drv.setWaveform(1, 0);
+    drv.go();
+    delay(400);
+
+    pixels.clear();
+    pixels.show();
+    delay(300);
+  }
+}
+
+void relaxMode() {
+  Serial.println("Relax mode");
+  for (int i = 0; i < 6; i++) {
+    if (shouldCancel) return;
+    
+    pixels.setBrightness(255);
+    pixels.fill(pixels.Color(255, 120, 0)); // warm yellowy
+    pixels.show();
+
+    drv.setWaveform(0, 47); // soft buzz
+    drv.setWaveform(1, 0);
+    drv.go();
+    delay(800);
+
+    if (shouldCancel) return;
+    
+    pixels.setBrightness(255);
+    pixels.show();
+    delay(800);
+  }
+  pixels.setBrightness(255);
+  pixels.show();
+}
+
+// UPDATED FUNCTION: progressMode()
+// Now used by Pomodoro timer to display progress in real-time
+// Updates automatically at 25%, 50%, 75%, and 100% timer completion
+// Format: PROGRESS:value,R,G,B where value is 0-100 and RGB are 0-255
+// The bracelet LEDs fill up progressively using the user's selected theme color
+void progressMode(String cmd) {
+  // Parse PROGRESS:value,R,G,B format
+  String data = cmd.substring(9); // skip "PROGRESS:"
+  int firstComma = data.indexOf(',');
+  int secondComma = data.indexOf(',', firstComma + 1);
+  int thirdComma = data.lastIndexOf(',');
+  
+  int value = data.substring(0, firstComma).toInt();
+  int r = data.substring(firstComma + 1, secondComma).toInt();
+  int g = data.substring(secondComma + 1, thirdComma).toInt();
+  int b = data.substring(thirdComma + 1).toInt();
+  
+  Serial.print("Progress mode: ");
+  Serial.print(value);
+  Serial.print("% RGB(");
+  Serial.print(r);
+  Serial.print(",");
+  Serial.print(g);
+  Serial.print(",");
+  Serial.print(b);
+  Serial.println(")");
+
+  // Smooth gradient fill like rainbow effect
+  // Each LED brightness is calculated based on distance from progress point
+  float exactLEDs = (value / 100.0) * NUMPIXELS;
+  
+  for (int i = 0; i < NUMPIXELS; i++) {
+    float distance = exactLEDs - i;
+    int brightness = 0;
+    
+    if (distance >= 1.0) {
+      // Fully lit LED
+      brightness = 255;
+    } else if (distance > 0.0) {
+      // Smoothly fade in LED using same technique as rainbow
+      brightness = (int)(distance * 255);
+    }
+    // else brightness = 0 (LED is off)
+    
+    pixels.setPixelColor(i, pixels.Color(
+      (r * brightness) / 255,
+      (g * brightness) / 255,
+      (b * brightness) / 255
+    ));
+  }
+  
+  pixels.setBrightness(255);
+  pixels.show();
+
+  drv.setWaveform(0, 12); // gentle click
+  drv.setWaveform(1, 0);
+  drv.go();
+}
+
+void resetMode() {
+  Serial.println("Reset mode");
+  shouldCancel = true;  // Immediately stop any running animation
+  pixels.clear();
+  pixels.show();
+  delay(50);  // Brief delay to ensure cancellation is processed
+  shouldCancel = false;  // Reset flag
+}
+
+// NEW FUNCTION: celebrateMode()
+// Called when user completes a task or finishes a Pomodoro timer
+// Displays a rainbow cycling animation with celebratory vibration pattern
+void celebrateMode() {
+  Serial.println("Celebrate mode - Rainbow!");
+  
+  // Rainbow cycle animation with vibration
+  for (int cycle = 0; cycle < 3; cycle++) {
+    if (shouldCancel) return;
+    
+    // Cycle through rainbow colors
+    for (int hue = 0; hue < 256; hue += 8) {
+      if (shouldCancel) return;
+      
+      for (int i = 0; i < NUMPIXELS; i++) {
+        // Create rainbow effect by offsetting hue for each pixel
+        int pixelHue = (hue + (i * 256 / NUMPIXELS)) % 256;
+        pixels.setPixelColor(i, pixels.ColorHSV(pixelHue * 256, 255, 255));
+      }
+      pixels.setBrightness(255);
+      pixels.show();
+      delay(30);
+    }
+    
+    // Celebratory vibration burst
+    drv.setWaveform(0, 14); // strong click
+    drv.setWaveform(1, 14); // another strong click
+    drv.setWaveform(2, 0);
+    drv.go();
+  }
+  
+  if (shouldCancel) return;
+  
+  // Final flash
+  pixels.fill(pixels.Color(255, 255, 255)); // white flash
+  pixels.show();
+  delay(200);
+  pixels.clear();
+  pixels.show();
+}
+
+// ============================================================================
+// PLAY AROUND MODES - Fun effects for user experimentation
+// ============================================================================
+
+// PULSE MODE - Pulsing blue wave effect with vibration
+void pulseMode() {
+  Serial.println("Pulse mode");
+  
+  for (int cycle = 0; cycle < 4; cycle++) {
+    if (shouldCancel) return;
+    
+    // Fade in
+    for (int brightness = 0; brightness <= 255; brightness += 25) {
+      if (shouldCancel) return;
+      pixels.fill(pixels.Color(0, 50, 255)); // Blue
+      pixels.setBrightness(brightness);
+      pixels.show();
+      delay(30);
+    }
+    
+    drv.setWaveform(0, 47); // Medium buzz
+    drv.setWaveform(1, 0);
+    drv.go();
+    
+    // Fade out
+    for (int brightness = 255; brightness >= 0; brightness -= 25) {
+      if (shouldCancel) return;
+      pixels.fill(pixels.Color(0, 50, 255));
+      pixels.setBrightness(brightness);
+      pixels.show();
+      delay(30);
+    }
+  }
+  
+  pixels.clear();
+  pixels.show();
+}
+
+// FLASH MODE - Rapid multi-color flashing with strong vibration
+void flashMode() {
+  Serial.println("Flash mode");
+  
+  uint32_t colors[] = {
+    pixels.Color(255, 0, 0),    // Red
+    pixels.Color(255, 255, 0),  // Yellow
+    pixels.Color(0, 255, 0),    // Green
+    pixels.Color(0, 255, 255),  // Cyan
+    pixels.Color(255, 0, 255)   // Magenta
+  };
+  
+  for (int i = 0; i < 15; i++) {
+    if (shouldCancel) return;
+    
+    pixels.fill(colors[i % 5]);
+    pixels.setBrightness(255);
+    pixels.show();
+    
+    if (i % 3 == 0) {
+      drv.setWaveform(0, 14); // Strong click
+      drv.setWaveform(1, 0);
+      drv.go();
+    }
+    
+    delay(150);
+    
+    pixels.clear();
+    pixels.show();
+    delay(50);
+  }
+}
+
+// BREATHE MODE - Slow calming breathing animation in purple/indigo
+void breatheMode() {
+  Serial.println("Breathe mode");
+  
+  for (int cycle = 0; cycle < 3; cycle++) {
+    if (shouldCancel) return;
+    
+    // Inhale (fade in slowly)
+    for (int brightness = 0; brightness <= 255; brightness += 13) {
+      if (shouldCancel) return;
+      pixels.fill(pixels.Color(75, 0, 130)); // Indigo
+      pixels.setBrightness(brightness);
+      pixels.show();
+      delay(40);
+    }
+    
+    delay(500); // Hold
+    
+    if (shouldCancel) return;
+    
+    // Exhale (fade out slowly)
+    for (int brightness = 255; brightness >= 0; brightness -= 13) {
+      if (shouldCancel) return;
+      pixels.fill(pixels.Color(75, 0, 130));
+      pixels.setBrightness(brightness);
+      pixels.show();
+      delay(40);
+    }
+    
+    delay(300);
+  }
+  
+  pixels.clear();
+  pixels.show();
+}
+
+// SPARKLE MODE - Random twinkling stars effect with gentle vibrations
+void sparkleMode() {
+  Serial.println("Sparkle mode");
+  
+  for (int cycle = 0; cycle < 60; cycle++) {
+    if (shouldCancel) return;
+    
+    // Clear all LEDs first
+    pixels.clear();
+    
+    // Light up random LEDs with varying brightness
+    int numSparkles = random(2, 5);
+    for (int i = 0; i < numSparkles; i++) {
+      int led = random(0, NUMPIXELS);
+      int brightness = random(100, 255);
+      
+      // Sparkle colors - white, gold, and light blue
+      int colorChoice = random(0, 3);
+      if (colorChoice == 0) {
+        // White sparkle
+        pixels.setPixelColor(led, pixels.Color(brightness, brightness, brightness));
+      } else if (colorChoice == 1) {
+        // Golden sparkle
+        pixels.setPixelColor(led, pixels.Color(brightness, brightness * 0.7, 0));
+      } else {
+        // Light blue sparkle
+        pixels.setPixelColor(led, pixels.Color(brightness * 0.6, brightness * 0.8, brightness));
+      }
+    }
+    
+    pixels.setBrightness(255);
+    pixels.show();
+    
+    // Occasional gentle vibration
+    if (random(0, 10) < 2) {
+      drv.setWaveform(0, 10); // Very soft click
+      drv.setWaveform(1, 0);
+      drv.go();
+    }
+    
+    delay(random(80, 150));
+  }
+  
+  pixels.clear();
+  pixels.show();
+}
+
+// WAVE MODE - Smooth color wave traveling around the bracelet
+void waveMode() {
+  Serial.println("Wave mode");
+  
+  for (int offset = 0; offset < NUMPIXELS * 4; offset++) {
+    if (shouldCancel) return;
+    
+    for (int i = 0; i < NUMPIXELS; i++) {
+      // Create a traveling wave pattern
+      int position = (i + offset) % NUMPIXELS;
+      int brightness = sin(position * 3.14159 / (NUMPIXELS / 2.0)) * 128 + 127;
+      
+      // Cyan wave color
+      pixels.setPixelColor(i, pixels.Color(0, brightness, 255));
+    }
+    
+    pixels.setBrightness(255);
+    pixels.show();
+    
+    if (offset % 4 == 0) {
+      drv.setWaveform(0, 10); // Soft click
+      drv.setWaveform(1, 0);
+      drv.go();
+    }
+    
+    delay(80);
+  }
+  
+  pixels.clear();
+  pixels.show();
+}
+
+// EXISTING FUNCTION: customColorMode()
+// Now the PRIMARY way to set bracelet theme color from BraceletConnectionView
+// Format: COLOR:R,G,B where R, G, B are values 0-255
+// This theme color is saved and used for progress updates during timer sessions
+void customColorMode(String cmd) {
+  // Parse COLOR:R,G,B format
+  String colorData = cmd.substring(6); // skip "COLOR:"
+  int firstComma = colorData.indexOf(',');
+  int secondComma = colorData.lastIndexOf(',');
+  
+  if (firstComma == -1 || secondComma == -1) {
+    Serial.println("Invalid COLOR format");
+    return;
+  }
+  
+  int r = colorData.substring(0, firstComma).toInt();
+  int g = colorData.substring(firstComma + 1, secondComma).toInt();
+  int b = colorData.substring(secondComma + 1).toInt();
+  
+  Serial.print("Custom color mode: R=");
+  Serial.print(r);
+  Serial.print(" G=");
+  Serial.print(g);
+  Serial.print(" B=");
+  Serial.println(b);
+  
+  pixels.setBrightness(255);
+  pixels.fill(pixels.Color(r, g, b)); // Fill all LEDs with chosen theme color
+  pixels.show();
+  
+  // Gentle vibration feedback to confirm color was set
+  drv.setWaveform(0, 10); // soft click
+  drv.setWaveform(1, 0);
+  drv.go();
+}
