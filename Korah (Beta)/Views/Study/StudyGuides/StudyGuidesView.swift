@@ -849,9 +849,7 @@ struct StudyGuideGeneratorView: View {
 
 
     func generateStudyGuide() {
-
-        let apiKey = "Bearer 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"
-
+        // API key now centralized in OpenAIConfig
     }
 
     var body: some View {
