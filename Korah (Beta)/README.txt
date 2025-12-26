@@ -32,8 +32,7 @@ FEATURES
 
 HARDWARE
 --------
-The bracelet communicates via Bluetooth LE to provide wellness insights.
-The app functions fully without the bracelet, but mood tracking features are enhanced with it.
+We prototyped an Arduino-powered bracelet that works alongside the app as a productivity tool. The app runs entirely on its own without the bracelet.
 
 DEVELOPMENT
 -----------
