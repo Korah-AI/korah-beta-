@@ -695,8 +695,6 @@ struct ScanView: View {
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        }
-
         let systemInstruction = "You are Korah. Always respond with PURE JSON matching the existing schema."
         var apiMessages: [[String: Any]] = [["role": "system", "content": systemInstruction]]
 
@@ -814,8 +812,6 @@ struct ScanView: View {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        }
         
         let systemInstruction = """
         You are Korah. Always respond with PURE JSON matching the StudyGuide schema:
@@ -976,8 +972,6 @@ extension ScanView {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let apiKey = OpenAIConfig.apiKey
         
         let systemInstruction =
         """
