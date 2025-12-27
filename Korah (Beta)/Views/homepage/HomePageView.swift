@@ -5,7 +5,6 @@ struct HomePageView: View {
     @State private var showMoodPicker: Bool = false
     @State private var showTimerCelebration = false
 
-    @AppStorage("SavedFirstName") private var savedFirstName: String = ""
     @AppStorage("UserMood") private var userMood: String = ""
 
     @ObservedObject private var dataManager = HomeDataManager.shared
@@ -17,7 +16,7 @@ struct HomePageView: View {
             NavigationStack {
                 ScrollView {
                     VStack(spacing: 20) {
-                        Text("Hello, \(savedFirstName.isEmpty ? "Student" : savedFirstName)! 👋")
+                        Text("Hello, Student! 👋")
                             .font(.largeTitle)
                             .foregroundColor(.white)
                             .padding(.top, 30)

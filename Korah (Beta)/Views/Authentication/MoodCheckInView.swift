@@ -3,7 +3,6 @@ import SwiftUI
 struct MoodCheckInView: View {
     @AppStorage("UserMood") private var userMood: String = ""
     @State private var navigateToHome = false
-    var firstName: String
     
     var body: some View {
         ZStack {

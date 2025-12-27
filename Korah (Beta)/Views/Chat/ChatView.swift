@@ -106,7 +106,6 @@ struct TypingIndicator: View {
 struct ChatView: View {
     @Environment(\.dismiss) private var dismiss
 
-    @AppStorage("SavedFirstName") private var savedFirstName: String = ""
     @State private var navigateToHome = false
 
     @State private var messages: [Message] = []
@@ -114,6 +113,8 @@ struct ChatView: View {
     @State private var isLoading = false
     @State private var showTypingIndicator = false
     @State private var showClearChatAlert = false
+    @State private var showConversationHistory = false
+    @State private var currentConversation: Conversation?
 
     @State private var starterSuggestions: [String] = [
         "What can you help me learn?",
@@ -201,6 +202,11 @@ struct ChatView: View {
                 Text("Chat")
                     .font(.headline)
                 Spacer()
+                Button {
+                    showConversationHistory = true
+                } label: {
+                    Image(systemName: "clock.arrow.circlepath")
+                }
                 Button(role: .destructive) {
                     showClearChatAlert = true
                 } label: {
@@ -328,11 +334,25 @@ struct ChatView: View {
         }
         .alert("Delete Chat", isPresented: $showClearChatAlert) {
             Button("Delete", role: .destructive) {
-                withAnimation { messages.removeAll() }
+                withAnimation { 
+                    messages.removeAll()
+                    currentConversation = nil
+                }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Are you sure you want to delete chat?")
+        }
+        .sheet(isPresented: $showConversationHistory) {
+            ConversationHistoryView(
+                type: .chat,
+                onSelectConversation: { conversation in
+                    loadConversation(conversation)
+                },
+                onDismiss: {
+                    showConversationHistory = false
+                }
+            )
         }
         .korahGradientBackground()
         .accentColor(.purple)
@@ -479,11 +499,45 @@ struct ChatView: View {
         let generator = UIImpactFeedbackGenerator(style: .light)
         generator.impactOccurred()
         showTypingIndicator = true
+        saveCurrentConversation()
         fetchChatResponse()
     }
 
     private func hideKeyboard() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+    
+    // MARK: - Conversation Management
+    
+    private func loadConversation(_ conversation: Conversation) {
+        currentConversation = conversation
+        messages = conversation.messages.map { msg in
+            Message(role: msg.role, content: msg.content, timestamp: msg.timestamp)
+        }
+    }
+    
+    private func saveCurrentConversation() {
+        guard !messages.isEmpty else { return }
+        
+        let conversationMessages = messages.map { msg in
+            ConversationMessage(id: msg.id, role: msg.role, content: msg.content, timestamp: msg.timestamp)
+        }
+        
+        if var existing = currentConversation {
+            existing.messages = conversationMessages
+            existing.updatedAt = Date()
+            currentConversation = existing
+            ConversationManager.shared.autoSaveConversation(existing)
+        } else {
+            let title = ConversationManager.shared.generateTitle(from: messages.first?.content ?? "")
+            let newConversation = Conversation(
+                title: title,
+                type: .chat,
+                messages: conversationMessages
+            )
+            currentConversation = newConversation
+            ConversationManager.shared.autoSaveConversation(newConversation)
+        }
     }
     
     
@@ -609,6 +663,7 @@ struct ChatView: View {
                    let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                    let text = json["text"] as? String, !text.isEmpty {
                     self.messages.append(Message(role: "user", content: text, timestamp: Date()))
+                    self.saveCurrentConversation()
                     self.sendVoiceMessageToAI(text: text)
                 }
                 
@@ -667,6 +722,7 @@ struct ChatView: View {
                    let content = message["content"] as? String {
                     
                     self.messages.append(Message(role: "assistant", content: content, timestamp: Date()))
+                    self.saveCurrentConversation()
                     
                     self.speakText(content)
                 }
@@ -830,6 +886,7 @@ struct ChatView: View {
                                                      content: content.trimmingCharacters(in: .whitespacesAndNewlines),
                                                      timestamp: Date()))
                         self.showTypingIndicator = false
+                        self.saveCurrentConversation()
                     }
                 } else {
                     DispatchQueue.main.async {
