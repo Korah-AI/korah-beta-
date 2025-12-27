@@ -747,9 +747,7 @@ struct ChatView: View {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let apiKey = "Bearer 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"
-        request.addValue(apiKey, forHTTPHeaderField: "Authorization")
+        request.addValue(OpenAIConfig.bearerToken, forHTTPHeaderField: "Authorization")
         
         let systemInstruction =
         """
