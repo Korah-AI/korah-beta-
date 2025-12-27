@@ -264,22 +264,17 @@ struct ScanStudyGuideView: View {
             generationProgress = 0.8
         }
         
-        guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else {
+        guard let url = URL(string: OpenAIConfig.chatCompletionsURL) else {
             errorMessage = "Invalid URL"
             isGenerating = false
             return
         }
         
-        if OpenAIConfig.bearerToken.isEmpty {
-            errorMessage = "Missing or invalid API key."
-            isGenerating = false
-            return
         }
         
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.addValue(OpenAIConfig.bearerToken, forHTTPHeaderField: "Authorization")
         
         let systemPrompt = """
 You are Korah, a study assistant. Analyze the provided images and create a comprehensive study guide. Return PURE JSON (no code fences, no markdown) matching this schema:

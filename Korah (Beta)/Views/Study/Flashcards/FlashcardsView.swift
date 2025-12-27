@@ -483,7 +483,7 @@ struct FlashcardSetStudyView: View {
         
         let pairs: [[String: String]] = set.cards.map { ["term": $0.front, "definition": $0.back] }
         
-        guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else {
+        guard let url = URL(string: OpenAIConfig.chatCompletionsURL) else {
             errorMessage = "Invalid URL"
             showErrorAlert = true
             isGeneratingTest = false
@@ -493,14 +493,6 @@ struct FlashcardSetStudyView: View {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.addValue(OpenAIConfig.bearerToken, forHTTPHeaderField: "Authorization")
-        
-        if OpenAIConfig.bearerToken.isEmpty {
-            errorMessage = "Missing API key. Set it in OpenAIConfig.swift."
-            showErrorAlert = true
-            isGeneratingTest = false
-            return
-        }
         
         let systemPrompt = """
 You are a test generator. Generate a multiple-choice test based on the provided flashcard content and broader knowledge of the concept. Output **PURE JSON** (no code fences) matching this schema:
@@ -652,7 +644,7 @@ Create 5-10 questions mixing direct flashcard content with related conceptual qu
         
         let pairs: [[String: String]] = set.cards.map { ["term": $0.front, "definition": $0.back] }
         
-        guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else {
+        guard let url = URL(string: OpenAIConfig.chatCompletionsURL) else {
             generationMessage = "Invalid URL"
             showGenerationAlert = true
             isGeneratingGuide = false
@@ -662,14 +654,6 @@ Create 5-10 questions mixing direct flashcard content with related conceptual qu
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.addValue(OpenAIConfig.bearerToken, forHTTPHeaderField: "Authorization")
-        
-        if OpenAIConfig.bearerToken.isEmpty {
-            generationMessage = "Missing API key. Set it in OpenAIConfig.swift."
-            showGenerationAlert = true
-            isGeneratingGuide = false
-            return
-        }
         
         let systemPrompt = """
 You are a study coach. Output **PURE JSON** (no code fences, no markdown) that matches this schema exactly:
@@ -1145,7 +1129,7 @@ struct FlashcardSetDetailView: View {
 
         let pairs: [[String: String]] = set.cards.map { ["term": $0.front, "definition": $0.back] }
 
-        guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else {
+        guard let url = URL(string: OpenAIConfig.chatCompletionsURL) else {
             generationMessage = "Invalid URL"
             showGenerationAlert = true
             isGeneratingGuide = false
@@ -1155,12 +1139,6 @@ struct FlashcardSetDetailView: View {
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        request.addValue(OpenAIConfig.bearerToken, forHTTPHeaderField: "Authorization")
-        if OpenAIConfig.bearerToken.isEmpty {
-            generationMessage = "Missing API key. Set it in OpenAIConfig.swift."
-            showGenerationAlert = true
-            isGeneratingGuide = false
-            return
         }
 
         let systemJSONSchema = """

@@ -690,17 +690,11 @@ struct ScanView: View {
         isLoading = true
         showTypingIndicator = true
 
-        let url = URL(string: "https://api.openai.com/v1/chat/completions")!
+        let url = URL(string: OpenAIConfig.chatCompletionsURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.addValue(OpenAIConfig.bearerToken, forHTTPHeaderField: "Authorization")
 
-        if OpenAIConfig.bearerToken.isEmpty {
-            self.messages.append(ScanMessage(role: "assistant", content: "API key missing. Set it in OpenAIConfig.swift.", timestamp: Date(), image: nil))
-            self.isLoading = false
-            self.showTypingIndicator = false
-            return
         }
 
         let systemInstruction = "You are Korah. Always respond with PURE JSON matching the existing schema."
@@ -816,17 +810,11 @@ struct ScanView: View {
         isLoading = true
         showTypingIndicator = true
         
-        let url = URL(string: "https://api.openai.com/v1/chat/completions")!
+        let url = URL(string: OpenAIConfig.chatCompletionsURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.addValue(OpenAIConfig.bearerToken, forHTTPHeaderField: "Authorization")
         
-        if OpenAIConfig.bearerToken.isEmpty {
-            self.messages.append(ScanMessage(role: "assistant", content: "API key missing. Set it in OpenAIConfig.swift.", timestamp: Date(), image: nil))
-            self.isLoading = false
-            self.showTypingIndicator = false
-            return
         }
         
         let systemInstruction = """
@@ -984,13 +972,12 @@ private func scanFormattedResponse(_ text: String) -> String {
 
 extension ScanView {
     func fetchChatResponse(image: UIImage? = nil) {
-        let url = URL(string: "https://api.openai.com/v1/chat/completions")!
+        let url = URL(string: OpenAIConfig.chatCompletionsURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let apiKey = OpenAIConfig.apiKey
-        request.addValue(OpenAIConfig.bearerToken, forHTTPHeaderField: "Authorization")
         
         let systemInstruction =
         """

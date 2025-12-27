@@ -187,7 +187,7 @@ struct StudyGuidesView: View {
         let set = flashcardSets[selectedSetIndex]
         let pairs: [[String: String]] = set.cards.map { ["term": $0.front, "definition": $0.back] }
 
-        guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else {
+        guard let url = URL(string: OpenAIConfig.chatCompletionsURL) else {
             self.errorMessage = "Invalid URL"
             self.isLoading = false
             return
@@ -196,11 +196,6 @@ struct StudyGuidesView: View {
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        request.addValue(OpenAIConfig.bearerToken, forHTTPHeaderField: "Authorization")
-        if OpenAIConfig.bearerToken.isEmpty {
-            self.errorMessage = "Missing or invalid API key. Set it in OpenAIConfig.swift."
-            self.isLoading = false
-            return
         }
 
         let systemJSONSchema = """
@@ -318,7 +313,7 @@ Rules:
         }
         let set = flashcardSets[selectedSetIndex]
 
-        guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else {
+        guard let url = URL(string: OpenAIConfig.chatCompletionsURL) else {
             self.errorMessage = "Invalid URL"
             self.isLoading = false
             return
@@ -327,11 +322,6 @@ Rules:
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        request.addValue(OpenAIConfig.bearerToken, forHTTPHeaderField: "Authorization")
-        if OpenAIConfig.bearerToken.isEmpty {
-            self.errorMessage = "Missing or invalid API key. Set it in OpenAIConfig.swift."
-            self.isLoading = false
-            return
         }
 
         // Implementation for generating practice test should be added here
@@ -344,7 +334,7 @@ Rules:
         let source = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !source.isEmpty else { isLoading = false; return }
 
-        guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else {
+        guard let url = URL(string: OpenAIConfig.chatCompletionsURL) else {
             self.errorMessage = "Invalid URL"
             self.isLoading = false
             return
@@ -353,11 +343,6 @@ Rules:
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        request.addValue(OpenAIConfig.bearerToken, forHTTPHeaderField: "Authorization")
-        if OpenAIConfig.bearerToken.isEmpty {
-            self.errorMessage = "Missing or invalid API key. Set it in OpenAIConfig.swift."
-            self.isLoading = false
-            return
         }
 
         let systemJSONSchema =
