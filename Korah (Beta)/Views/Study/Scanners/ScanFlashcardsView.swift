@@ -274,8 +274,6 @@ struct ScanFlashcardsView: View {
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        }
-        
         let systemPrompt = """
 You are Korah, a study assistant. Analyze the provided images and extract content to create flashcards. Return PURE JSON (no code fences, no markdown) matching this schema:
 

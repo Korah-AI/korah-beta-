@@ -270,8 +270,6 @@ struct ScanStudyGuideView: View {
             return
         }
         
-        }
-        
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")

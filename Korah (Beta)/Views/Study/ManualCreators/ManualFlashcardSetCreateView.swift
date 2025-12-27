@@ -195,8 +195,6 @@ struct ManualFlashcardSetCreateView: View {
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        }
-        
         let systemPrompt = """
 You are Korah, a study assistant. Generate flashcards from the provided study guide content using PURE JSON (no code fences, no markdown) that matches this schema exactly:
 

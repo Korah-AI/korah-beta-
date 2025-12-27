@@ -158,8 +158,6 @@ struct AIGenerateStudyGuideFromFlashcardsView: View {
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        }
-        
         let systemPrompt = """
 You are Korah, a study assistant. Generate a study guide from flashcards using this JSON schema ONLY (no markdown code fences, no extra text):
 
