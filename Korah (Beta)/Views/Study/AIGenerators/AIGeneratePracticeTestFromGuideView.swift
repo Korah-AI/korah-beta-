@@ -133,7 +133,7 @@ struct AIGeneratePracticeTestFromGuideView: View {
         
         let guide = studyGuides[selectedGuideIndex]
         
-        guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else {
+        guard let url = URL(string: OpenAIConfig.chatCompletionsURL) else {
             errorMessage = "Invalid URL"
             isGenerating = false
             return
@@ -142,12 +142,7 @@ struct AIGeneratePracticeTestFromGuideView: View {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.addValue(OpenAIConfig.bearerToken, forHTTPHeaderField: "Authorization")
         
-        if OpenAIConfig.bearerToken.isEmpty {
-            errorMessage = "Missing or invalid API key."
-            isGenerating = false
-            return
         }
         
         let systemPrompt = """

@@ -580,10 +580,9 @@ struct ChatView: View {
     }
     
     func transcribeAudio(fileURL: URL) {
-        let url = URL(string: "https://api.openai.com/v1/audio/transcriptions")!
+        let url = URL(string: OpenAIConfig.transcriptionsURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.addValue(OpenAIConfig.bearerToken, forHTTPHeaderField: "Authorization")
         
         let boundary = "Boundary-\(UUID().uuidString)"
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
@@ -623,11 +622,10 @@ struct ChatView: View {
         isThinking = true
         showTypingIndicator = true
         
-        let url = URL(string: "https://api.openai.com/v1/chat/completions")!
+        let url = URL(string: OpenAIConfig.chatCompletionsURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.addValue(OpenAIConfig.bearerToken, forHTTPHeaderField: "Authorization")
         
         let systemInstruction = """
         You are Korah, a friendly AI tutor for younger students (ages 8-14). Keep responses concise and conversational for voice interaction. You are meant to interactively teach students how to learn and study things they find challenging. 
@@ -680,11 +678,10 @@ struct ChatView: View {
     func speakText(_ text: String) {
         isSpeaking = true
         
-        let url = URL(string: "https://api.openai.com/v1/audio/speech")!
+        let url = URL(string: OpenAIConfig.speechURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.addValue(OpenAIConfig.bearerToken, forHTTPHeaderField: "Authorization")
         
         let body: [String: Any] = [
             "model": "tts-1",
@@ -743,11 +740,10 @@ struct ChatView: View {
 
 
     func fetchChatResponse() {
-        let url = URL(string: "https://api.openai.com/v1/chat/completions")!
+        let url = URL(string: OpenAIConfig.chatCompletionsURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.addValue(OpenAIConfig.bearerToken, forHTTPHeaderField: "Authorization")
         
         let systemInstruction =
         """

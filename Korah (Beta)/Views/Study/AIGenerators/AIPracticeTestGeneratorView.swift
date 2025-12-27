@@ -21,7 +21,7 @@ struct AIPracticeTestGeneratorView: View {
     @State private var errorMessage: String?
     @State private var successMessage: String?
     
-    private let openAIURL = URL(string: "https://api.openai.com/v1/chat/completions")!
+    private let openAIURL = URL(string: OpenAIConfig.chatCompletionsURL)!
     
     var body: some View {
         NavigationView {
@@ -183,10 +183,6 @@ struct AIPracticeTestGeneratorView: View {
             ]
         ]
         
-        if OpenAIConfig.bearerToken.isEmpty {
-            self.isGenerating = false
-            self.errorMessage = "OpenAI API key is missing. Set it in OpenAIConfig.swift."
-            return
         }
         
         guard let bodyData = try? JSONSerialization.data(withJSONObject: requestBody) else {
@@ -197,7 +193,6 @@ struct AIPracticeTestGeneratorView: View {
         
         var request = URLRequest(url: openAIURL)
         request.httpMethod = "POST"
-        request.addValue(OpenAIConfig.bearerToken, forHTTPHeaderField: "Authorization")
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = bodyData
         
