@@ -114,6 +114,7 @@ struct ChatView: View {
     @State private var showTypingIndicator = false
     @State private var showClearChatAlert = false
     @State private var showConversationHistory = false
+    @State private var showNewChatAlert = false
     @State private var currentConversation: Conversation?
 
     @State private var starterSuggestions: [String] = [
@@ -202,6 +203,13 @@ struct ChatView: View {
                 Text("Chat")
                     .font(.headline)
                 Spacer()
+                Button {
+                    if !messages.isEmpty {
+                        showNewChatAlert = true
+                    }
+                } label: {
+                    Image(systemName: "square.and.pencil")
+                }
                 Button {
                     showConversationHistory = true
                 } label: {
@@ -342,6 +350,17 @@ struct ChatView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Are you sure you want to delete chat?")
+        }
+        .alert("Start New Chat", isPresented: $showNewChatAlert) {
+            Button("New Chat") {
+                withAnimation {
+                    messages.removeAll()
+                    currentConversation = nil
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Current conversation will be saved. Start a new chat?")
         }
         .sheet(isPresented: $showConversationHistory) {
             ConversationHistoryView(
@@ -725,6 +744,8 @@ struct ChatView: View {
                     self.saveCurrentConversation()
                     
                     self.speakText(content)
+                } else {
+                    self.messages.append(Message(role: "assistant", content: "I couldn't process that. Can you try again?", timestamp: Date()))
                 }
             }
         }.resume()
@@ -847,7 +868,7 @@ struct ChatView: View {
             if let error = error {
                 print("Request error: \(error.localizedDescription)")
                 DispatchQueue.main.async {
-                    self.messages.append(Message(role: "assistant", content: "Network error: \(error.localizedDescription)", timestamp: Date()))
+                    self.messages.append(Message(role: "assistant", content: "Hmm, I'm having trouble connecting. Please check your internet connection and try again.", timestamp: Date()))
                     self.showTypingIndicator = false
                 }
                 return
@@ -855,25 +876,28 @@ struct ChatView: View {
 
             guard let data = data else {
                 DispatchQueue.main.async {
-                    self.messages.append(Message(role: "assistant", content: "No data received from server", timestamp: Date()))
+                    self.messages.append(Message(role: "assistant", content: "I didn't get a response. Please try again in a moment.", timestamp: Date()))
                     self.showTypingIndicator = false
                 }
                 return
             }
             
             if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
-                if let errorDict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let error = errorDict["error"] as? [String: Any],
-                   let message = error["message"] as? String {
-                    DispatchQueue.main.async {
-                        self.messages.append(Message(role: "assistant", content: "API Error: \(message)", timestamp: Date()))
-                        self.showTypingIndicator = false
-                    }
+                var friendlyMessage = "Oops! Something went wrong. "
+                
+                if httpResponse.statusCode == 401 {
+                    friendlyMessage += "There's an issue with the app's authentication. Please contact support."
+                } else if httpResponse.statusCode == 429 {
+                    friendlyMessage += "I'm getting too many requests right now. Please wait a moment and try again."
+                } else if httpResponse.statusCode >= 500 {
+                    friendlyMessage += "The service is having trouble right now. Please try again in a few minutes."
                 } else {
-                    DispatchQueue.main.async {
-                        self.messages.append(Message(role: "assistant", content: "HTTP Error \(httpResponse.statusCode): Check your API key", timestamp: Date()))
-                        self.showTypingIndicator = false
-                    }
+                    friendlyMessage += "Please try again."
+                }
+                
+                DispatchQueue.main.async {
+                    self.messages.append(Message(role: "assistant", content: friendlyMessage, timestamp: Date()))
+                    self.showTypingIndicator = false
                 }
                 return
             }
@@ -890,7 +914,7 @@ struct ChatView: View {
                     }
                 } else {
                     DispatchQueue.main.async {
-                        self.messages.append(Message(role: "assistant", content: "Received empty response from AI", timestamp: Date()))
+                        self.messages.append(Message(role: "assistant", content: "I didn't understand that. Could you try asking in a different way?", timestamp: Date()))
                         self.showTypingIndicator = false
                     }
                 }
@@ -899,7 +923,7 @@ struct ChatView: View {
                 print("Decoding error: \(error)")
                 print("Raw response: \(responseString)")
                 DispatchQueue.main.async {
-                    self.messages.append(Message(role: "assistant", content: "JSON decode error. Check console for details.", timestamp: Date()))
+                    self.messages.append(Message(role: "assistant", content: "I'm having trouble understanding the response. Please try asking your question again.", timestamp: Date()))
                     self.showTypingIndicator = false
                 }
             }

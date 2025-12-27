@@ -96,7 +96,7 @@ struct ConversationRow: View {
                     .font(.headline)
                     .foregroundColor(.white)
                 Spacer()
-                Text(conversation.updatedAt, style: .relative)
+                Text(conversation.updatedAt, format: .dateTime.month().day().hour().minute())
                     .font(.caption)
                     .foregroundColor(.white.opacity(0.5))
             }

@@ -195,16 +195,26 @@ Rules:
             DispatchQueue.main.async { self.isGenerating = false }
             
             if let error = error {
-                DispatchQueue.main.async { self.errorMessage = "Network error: \(error.localizedDescription)" }
+                DispatchQueue.main.async { self.errorMessage = "I'm having trouble connecting. Please check your internet connection and try again." }
                 return
             }
             guard let data = data else {
-                DispatchQueue.main.async { self.errorMessage = "No data from server" }
+                DispatchQueue.main.async { self.errorMessage = "I didn't get a response. Please try again in a moment." }
                 return
             }
             
             if let http = response as? HTTPURLResponse, http.statusCode != 200 {
-                DispatchQueue.main.async { self.errorMessage = "HTTP Error \(http.statusCode)" }
+                var message = "Oops! Something went wrong. "
+                if http.statusCode == 401 {
+                    message += "There's an authentication issue. Please contact support."
+                } else if http.statusCode == 429 {
+                    message += "Too many requests right now. Please wait a moment and try again."
+                } else if http.statusCode >= 500 {
+                    message += "The service is having trouble. Please try again in a few minutes."
+                } else {
+                    message += "Please try again."
+                }
+                DispatchQueue.main.async { self.errorMessage = message }
                 return
             }
             
@@ -239,7 +249,7 @@ Rules:
                         }
                         
                         guard !questions.isEmpty else {
-                            DispatchQueue.main.async { self.errorMessage = "No valid questions generated" }
+                            DispatchQueue.main.async { self.errorMessage = "I couldn't generate questions from that. Please try again." }
                             return
                         }
                         
@@ -268,9 +278,9 @@ Rules:
                         return
                     }
                 }
-                DispatchQueue.main.async { self.errorMessage = "Failed to parse response" }
+                DispatchQueue.main.async { self.errorMessage = "I had trouble understanding the response. Please try again." }
             } catch {
-                DispatchQueue.main.async { self.errorMessage = "Parse error: \(error.localizedDescription)" }
+                DispatchQueue.main.async { self.errorMessage = "I had trouble processing that. Please try again." }
             }
         }.resume()
     }

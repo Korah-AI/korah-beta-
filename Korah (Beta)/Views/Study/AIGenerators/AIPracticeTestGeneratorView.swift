@@ -200,17 +200,17 @@ struct AIPracticeTestGeneratorView: View {
             DispatchQueue.main.async {
                 self.isGenerating = false
                 if let error = error {
-                    self.errorMessage = "Network error: \(error.localizedDescription)"
+                    self.errorMessage = "I'm having trouble connecting. Please check your internet connection and try again."
                     return
                 }
                 guard let data = data else {
-                    self.errorMessage = "No data received from OpenAI."
+                    self.errorMessage = "I didn't get a response. Please try again in a moment."
                     return
                 }
                 
                 guard let openAIResponse = try? JSONDecoder().decode(AIChatResponse.self, from: data),
                       let content = openAIResponse.choices.first?.message.content ?? "" as String? else {
-                    self.errorMessage = "Failed to parse OpenAI response."
+                    self.errorMessage = "I had trouble understanding the response. Please try again."
                     return
                 }
                 
