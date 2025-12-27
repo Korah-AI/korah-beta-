@@ -83,10 +83,18 @@ struct StudyHomeView: View {
                                 .padding(.horizontal)
                             
                             if recentStudyItems.isEmpty {
-                                Text("No recent items.")
-                                    .foregroundColor(.secondary)
-                                    .padding(.horizontal)
-                                    .padding(.vertical, 8)
+                                VStack(spacing: 16) {
+                                    Image(systemName: "clock")
+                                        .font(.system(size: 60))
+                                        .foregroundColor(.white.opacity(0.3))
+                                    Text("Your recent study items will be displayed here")
+                                        .font(.subheadline)
+                                        .foregroundColor(.white.opacity(0.5))
+                                        .multilineTextAlignment(.center)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.horizontal)
+                                .padding(.vertical, 32)
                             } else {
                                 ForEach(Array(recentStudyItems.prefix(3))) { item in
                                     NavigationLink {
