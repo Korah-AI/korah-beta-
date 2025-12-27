@@ -2,6 +2,7 @@ import SwiftUI
 
 struct OpeningView: View {
     @State private var fadeIn = false
+    @State private var navigateToMoodCheckIn = false
     
     var body: some View {
         NavigationStack {
@@ -30,33 +31,20 @@ struct OpeningView: View {
                     
                     Spacer()
                     
-                    VStack(spacing: 16) {
-                        NavigationLink(destination: LoginView()) {
-                            Text("Log In")
-                                .font(.system(size: 18, weight: .medium))
-                                .foregroundColor(.white)
-                                .padding()
-                                .frame(maxWidth: .infinity)
-                                .background(Color.purple)
-                                .cornerRadius(12)
-                                .padding(.horizontal, 40)
-                        }
-                        .opacity(fadeIn ? 1 : 0)
-                        .animation(.easeIn(duration: 1.0).delay(0.7), value: fadeIn)
-                        
-                        NavigationLink(destination: CreateAccountView()) {
-                            Text("Create Account")
-                                .font(.system(size: 18, weight: .medium))
-                                .foregroundColor(.white)
-                                .padding()
-                                .frame(maxWidth: .infinity)
-                                .background(Color.purple.opacity(0.8))
-                                .cornerRadius(12)
-                                .padding(.horizontal, 40)
-                        }
-                        .opacity(fadeIn ? 1 : 0)
-                        .animation(.easeIn(duration: 1.0).delay(0.9), value: fadeIn)
+                    Button(action: {
+                        navigateToMoodCheckIn = true
+                    }) {
+                        Text("Get Started")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(.white)
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color.purple)
+                            .cornerRadius(12)
+                            .padding(.horizontal, 40)
                     }
+                    .opacity(fadeIn ? 1 : 0)
+                    .animation(.easeIn(duration: 1.0).delay(0.7), value: fadeIn)
                     
                     Spacer()
                 }
@@ -65,6 +53,9 @@ struct OpeningView: View {
                 }
             }
             .korahGradientBackground()
+            .fullScreenCover(isPresented: $navigateToMoodCheckIn) {
+                MoodCheckInView()
+            }
         }
         .task {
             applyKorahAppearance()

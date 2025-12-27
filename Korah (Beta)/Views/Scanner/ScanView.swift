@@ -111,7 +111,6 @@ struct ScanTypingIndicator: View {
 struct ScanView: View {
     @Environment(\.dismiss) private var dismiss
 
-    @AppStorage("SavedFirstName") private var savedFirstName: String = ""
     @State private var navigateToHome = false
     
     @State private var selectedFlashcardSetID: UUID? = nil
@@ -126,6 +125,8 @@ struct ScanView: View {
     @State private var showImageSourceAlert = false
     @State private var selectedImage: UIImage?
     @State private var imageSourceType: UIImagePickerController.SourceType = .camera
+    @State private var showConversationHistory = false
+    @State private var currentConversation: Conversation?
     
     @State private var starterSuggestions: [String] = [
         "Help me solve this math problem",
@@ -224,6 +225,11 @@ struct ScanView: View {
                 Text("Scan")
                     .font(.headline)
                 Spacer()
+                Button {
+                    showConversationHistory = true
+                } label: {
+                    Image(systemName: "clock.arrow.circlepath")
+                }
                 Button(role: .destructive) {
                     showClearChatAlert = true
                 } label: {
@@ -372,11 +378,25 @@ struct ScanView: View {
         }
         .alert("Delete Chat", isPresented: $showClearChatAlert) {
             Button("Delete", role: .destructive) {
-                withAnimation { messages.removeAll() }
+                withAnimation { 
+                    messages.removeAll()
+                    currentConversation = nil
+                }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Are you sure you want to delete chat?")
+        }
+        .sheet(isPresented: $showConversationHistory) {
+            ConversationHistoryView(
+                type: .scan,
+                onSelectConversation: { conversation in
+                    loadConversation(conversation)
+                },
+                onDismiss: {
+                    showConversationHistory = false
+                }
+            )
         }
         .confirmationDialog("Choose Image Source", isPresented: $showImageSourceAlert) {
             Button("Camera") {
@@ -627,6 +647,7 @@ struct ScanView: View {
         let generator = UIImpactFeedbackGenerator(style: .light)
         generator.impactOccurred()
         showTypingIndicator = true
+        saveCurrentConversation()
         fetchChatResponse(image: imageToSend)
     }
     
@@ -781,23 +802,27 @@ struct ScanView: View {
                             self.selectedFlashcardSetID = newSet.id
                             self.showTypingIndicator = false
                             self.messages.append(ScanMessage(role: "assistant", content: "Flashcard set created! Go find it with your other flashcard sets!", timestamp: Date(), image: nil))
+                            self.saveCurrentConversation()
                         }
                     } else {
                         DispatchQueue.main.async {
                             self.messages.append(ScanMessage(role: "assistant", content: "Error (The AI did not return valid JSON for flashcards.)", timestamp: Date(), image: nil))
                             self.showTypingIndicator = false
+                            self.saveCurrentConversation()
                         }
                     }
                 } else {
                     DispatchQueue.main.async {
                         self.messages.append(ScanMessage(role: "assistant", content: "Error: (Received empty response from AI)", timestamp: Date(), image: nil))
                         self.showTypingIndicator = false
+                        self.saveCurrentConversation()
                     }
                 }
             } catch {
                 DispatchQueue.main.async {
                     self.messages.append(ScanMessage(role: "assistant", content: "Error parsing AI response.", timestamp: Date(), image: nil))
                     self.showTypingIndicator = false
+                    self.saveCurrentConversation()
                 }
             }
         }.resume()
@@ -900,23 +925,27 @@ struct ScanView: View {
                             self.navigateToGuideID = guide.id
                             self.showTypingIndicator = false
                             self.messages.append(ScanMessage(role: "assistant", content: "Study guide created! You can find it in your study guides.", timestamp: Date(), image: nil))
+                            self.saveCurrentConversation()
                         }
                     } else {
                         DispatchQueue.main.async {
                             self.messages.append(ScanMessage(role: "assistant", content: "The AI did not return valid JSON for the study guide.", timestamp: Date(), image: nil))
                             self.showTypingIndicator = false
+                            self.saveCurrentConversation()
                         }
                     }
                 } else {
                     DispatchQueue.main.async {
                         self.messages.append(ScanMessage(role: "assistant", content: "Received empty response from AI", timestamp: Date(), image: nil))
                         self.showTypingIndicator = false
+                        self.saveCurrentConversation()
                     }
                 }
             } catch {
                 DispatchQueue.main.async {
                     self.messages.append(ScanMessage(role: "assistant", content: "Error parsing AI response.", timestamp: Date(), image: nil))
                     self.showTypingIndicator = false
+                    self.saveCurrentConversation()
                 }
             }
         }.resume()
@@ -953,6 +982,61 @@ struct ScanView: View {
 
     private func hideKeyboard() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+    
+    // MARK: - Conversation Management
+    
+    private func loadConversation(_ conversation: Conversation) {
+        currentConversation = conversation
+        messages = conversation.messages.map { msg in
+            let image: UIImage? = msg.imageFileName.flatMap { fileName in
+                ConversationManager.shared.loadImage(fileName: fileName, forConversation: conversation.id)
+            }
+            return ScanMessage(role: msg.role, content: msg.content, timestamp: msg.timestamp, image: image)
+        }
+    }
+    
+    private func saveCurrentConversation() {
+        guard !messages.isEmpty else { return }
+        
+        if var existing = currentConversation {
+            // Update existing conversation
+            let conversationMessages = messages.map { msg -> ConversationMessage in
+                var imageFileName: String?
+                if let image = msg.image {
+                    imageFileName = ConversationManager.shared.saveImage(image, forConversation: existing.id, messageId: msg.id)
+                }
+                return ConversationMessage(id: msg.id, role: msg.role, content: msg.content, timestamp: msg.timestamp, imageFileName: imageFileName)
+            }
+            
+            existing.messages = conversationMessages
+            existing.updatedAt = Date()
+            currentConversation = existing
+            ConversationManager.shared.autoSaveConversation(existing)
+        } else {
+            // Create new conversation
+            let title = ConversationManager.shared.generateTitle(from: messages.first?.content ?? "Scan")
+            let newConversation = Conversation(
+                title: title,
+                type: .scan,
+                messages: []  // Start with empty, will update below
+            )
+            currentConversation = newConversation
+            
+            // Now save images with the conversation's id
+            let conversationMessages = messages.map { msg -> ConversationMessage in
+                var imageFileName: String?
+                if let image = msg.image {
+                    imageFileName = ConversationManager.shared.saveImage(image, forConversation: newConversation.id, messageId: msg.id)
+                }
+                return ConversationMessage(id: msg.id, role: msg.role, content: msg.content, timestamp: msg.timestamp, imageFileName: imageFileName)
+            }
+            
+            var updatedConversation = newConversation
+            updatedConversation.messages = conversationMessages
+            currentConversation = updatedConversation
+            ConversationManager.shared.autoSaveConversation(updatedConversation)
+        }
     }
 }
 
@@ -1094,11 +1178,13 @@ extension ScanView {
                             }
                         }
                         self.showTypingIndicator = false
+                        self.saveCurrentConversation()
                     }
                 } else {
                     DispatchQueue.main.async {
                         self.messages.append(ScanMessage(role: "assistant", content: "Received empty response from AI", timestamp: Date(), image: nil))
                         self.showTypingIndicator = false
+                        self.saveCurrentConversation()
                     }
                 }
             } catch {
