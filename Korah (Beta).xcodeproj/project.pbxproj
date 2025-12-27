@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		2C4A04062EFF535D00862664 /* README.txt in Resources */ = {isa = PBXBuildFile; fileRef = 2C4A03D82EFF535D00862664 /* README.txt */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		2C98C8D12EFE4F0A00BF141B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -24,6 +28,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		2C4A03D82EFF535D00862664 /* README.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = README.txt; sourceTree = "<group>"; };
 		2C98C8C32EFE4F0800BF141B /* Korah (Beta).app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Korah (Beta).app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2C98C8D02EFE4F0A00BF141B /* Korah (Beta)Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Korah (Beta)Tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2C98C8DA2EFE4F0A00BF141B /* Korah (Beta)UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Korah (Beta)UITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -79,6 +84,7 @@
 				2C98C8D32EFE4F0A00BF141B /* Korah (Beta)Tests */,
 				2C98C8DD2EFE4F0A00BF141B /* Korah (Beta)UITests */,
 				2C98C8C42EFE4F0800BF141B /* Products */,
+				2C4A03D82EFF535D00862664 /* README.txt */,
 			);
 			sourceTree = "<group>";
 		};
@@ -212,6 +218,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2C4A04062EFF535D00862664 /* README.txt in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -400,17 +407,19 @@
 				DEVELOPMENT_TEAM = 34JPJ689V8;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = Bracelet;
-				INFOPLIST_KEY_NSCameraUsageDescription = "A.I. Chat";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "A.I. Chat";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "A.I. Chat";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "A.I. Chat";
+				INFOPLIST_KEY_CFBundleDisplayName = Korah;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Korah connects to your Focus Bracelet via Bluetooth to track focus and mood during study sessions";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Korah uses your camera to scan study materials and documents";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Korah uses your microphone for AI voice tutoring conversations";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Korah uses your photo library to access select study materials and documents";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Korah uses speech recognition to transcribe your voice questions to the AI tutor";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -438,17 +447,19 @@
 				DEVELOPMENT_TEAM = 34JPJ689V8;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = Bracelet;
-				INFOPLIST_KEY_NSCameraUsageDescription = "A.I. Chat";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "A.I. Chat";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "A.I. Chat";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "A.I. Chat";
+				INFOPLIST_KEY_CFBundleDisplayName = Korah;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Korah connects to your Focus Bracelet via Bluetooth to track focus and mood during study sessions";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Korah uses your camera to scan study materials and documents";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Korah uses your microphone for AI voice tutoring conversations";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Korah uses your photo library to access select study materials and documents";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Korah uses speech recognition to transcribe your voice questions to the AI tutor";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
