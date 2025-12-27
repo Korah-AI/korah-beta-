@@ -1,5 +1,3 @@
-this is me testing out the gitub repository
-
 KORAH APP
 =========
 
