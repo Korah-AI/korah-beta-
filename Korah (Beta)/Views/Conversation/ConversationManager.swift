@@ -136,7 +136,23 @@ class ConversationManager {
     // MARK: - Generate Title Helper
     
     func generateTitle(from firstMessage: String) -> String {
-        let cleaned = firstMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+        var cleaned = firstMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Remove JSON-like content (anything between curly braces)
+        if let openBrace = cleaned.firstIndex(of: "{"),
+           let closeBrace = cleaned.lastIndex(of: "}") {
+            if openBrace < closeBrace {
+                cleaned.removeSubrange(openBrace...closeBrace)
+                cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        }
+        
+        // Remove markdown and special formatting
+        cleaned = cleaned.replacingOccurrences(of: "```", with: "")
+        cleaned = cleaned.replacingOccurrences(of: "##", with: "")
+        cleaned = cleaned.replacingOccurrences(of: "**", with: "")
+        cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+        
         if cleaned.isEmpty {
             return "New Conversation"
         }

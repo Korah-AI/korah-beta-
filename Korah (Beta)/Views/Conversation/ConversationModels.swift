@@ -48,6 +48,39 @@ struct Conversation: Identifiable, Codable {
         if lastMessage.role == "user" {
             return lastMessage.content.isEmpty ? "Image" : lastMessage.content
         }
-        return lastMessage.content.prefix(100) + (lastMessage.content.count > 100 ? "..." : "")
+        
+        // Clean assistant message
+        var cleaned = lastMessage.content
+        
+        // Try to extract meaningful text from JSON if it exists
+        if cleaned.contains("{") && cleaned.contains("}") {
+            // Try to parse as JSON and extract summary or title
+            if let data = cleaned.data(using: .utf8),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                if let summary = json["summary"] as? String, !summary.isEmpty {
+                    cleaned = summary
+                } else if let title = json["title"] as? String, !title.isEmpty {
+                    cleaned = title
+                } else {
+                    cleaned = "Response"
+                }
+            } else {
+                // If JSON parsing fails, just remove the JSON content
+                if let openBrace = cleaned.firstIndex(of: "{"),
+                   let closeBrace = cleaned.lastIndex(of: "}") {
+                    cleaned.removeSubrange(openBrace...closeBrace)
+                    cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if cleaned.isEmpty {
+                        cleaned = "Response"
+                    }
+                }
+            }
+        }
+        
+        let maxLength = 100
+        if cleaned.count > maxLength {
+            return String(cleaned.prefix(maxLength)) + "..."
+        }
+        return cleaned
     }
 }

@@ -126,6 +126,7 @@ struct ScanView: View {
     @State private var selectedImage: UIImage?
     @State private var imageSourceType: UIImagePickerController.SourceType = .camera
     @State private var showConversationHistory = false
+    @State private var showNewChatAlert = false
     @State private var currentConversation: Conversation?
     
     @State private var starterSuggestions: [String] = [
@@ -225,6 +226,13 @@ struct ScanView: View {
                 Text("Scan")
                     .font(.headline)
                 Spacer()
+                Button {
+                    if !messages.isEmpty {
+                        showNewChatAlert = true
+                    }
+                } label: {
+                    Image(systemName: "square.and.pencil")
+                }
                 Button {
                     showConversationHistory = true
                 } label: {
@@ -386,6 +394,17 @@ struct ScanView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Are you sure you want to delete chat?")
+        }
+        .alert("Start New Chat", isPresented: $showNewChatAlert) {
+            Button("New Chat") {
+                withAnimation {
+                    messages.removeAll()
+                    currentConversation = nil
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Current conversation will be saved. Start a new chat?")
         }
         .sheet(isPresented: $showConversationHistory) {
             ConversationHistoryView(
@@ -748,7 +767,7 @@ struct ScanView: View {
 
             if let error = error {
                 DispatchQueue.main.async {
-                    self.messages.append(ScanMessage(role: "assistant", content: "Network error: \(error.localizedDescription)", timestamp: Date(), image: nil))
+                    self.messages.append(ScanMessage(role: "assistant", content: "Hmm, I'm having trouble connecting. Please check your internet connection and try again.", timestamp: Date(), image: nil))
                     self.showTypingIndicator = false
                 }
                 return
@@ -756,15 +775,27 @@ struct ScanView: View {
 
             guard let data = data else {
                 DispatchQueue.main.async {
-                    self.messages.append(ScanMessage(role: "assistant", content: "No data received from server", timestamp: Date(), image: nil))
+                    self.messages.append(ScanMessage(role: "assistant", content: "I didn't get a response. Please try again in a moment.", timestamp: Date(), image: nil))
                     self.showTypingIndicator = false
                 }
                 return
             }
 
             if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+                var friendlyMessage = "Oops! Something went wrong. "
+                
+                if http.statusCode == 401 {
+                    friendlyMessage += "There's an issue with the app's authentication. Please contact support."
+                } else if http.statusCode == 429 {
+                    friendlyMessage += "I'm getting too many requests right now. Please wait a moment and try again."
+                } else if http.statusCode >= 500 {
+                    friendlyMessage += "The service is having trouble right now. Please try again in a few minutes."
+                } else {
+                    friendlyMessage += "Please try again."
+                }
+                
                 DispatchQueue.main.async {
-                    self.messages.append(ScanMessage(role: "assistant", content: "HTTP Error \(http.statusCode): Check your API key", timestamp: Date(), image: nil))
+                    self.messages.append(ScanMessage(role: "assistant", content: friendlyMessage, timestamp: Date(), image: nil))
                     self.showTypingIndicator = false
                 }
                 return
@@ -806,21 +837,21 @@ struct ScanView: View {
                         }
                     } else {
                         DispatchQueue.main.async {
-                            self.messages.append(ScanMessage(role: "assistant", content: "Error (The AI did not return valid JSON for flashcards.)", timestamp: Date(), image: nil))
+                            self.messages.append(ScanMessage(role: "assistant", content: "I had trouble creating flashcards from that. Could you try again or rephrase your request?", timestamp: Date(), image: nil))
                             self.showTypingIndicator = false
                             self.saveCurrentConversation()
                         }
                     }
                 } else {
                     DispatchQueue.main.async {
-                        self.messages.append(ScanMessage(role: "assistant", content: "Error: (Received empty response from AI)", timestamp: Date(), image: nil))
+                        self.messages.append(ScanMessage(role: "assistant", content: "I didn't understand that. Could you try asking in a different way?", timestamp: Date(), image: nil))
                         self.showTypingIndicator = false
                         self.saveCurrentConversation()
                     }
                 }
             } catch {
                 DispatchQueue.main.async {
-                    self.messages.append(ScanMessage(role: "assistant", content: "Error parsing AI response.", timestamp: Date(), image: nil))
+                    self.messages.append(ScanMessage(role: "assistant", content: "I'm having trouble understanding the response. Please try asking your question again.", timestamp: Date(), image: nil))
                     self.showTypingIndicator = false
                     self.saveCurrentConversation()
                 }
@@ -882,7 +913,7 @@ struct ScanView: View {
             
             if let error = error {
                 DispatchQueue.main.async {
-                    self.messages.append(ScanMessage(role: "assistant", content: "Network error: \(error.localizedDescription)", timestamp: Date(), image: nil))
+                    self.messages.append(ScanMessage(role: "assistant", content: "Hmm, I'm having trouble connecting. Please check your internet connection and try again.", timestamp: Date(), image: nil))
                     self.showTypingIndicator = false
                 }
                 return
@@ -890,15 +921,27 @@ struct ScanView: View {
             
             guard let data = data else {
                 DispatchQueue.main.async {
-                    self.messages.append(ScanMessage(role: "assistant", content: "No data received from server", timestamp: Date(), image: nil))
+                    self.messages.append(ScanMessage(role: "assistant", content: "I didn't get a response. Please try again in a moment.", timestamp: Date(), image: nil))
                     self.showTypingIndicator = false
                 }
                 return
             }
             
             if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+                var friendlyMessage = "Oops! Something went wrong. "
+                
+                if http.statusCode == 401 {
+                    friendlyMessage += "There's an issue with the app's authentication. Please contact support."
+                } else if http.statusCode == 429 {
+                    friendlyMessage += "I'm getting too many requests right now. Please wait a moment and try again."
+                } else if http.statusCode >= 500 {
+                    friendlyMessage += "The service is having trouble right now. Please try again in a few minutes."
+                } else {
+                    friendlyMessage += "Please try again."
+                }
+                
                 DispatchQueue.main.async {
-                    self.messages.append(ScanMessage(role: "assistant", content: "HTTP Error \(http.statusCode): Check your API key", timestamp: Date(), image: nil))
+                    self.messages.append(ScanMessage(role: "assistant", content: friendlyMessage, timestamp: Date(), image: nil))
                     self.showTypingIndicator = false
                 }
                 return
@@ -929,21 +972,21 @@ struct ScanView: View {
                         }
                     } else {
                         DispatchQueue.main.async {
-                            self.messages.append(ScanMessage(role: "assistant", content: "The AI did not return valid JSON for the study guide.", timestamp: Date(), image: nil))
+                            self.messages.append(ScanMessage(role: "assistant", content: "I had trouble creating a study guide from that. Could you try again or rephrase your request?", timestamp: Date(), image: nil))
                             self.showTypingIndicator = false
                             self.saveCurrentConversation()
                         }
                     }
                 } else {
                     DispatchQueue.main.async {
-                        self.messages.append(ScanMessage(role: "assistant", content: "Received empty response from AI", timestamp: Date(), image: nil))
+                        self.messages.append(ScanMessage(role: "assistant", content: "I didn't understand that. Could you try asking in a different way?", timestamp: Date(), image: nil))
                         self.showTypingIndicator = false
                         self.saveCurrentConversation()
                     }
                 }
             } catch {
                 DispatchQueue.main.async {
-                    self.messages.append(ScanMessage(role: "assistant", content: "Error parsing AI response.", timestamp: Date(), image: nil))
+                    self.messages.append(ScanMessage(role: "assistant", content: "I'm having trouble understanding the response. Please try asking your question again.", timestamp: Date(), image: nil))
                     self.showTypingIndicator = false
                     self.saveCurrentConversation()
                 }
@@ -1112,7 +1155,7 @@ extension ScanView {
             if let error = error {
                 print("Request error: \(error.localizedDescription)")
                 DispatchQueue.main.async {
-                    self.messages.append(ScanMessage(role: "assistant", content: "Network error: \(error.localizedDescription)", timestamp: Date(), image: nil))
+                    self.messages.append(ScanMessage(role: "assistant", content: "Hmm, I'm having trouble connecting. Please check your internet connection and try again.", timestamp: Date(), image: nil))
                     self.showTypingIndicator = false
                 }
                 return
@@ -1120,25 +1163,28 @@ extension ScanView {
 
             guard let data = data else {
                 DispatchQueue.main.async {
-                    self.messages.append(ScanMessage(role: "assistant", content: "No data received from server", timestamp: Date(), image: nil))
+                    self.messages.append(ScanMessage(role: "assistant", content: "I didn't get a response. Please try again in a moment.", timestamp: Date(), image: nil))
                     self.showTypingIndicator = false
                 }
                 return
             }
             
             if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
-                if let errorDict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let error = errorDict["error"] as? [String: Any],
-                   let message = error["message"] as? String {
-                    DispatchQueue.main.async {
-                        self.messages.append(ScanMessage(role: "assistant", content: "API Error: \(message)", timestamp: Date(), image: nil))
-                        self.showTypingIndicator = false
-                    }
+                var friendlyMessage = "Oops! Something went wrong. "
+                
+                if httpResponse.statusCode == 401 {
+                    friendlyMessage += "There's an issue with the app's authentication. Please contact support."
+                } else if httpResponse.statusCode == 429 {
+                    friendlyMessage += "I'm getting too many requests right now. Please wait a moment and try again."
+                } else if httpResponse.statusCode >= 500 {
+                    friendlyMessage += "The service is having trouble right now. Please try again in a few minutes."
                 } else {
-                    DispatchQueue.main.async {
-                        self.messages.append(ScanMessage(role: "assistant", content: "HTTP Error \(httpResponse.statusCode): Check your API key", timestamp: Date(), image: nil))
-                        self.showTypingIndicator = false
-                    }
+                    friendlyMessage += "Please try again."
+                }
+                
+                DispatchQueue.main.async {
+                    self.messages.append(ScanMessage(role: "assistant", content: friendlyMessage, timestamp: Date(), image: nil))
+                    self.showTypingIndicator = false
                 }
                 return
             }
@@ -1182,7 +1228,7 @@ extension ScanView {
                     }
                 } else {
                     DispatchQueue.main.async {
-                        self.messages.append(ScanMessage(role: "assistant", content: "Received empty response from AI", timestamp: Date(), image: nil))
+                        self.messages.append(ScanMessage(role: "assistant", content: "I didn't understand that. Could you try asking in a different way?", timestamp: Date(), image: nil))
                         self.showTypingIndicator = false
                         self.saveCurrentConversation()
                     }
