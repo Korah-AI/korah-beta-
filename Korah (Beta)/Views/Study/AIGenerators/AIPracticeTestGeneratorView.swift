@@ -183,8 +183,6 @@ struct AIPracticeTestGeneratorView: View {
             ]
         ]
         
-        }
-        
         guard let bodyData = try? JSONSerialization.data(withJSONObject: requestBody) else {
             self.isGenerating = false
             self.errorMessage = "Failed to create request body."

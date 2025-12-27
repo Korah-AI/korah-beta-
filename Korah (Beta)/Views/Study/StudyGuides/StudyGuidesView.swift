@@ -196,8 +196,6 @@ struct StudyGuidesView: View {
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        }
-
         let systemJSONSchema = """
 You are Korah, a friendly study coach. Create study guides from flashcard sets using **PURE JSON** (no code fences, no markdown) that matches this schema exactly:
 
@@ -322,8 +320,6 @@ Rules:
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        }
-
         // Implementation for generating practice test should be added here
     }
 
@@ -342,8 +338,6 @@ Rules:
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        }
 
         let systemJSONSchema =
         """
