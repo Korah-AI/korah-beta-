@@ -1139,8 +1139,6 @@ struct FlashcardSetDetailView: View {
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        }
-
         let systemJSONSchema = """
 You are a study coach. Output **PURE JSON** (no code fences, no markdown) that matches this schema exactly:
 
