@@ -101,7 +101,7 @@ struct PracticeTestsView: View {
                                     VStack(alignment: .leading) {
                                         Text(test.title)
                                             .foregroundColor(.white)
-                                        Text(test.createdAt.formatted(date: .abbreviated, time: .shortened))
+                                        Text(test.createdAt.formattedCreatedAt())
                                             .font(.caption)
                                             .foregroundColor(.secondary)
                                     }
@@ -117,7 +117,7 @@ struct PracticeTestsView: View {
                                 VStack(alignment: .leading) {
                                     Text(test.title)
                                         .foregroundColor(.white)
-                                    Text(test.createdAt.formatted(date: .abbreviated, time: .shortened))
+                                    Text(test.createdAt.formattedCreatedAt())
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                 }
@@ -501,20 +501,43 @@ struct TakePracticeTestView: View {
                 reviewView
             } else if showResult {
                 VStack(spacing: 20) {
+                    Image(systemName: score == practiceTest.questions.count ? "trophy.fill" : "checkmark.seal.fill")
+                        .font(.system(size: 60))
+                        .foregroundColor(score == practiceTest.questions.count ? .yellow : .purple)
+                    
                     Text("Test Completed!")
                         .font(.largeTitle)
                         .bold()
-                        .foregroundColor(.purple)
-                    
-                    let percentage = Double(score) / Double(practiceTest.questions.count) * 100
-                    Text("Score: \(score) / \(practiceTest.questions.count)")
-                        .font(.title2)
                         .foregroundColor(.white)
                     
-                    Text(String(format: "%.0f%%", percentage))
-                        .font(.title)
-                        .bold()
-                        .foregroundColor(percentage >= 70 ? .green : percentage >= 50 ? .orange : .red)
+                    let percentage = Double(score) / Double(practiceTest.questions.count) * 100
+                    VStack(spacing: 8) {
+                        Text("Score: \(score) / \(practiceTest.questions.count)")
+                            .font(.title2)
+                            .foregroundColor(.white)
+                        
+                        Text(String(format: "%.0f%%", percentage))
+                            .font(.title)
+                            .bold()
+                            .foregroundColor(percentage >= 70 ? .green : percentage >= 50 ? .orange : .red)
+                        
+                        if let bestScore = practiceTest.bestScore, bestScore > score {
+                            Text("Best: \(bestScore) / \(practiceTest.questions.count) (\(String(format: "%.0f%%", practiceTest.bestScorePercentage ?? 0)))")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        } else if score > 0 && practiceTest.attemptCount > 1 {
+                            Text("New Best Score!")
+                                .font(.caption)
+                                .bold()
+                                .foregroundColor(.green)
+                        }
+                        
+                        if practiceTest.attemptCount > 1 {
+                            Text("Attempt #\(practiceTest.attemptCount)")
+                                .font(.caption2)
+                                .foregroundColor(.secondary.opacity(0.7))
+                        }
+                    }
                     
                     HStack(spacing: 12) {
                         Button("Review Answers") {
@@ -601,10 +624,12 @@ struct TakePracticeTestView: View {
         if selected == correct { score += 1 }
         selectedOptionIndex = nil
         
-        if currentQuestionIndex + 1 == practiceTest.questions.count { 
-            showResult = true 
-        } else { 
-            currentQuestionIndex += 1 
+        if currentQuestionIndex + 1 == practiceTest.questions.count {
+            // Test completed - record the attempt
+            practiceTest.recordAttempt(score: score)
+            showResult = true
+        } else {
+            currentQuestionIndex += 1
         }
     }
 

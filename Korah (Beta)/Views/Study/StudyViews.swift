@@ -84,13 +84,64 @@ struct StudyHomeView: View {
                             
                             if recentStudyItems.isEmpty {
                                 VStack(spacing: 16) {
-                                    Image(systemName: "clock")
+                                    Image(systemName: "sparkles")
                                         .font(.system(size: 60))
-                                        .foregroundColor(.white.opacity(0.3))
-                                    Text("Your recent study items will be displayed here")
+                                        .foregroundColor(.purple.opacity(0.6))
+                                    
+                                    Text("Start Your Study Journey")
+                                        .font(.headline)
+                                        .foregroundColor(.white)
+                                    
+                                    Text("Create flashcards, study guides, or practice tests to begin learning")
                                         .font(.subheadline)
-                                        .foregroundColor(.white.opacity(0.5))
+                                        .foregroundColor(.white.opacity(0.7))
                                         .multilineTextAlignment(.center)
+                                        .padding(.horizontal, 24)
+                                    
+                                    HStack(spacing: 12) {
+                                        Button(action: { pendingCreationType = .flashcards; showCreationTemplate = true }) {
+                                            VStack(spacing: 8) {
+                                                Image(systemName: "rectangle.stack")
+                                                    .font(.system(size: 24))
+                                                Text("Flashcards")
+                                                    .font(.caption)
+                                            }
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 16)
+                                            .foregroundColor(.white)
+                                            .background(Color.purple.opacity(0.3))
+                                            .cornerRadius(12)
+                                        }
+                                        
+                                        Button(action: { pendingCreationType = .studyGuides; showCreationTemplate = true }) {
+                                            VStack(spacing: 8) {
+                                                Image(systemName: "book.closed")
+                                                    .font(.system(size: 24))
+                                                Text("Guide")
+                                                    .font(.caption)
+                                            }
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 16)
+                                            .foregroundColor(.white)
+                                            .background(Color.purple.opacity(0.3))
+                                            .cornerRadius(12)
+                                        }
+                                        
+                                        Button(action: { pendingCreationType = .practiceTests; showCreationTemplate = true }) {
+                                            VStack(spacing: 8) {
+                                                Image(systemName: "doc.text.magnifyingglass")
+                                                    .font(.system(size: 24))
+                                                Text("Test")
+                                                    .font(.caption)
+                                            }
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 16)
+                                            .foregroundColor(.white)
+                                            .background(Color.purple.opacity(0.3))
+                                            .cornerRadius(12)
+                                        }
+                                    }
+                                    .padding(.horizontal, 24)
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding(.horizontal)
@@ -102,7 +153,7 @@ struct StudyHomeView: View {
                                     } label: {
                                         StudyItemCardView(
                                             title: item.title,
-                                            subtitle: item.createdAt.formatted(date: .abbreviated, time: .shortened),
+                                            subtitle: item.createdAt.formattedCreatedAt(),
                                             icon: icon(for: item.kind)
                                         )
                                     }
@@ -294,8 +345,7 @@ struct StudyHomeView: View {
     }
 
     private func openedText(_ date: Date?) -> String {
-        guard let date = date else { return "Never opened" }
-        return "Opened " + date.formatted(.relative(presentation: .named))
+        date.formattedLastOpened()
     }
 
     struct StudyItemRow: Identifiable { let id: UUID; let title: String; let kind: String; let lastOpenedAt: Date? }

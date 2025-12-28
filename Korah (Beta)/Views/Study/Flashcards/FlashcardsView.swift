@@ -1272,6 +1272,8 @@ struct StudySessionView: View {
     @State private var index: Int = 0
     @State private var showBack: Bool = false
     @State private var dragOffset: CGFloat = 0
+    @State private var studiedCardIndices: Set<Int> = []
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(spacing: 20) {
@@ -1279,8 +1281,30 @@ struct StudySessionView: View {
                 Text("No cards to study.")
                     .foregroundColor(.gray)
             } else {
-                Text("Card \(index + 1) of \(set.cards.count)")
-                    .foregroundColor(.white)
+                VStack(spacing: 8) {
+                    Text("Card \(index + 1) of \(set.cards.count)")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                    
+                    HStack(spacing: 8) {
+                        Text("\(studiedCardIndices.count) studied")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Circle()
+                            .fill(Color.secondary)
+                            .frame(width: 3, height: 3)
+                        
+                        Text("\(set.cards.count - studiedCardIndices.count) remaining")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    ProgressView(value: Double(studiedCardIndices.count), total: Double(set.cards.count))
+                        .progressViewStyle(.linear)
+                        .tint(.purple)
+                        .frame(maxWidth: 200)
+                }
 
                 FlipCardView(
                     frontText: set.cards[index].front,
@@ -1306,10 +1330,57 @@ struct StudySessionView: View {
                 )
                 .animation(.spring(), value: dragOffset)
 
+                HStack(spacing: 24) {
+                    Button(action: { markAsStudied() }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: studiedCardIndices.contains(index) ? "checkmark.circle.fill" : "checkmark.circle")
+                            Text(studiedCardIndices.contains(index) ? "Studied" : "Mark Studied")
+                                .font(.subheadline)
+                        }
+                        .foregroundColor(studiedCardIndices.contains(index) ? .green : .white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(studiedCardIndices.contains(index) ? Color.green.opacity(0.2) : Color.white.opacity(0.1))
+                        .cornerRadius(20)
+                    }
+                }
+                .padding(.top, 8)
+                
                 Text("Tap to flip. Swipe left/right to navigate.")
                     .font(.footnote)
                     .foregroundColor(.secondary)
+                    .padding(.top, 4)
             }
+            
+            if studiedCardIndices.count == set.cards.count && !set.cards.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "trophy.fill")
+                        .font(.system(size: 50))
+                        .foregroundColor(.yellow)
+                    
+                    Text("All Cards Studied!")
+                        .font(.title2)
+                        .bold()
+                        .foregroundColor(.white)
+                    
+                    Text("Great job! You've reviewed all \(set.cards.count) cards.")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                    
+                    Button(action: { studiedCardIndices.removeAll() }) {
+                        Text("Study Again")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 12)
+                            .background(Color.purple)
+                            .cornerRadius(12)
+                    }
+                }
+                .padding()
+            }
+            
             Spacer()
         }
         .background(Color.clear)
@@ -1340,6 +1411,14 @@ struct StudySessionView: View {
         if index > 0 {
             index -= 1
             showBack = false
+        }
+    }
+    
+    private func markAsStudied() {
+        if studiedCardIndices.contains(index) {
+            studiedCardIndices.remove(index)
+        } else {
+            studiedCardIndices.insert(index)
         }
     }
 }

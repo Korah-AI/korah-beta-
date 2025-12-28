@@ -510,7 +510,7 @@ Rules:
                                     VStack(alignment: .leading, spacing: 6) {
                                         Text(guide.title.isEmpty ? "Untitled Guide" : guide.title)
                                             .foregroundColor(.white)
-                                        Text(guide.createdAt.formatted(date: .abbreviated, time: .shortened))
+                                        Text(guide.createdAt.formattedCreatedAt())
                                             .font(.caption)
                                             .foregroundColor(.secondary)
                                     }
@@ -670,7 +670,7 @@ struct StudyGuideCard: View {
                 }
             }
             
-            Text(timestamp.formatted(date: .omitted, time: .shortened))
+            Text(timestamp.formattedTime())
                 .font(.caption2)
                 .foregroundColor(.secondary)
         }
