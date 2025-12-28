@@ -38,6 +38,12 @@ struct StudyHomeView: View {
     @State private var showAIGenerateFlashcardsFromGuide = false
     @State private var showAIGenerateStudyGuideFromFlashcards = false
     @State private var showAIGeneratePracticeTestFromGuide = false
+    @State private var showFlashcardGenerationOptions = false
+    @State private var showAIFlashcardPromptGenerator = false
+    @State private var showStudyGuideGenerationOptions = false
+    @State private var showAIStudyGuidePromptGenerator = false
+    @State private var showPracticeTestGenerationOptions = false
+    @State private var showAIPracticeTestPromptGenerator = false
     @State private var showScanFlashcards = false
     @State private var showScanStudyGuide = false
     @State private var showScanPracticeTest = false
@@ -283,11 +289,62 @@ struct StudyHomeView: View {
             .sheet(isPresented: $showManualPracticeTestCreate) {
                 NavigationStack { ManualPracticeTestCreateView() }
             }
+            .sheet(isPresented: $showFlashcardGenerationOptions) {
+                FlashcardGenerationOptionsSheet(
+                    onPromptGeneration: {
+                        showFlashcardGenerationOptions = false
+                        showAIFlashcardPromptGenerator = true
+                    },
+                    onStudyGuideGeneration: {
+                        showFlashcardGenerationOptions = false
+                        showAIGenerateFlashcardsFromGuide = true
+                    }
+                )
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: $showAIFlashcardPromptGenerator) {
+                NavigationStack { AIFlashcardPromptGeneratorView() }
+            }
             .sheet(isPresented: $showAIGenerateFlashcardsFromGuide) {
                 NavigationStack { AIGenerateFlashcardsFromGuideView() }
             }
+            .sheet(isPresented: $showStudyGuideGenerationOptions) {
+                StudyGuideGenerationOptionsSheet(
+                    onPromptGeneration: {
+                        showStudyGuideGenerationOptions = false
+                        showAIStudyGuidePromptGenerator = true
+                    },
+                    onFlashcardsGeneration: {
+                        showStudyGuideGenerationOptions = false
+                        showAIGenerateStudyGuideFromFlashcards = true
+                    }
+                )
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: $showAIStudyGuidePromptGenerator) {
+                NavigationStack { AIStudyGuidePromptGeneratorView() }
+            }
             .sheet(isPresented: $showAIGenerateStudyGuideFromFlashcards) {
                 NavigationStack { AIGenerateStudyGuideFromFlashcardsView() }
+            }
+            .sheet(isPresented: $showPracticeTestGenerationOptions) {
+                PracticeTestGenerationOptionsSheet(
+                    onPromptGeneration: {
+                        showPracticeTestGenerationOptions = false
+                        showAIPracticeTestPromptGenerator = true
+                    },
+                    onStudyGuideGeneration: {
+                        showPracticeTestGenerationOptions = false
+                        showAIGeneratePracticeTestFromGuide = true
+                    }
+                )
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: $showAIPracticeTestPromptGenerator) {
+                NavigationStack { AIPracticeTestPromptGeneratorView() }
             }
             .sheet(isPresented: $showAIGeneratePracticeTestFromGuide) {
                 NavigationStack { AIGeneratePracticeTestFromGuideView() }
@@ -324,7 +381,7 @@ struct StudyHomeView: View {
                                           guard let type = pendingCreationType else { return }
                                           handleCreationChoice(type: type, mode: .generateFromCrossType)
                                       })
-                    .presentationDetents([.medium, .large])
+                    .presentationDetents([.large])
                     .presentationDragIndicator(.visible)
             }
             .toolbar {
@@ -447,7 +504,7 @@ struct StudyHomeView: View {
             if mode == .manual {
                 showManualFlashcardsView = true
             } else if mode == .generateFromCrossType {
-                showAIGenerateFlashcardsFromGuide = true
+                showFlashcardGenerationOptions = true
             } else {
                 startFlashcardsCreation = true
                 navigateToFlashcards = true
@@ -456,7 +513,7 @@ struct StudyHomeView: View {
             if mode == .manual {
                 showManualStudyGuideCreate = true
             } else if mode == .generateFromCrossType {
-                showAIGenerateStudyGuideFromFlashcards = true
+                showStudyGuideGenerationOptions = true
             } else {
                 startStudyGuidesCreation = true
                 navigateToStudyGuides = true
@@ -465,7 +522,7 @@ struct StudyHomeView: View {
             if mode == .manual {
                 showManualPracticeTestCreate = true
             } else if mode == .generateFromCrossType {
-                showAIGeneratePracticeTestFromGuide = true
+                showPracticeTestGenerationOptions = true
             } else {
                 startPracticeTestsCreation = true
                 navigateToPracticeTests = true
@@ -641,47 +698,81 @@ private struct CreationTemplateSheet: View {
     let onScanImages: () -> Void
     let onCreateManual: () -> Void
     let onGenerateFromCrossType: () -> Void
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
-                Text(titleText)
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .padding(.top)
-
-                VStack(spacing: 12) {
-                    Button(action: onScanImages) {
-                        HStack { Image(systemName: "doc.viewfinder"); Text("Scan Images"); Spacer() }
-                            .foregroundColor(.white)
-                            .padding()
-                            .background(Color.purple.opacity(0.3))
-                            .cornerRadius(10)
-                    }
-                    Button(action: onCreateManual) {
-                        HStack { Image(systemName: "pencil"); Text("Create Manually"); Spacer() }
-                            .foregroundColor(.white)
-                            .padding()
-                            .background(Color.purple.opacity(0.3))
-                            .cornerRadius(10)
-                    }
-                    Button(action: onGenerateFromCrossType) {
-                        HStack { Image(systemName: "sparkles"); Text(crossTypeButtonLabel); Spacer() }
-                            .foregroundColor(.white)
-                            .padding()
-                            .background(Color.green.opacity(0.3))
-                            .cornerRadius(10)
-                    }
+            VStack(spacing: 0) {
+                VStack(spacing: 16) {
+                    Image(systemName: iconForType)
+                        .font(.system(size: 60))
+                        .foregroundColor(colorForType)
+                        .shadow(color: colorForType.opacity(0.3), radius: 10)
+                    
+                    Text(titleText)
+                        .font(.title)
+                        .bold()
+                        .foregroundColor(.white)
+                    
+                    Text("Choose your creation method")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
                 }
-                .padding(.horizontal)
-
+                .padding(.top, 40)
+                .padding(.bottom, 32)
+                
+                VStack(spacing: 16) {
+                    CreationOptionCard(
+                        icon: "doc.viewfinder",
+                        title: "Scan Images",
+                        description: "Upload images to extract content",
+                        buttonText: "Scan",
+                        color: .blue,
+                        action: {
+                            dismiss()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                onScanImages()
+                            }
+                        }
+                    )
+                    
+                    CreationOptionCard(
+                        icon: "pencil.line",
+                        title: "Create Manually",
+                        description: "Build from scratch with manual input",
+                        buttonText: "Create",
+                        color: .purple,
+                        action: {
+                            dismiss()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                onCreateManual()
+                            }
+                        }
+                    )
+                    
+                    CreationOptionCard(
+                        icon: "sparkles",
+                        title: crossTypeTitle,
+                        description: crossTypeDescription,
+                        buttonText: "Generate",
+                        color: .green,
+                        action: {
+                            dismiss()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                onGenerateFromCrossType()
+                            }
+                        }
+                    )
+                }
+                .padding(.horizontal, 20)
+                
                 Spacer()
             }
             .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text("How would you like to create this item?")
-                        .font(.subheadline)
-                        .foregroundColor(.white)
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundColor(colorForType)
                 }
             }
             .korahGradientBackground()
@@ -690,19 +781,46 @@ private struct CreationTemplateSheet: View {
 
     private var titleText: String {
         switch pendingCreationType {
-        case .flashcards: return "Create Flashcard Set"
+        case .flashcards: return "Create Flashcards"
         case .studyGuides: return "Create Study Guide"
         case .practiceTests: return "Create Practice Test"
         case .none: return "Create"
         }
     }
     
-    private var crossTypeButtonLabel: String {
+    private var iconForType: String {
         switch pendingCreationType {
-        case .flashcards: return "Generate from Study Guide"
-        case .studyGuides: return "Generate from Flashcards"
-        case .practiceTests: return "Generate from Study Guide"
+        case .flashcards: return "rectangle.stack"
+        case .studyGuides: return "book.closed"
+        case .practiceTests: return "doc.text.magnifyingglass"
+        case .none: return "sparkles"
+        }
+    }
+    
+    private var colorForType: Color {
+        switch pendingCreationType {
+        case .flashcards: return .purple
+        case .studyGuides: return .blue
+        case .practiceTests: return .green
+        case .none: return .purple
+        }
+    }
+    
+    private var crossTypeTitle: String {
+        switch pendingCreationType {
+        case .flashcards: return "From Study Guide"
+        case .studyGuides: return "From Flashcards"
+        case .practiceTests: return "From Study Guide"
         case .none: return "Generate"
+        }
+    }
+    
+    private var crossTypeDescription: String {
+        switch pendingCreationType {
+        case .flashcards: return "Use an existing study guide"
+        case .studyGuides: return "Use existing flashcard sets"
+        case .practiceTests: return "Use an existing study guide"
+        case .none: return "Generate content"
         }
     }
 }
@@ -794,6 +912,329 @@ struct StudyItemCardView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 14)
                 .stroke(Color.purple.opacity(0.2), lineWidth: 1)
+        )
+    }
+}
+
+private struct FlashcardGenerationOptionsSheet: View {
+    let onPromptGeneration: () -> Void
+    let onStudyGuideGeneration: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                VStack(spacing: 16) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 60))
+                        .foregroundColor(.purple)
+                        .shadow(color: .purple.opacity(0.3), radius: 10)
+                    
+                    Text("Generate Flashcards")
+                        .font(.title)
+                        .bold()
+                        .foregroundColor(.white)
+                    
+                    Text("Choose your generation method")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.top, 40)
+                .padding(.bottom, 32)
+                
+                VStack(spacing: 16) {
+                    GenerationOptionCard(
+                        icon: "brain",
+                        title: "AI Prompt",
+                        description: "Use an AI prompt to generate flashcards",
+                        buttonText: "Generate With A.I.",
+                        color: .purple,
+                        action: {
+                            dismiss()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                onPromptGeneration()
+                            }
+                        }
+                    )
+                    
+                    GenerationOptionCard(
+                        icon: "book.closed",
+                        title: "From Study Guide",
+                        description: "Use an existing study guide",
+                        buttonText: "Generate",
+                        color: .green,
+                        action: {
+                            dismiss()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                onStudyGuideGeneration()
+                            }
+                        }
+                    )
+                }
+                .padding(.horizontal, 20)
+                
+                Spacer()
+            }
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundColor(.purple)
+                }
+            }
+            .korahGradientBackground()
+        }
+    }
+}
+
+private struct StudyGuideGenerationOptionsSheet: View {
+    let onPromptGeneration: () -> Void
+    let onFlashcardsGeneration: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                VStack(spacing: 16) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 60))
+                        .foregroundColor(.blue)
+                        .shadow(color: .blue.opacity(0.3), radius: 10)
+                    
+                    Text("Generate Study Guide")
+                        .font(.title)
+                        .bold()
+                        .foregroundColor(.white)
+                    
+                    Text("Choose your generation method")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.top, 40)
+                .padding(.bottom, 32)
+                
+                VStack(spacing: 16) {
+                    GenerationOptionCard(
+                        icon: "brain",
+                        title: "AI Prompt",
+                        description: "Describe the topic you want to study",
+                        buttonText: "Generate With A.I.",
+                        color: .blue,
+                        action: {
+                            dismiss()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                onPromptGeneration()
+                            }
+                        }
+                    )
+                    
+                    GenerationOptionCard(
+                        icon: "rectangle.stack",
+                        title: "From Flashcards",
+                        description: "Use existing flashcard sets",
+                        buttonText: "Generate",
+                        color: .orange,
+                        action: {
+                            dismiss()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                onFlashcardsGeneration()
+                            }
+                        }
+                    )
+                }
+                .padding(.horizontal, 20)
+                
+                Spacer()
+            }
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundColor(.blue)
+                }
+            }
+            .korahGradientBackground()
+        }
+    }
+}
+
+private struct PracticeTestGenerationOptionsSheet: View {
+    let onPromptGeneration: () -> Void
+    let onStudyGuideGeneration: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                VStack(spacing: 16) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 60))
+                        .foregroundColor(.green)
+                        .shadow(color: .green.opacity(0.3), radius: 10)
+                    
+                    Text("Generate Practice Test")
+                        .font(.title)
+                        .bold()
+                        .foregroundColor(.white)
+                    
+                    Text("Choose your generation method")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.top, 40)
+                .padding(.bottom, 32)
+                
+                VStack(spacing: 16) {
+                    GenerationOptionCard(
+                        icon: "brain",
+                        title: "AI Prompt",
+                        description: "Describe the topic you want to test",
+                        buttonText: "Generate With A.I.",
+                        color: .green,
+                        action: {
+                            dismiss()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                onPromptGeneration()
+                            }
+                        }
+                    )
+                    
+                    GenerationOptionCard(
+                        icon: "book.closed",
+                        title: "From Study Guide",
+                        description: "Use an existing study guide",
+                        buttonText: "Generate",
+                        color: .blue,
+                        action: {
+                            dismiss()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                onStudyGuideGeneration()
+                            }
+                        }
+                    )
+                }
+                .padding(.horizontal, 20)
+                
+                Spacer()
+            }
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundColor(.green)
+                }
+            }
+            .korahGradientBackground()
+        }
+    }
+}
+
+private struct GenerationOptionCard: View {
+    let icon: String
+    let title: String
+    let description: String
+    let buttonText: String
+    let color: Color
+    let action: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 16) {
+                Image(systemName: icon)
+                    .font(.system(size: 32, weight: .semibold))
+                    .foregroundColor(color)
+                    .frame(width: 60, height: 60)
+                    .background(color.opacity(0.15))
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(title)
+                        .font(.title3)
+                        .bold()
+                        .foregroundColor(.white)
+                    
+                    Text(description)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                
+                Spacer()
+            }
+            .padding(20)
+            
+            Button(action: action) {
+                Text(buttonText)
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(color)
+                    .cornerRadius(12)
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+        }
+        .background(Color.white.opacity(0.06))
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(color.opacity(0.3), lineWidth: 1.5)
+        )
+    }
+}
+
+private struct CreationOptionCard: View {
+    let icon: String
+    let title: String
+    let description: String
+    let buttonText: String
+    let color: Color
+    let action: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 16) {
+                Image(systemName: icon)
+                    .font(.system(size: 32, weight: .semibold))
+                    .foregroundColor(color)
+                    .frame(width: 60, height: 60)
+                    .background(color.opacity(0.15))
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(title)
+                        .font(.title3)
+                        .bold()
+                        .foregroundColor(.white)
+                    
+                    Text(description)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                
+                Spacer()
+            }
+            .padding(20)
+            
+            Button(action: action) {
+                Text(buttonText)
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(color)
+                    .cornerRadius(12)
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+        }
+        .background(Color.white.opacity(0.06))
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(color.opacity(0.3), lineWidth: 1.5)
         )
     }
 }
