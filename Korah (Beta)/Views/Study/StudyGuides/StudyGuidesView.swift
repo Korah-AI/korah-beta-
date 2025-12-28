@@ -12,19 +12,7 @@ struct KorahFormatted: Decodable {
     let footer: String?
 }
 
-fileprivate func extractJSONObject(from text: String) -> String? {
-    if let data = text.data(using: .utf8),
-       (try? JSONSerialization.jsonObject(with: data)) != nil {
-        return text
-    }
-    guard let s = text.firstIndex(of: "{"), let e = text.lastIndex(of: "}") else { return nil }
-    let sub = text[s...e]
-    if let data = String(sub).data(using: .utf8),
-       (try? JSONSerialization.jsonObject(with: data)) != nil {
-        return String(sub)
-    }
-    return nil
-}
+// Using shared utility from StudyUtilities.extractJSONObject
 
 fileprivate struct OAChatMessage: Encodable { let role: String; let content: String }
 fileprivate struct OAChatRequest: Encodable {
@@ -246,7 +234,7 @@ Rules:
             DispatchQueue.main.async { self.isLoading = false }
 
             if let error = error {
-                DispatchQueue.main.async { self.errorMessage = "Network error: \(error.localizedDescription)" }
+                DispatchQueue.main.async { self.errorMessage = StudyUtilities.errorMessage(for: error) }
                 return
             }
             guard let data = data else {
@@ -255,22 +243,16 @@ Rules:
             }
 
             if let http = response as? HTTPURLResponse, http.statusCode != 200 {
-                let msg: String
-                if let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let err = dict["error"] as? [String: Any],
-                   let m = err["message"] as? String {
-                    msg = m
-                } else {
-                    msg = "HTTP Error \(http.statusCode). Check your API key."
+                DispatchQueue.main.async { 
+                    self.errorMessage = StudyUtilities.errorMessage(for: http.statusCode, responseData: data)
                 }
-                DispatchQueue.main.async { self.errorMessage = msg }
                 return
             }
 
             do {
                 let decoded = try JSONDecoder().decode(OAChatAPIResponse.self, from: data)
                 let raw = decoded.choices.first?.message.content ?? ""
-                guard let jsonString = extractJSONObject(from: raw),
+                guard let jsonString = StudyUtilities.extractJSONObject(from: raw),
                       let jsonData = jsonString.data(using: .utf8) else {
                     DispatchQueue.main.async { self.errorMessage = "AI did not return valid JSON." }
                     return
@@ -391,7 +373,7 @@ Rules:
             DispatchQueue.main.async { self.isLoading = false }
 
             if let error = error {
-                DispatchQueue.main.async { self.errorMessage = "Network error: \(error.localizedDescription)" }
+                DispatchQueue.main.async { self.errorMessage = StudyUtilities.errorMessage(for: error) }
                 return
             }
             guard let data = data else {
@@ -399,22 +381,16 @@ Rules:
                 return
             }
             if let http = response as? HTTPURLResponse, http.statusCode != 200 {
-                let msg: String
-                if let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let err = dict["error"] as? [String: Any],
-                   let m = err["message"] as? String {
-                    msg = m
-                } else {
-                    msg = "HTTP Error \(http.statusCode). Check your API key."
+                DispatchQueue.main.async { 
+                    self.errorMessage = StudyUtilities.errorMessage(for: http.statusCode, responseData: data)
                 }
-                DispatchQueue.main.async { self.errorMessage = msg }
                 return
             }
 
             do {
                 let decoded = try JSONDecoder().decode(OAChatAPIResponse.self, from: data)
                 let raw = decoded.choices.first?.message.content ?? ""
-                guard let jsonString = extractJSONObject(from: raw),
+                guard let jsonString = StudyUtilities.extractJSONObject(from: raw),
                       let jsonData = jsonString.data(using: .utf8) else {
                     DispatchQueue.main.async { self.errorMessage = "AI did not return valid JSON." }
                     return
@@ -737,7 +713,7 @@ struct StudyGuideDetailView: View {
     @State private var showDeleteAlert = false
 
     private var chatViewFormatted: KorahFormatted? {
-        guard let jsonString = extractJSONObject(from: guide.content),
+        guard let jsonString = StudyUtilities.extractJSONObject(from: guide.content),
               let jsonData = jsonString.data(using: .utf8),
               let decoded = try? JSONDecoder().decode(KorahFormatted.self, from: jsonData) else {
             return nil
@@ -747,7 +723,7 @@ struct StudyGuideDetailView: View {
     
     private var decodedStudyGuide: GeneratedStudyGuide? {
         guard chatViewFormatted == nil,
-              let jsonString = extractJSONObject(from: guide.content),
+              let jsonString = StudyUtilities.extractJSONObject(from: guide.content),
               let jsonData = jsonString.data(using: .utf8),
               let decoded = try? JSONDecoder().decode(GeneratedStudyGuide.self, from: jsonData) else {
             return nil

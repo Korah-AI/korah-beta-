@@ -83,10 +83,18 @@ struct StudyHomeView: View {
                                 .padding(.horizontal)
                             
                             if recentStudyItems.isEmpty {
-                                Text("No recent items.")
-                                    .foregroundColor(.secondary)
-                                    .padding(.horizontal)
-                                    .padding(.vertical, 8)
+                                VStack(spacing: 16) {
+                                    Image(systemName: "clock")
+                                        .font(.system(size: 60))
+                                        .foregroundColor(.white.opacity(0.3))
+                                    Text("Your recent study items will be displayed here")
+                                        .font(.subheadline)
+                                        .foregroundColor(.white.opacity(0.5))
+                                        .multilineTextAlignment(.center)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.horizontal)
+                                .padding(.vertical, 32)
                             } else {
                                 ForEach(Array(recentStudyItems.prefix(3))) { item in
                                     NavigationLink {
@@ -213,20 +221,43 @@ struct StudyHomeView: View {
                 }
                 .background(Color.clear)
 
-                NavigationLink(isActive: $showManualFlashcardsView) { ManualFlashcardSetCreateView() } label: { EmptyView() }.hidden()
-                NavigationLink(isActive: $showManualStudyGuideCreate) { ManualStudyGuideCreateView() } label: { EmptyView() }.hidden()
-                NavigationLink(isActive: $showManualPracticeTestCreate) { ManualPracticeTestCreateView() } label: { EmptyView() }.hidden()
-                NavigationLink(isActive: $showAIGenerateFlashcardsFromGuide) { AIGenerateFlashcardsFromGuideView() } label: { EmptyView() }.hidden()
-                NavigationLink(isActive: $showAIGenerateStudyGuideFromFlashcards) { AIGenerateStudyGuideFromFlashcardsView() } label: { EmptyView() }.hidden()
-                NavigationLink(isActive: $showAIGeneratePracticeTestFromGuide) { AIGeneratePracticeTestFromGuideView() } label: { EmptyView() }.hidden()
-                NavigationLink(isActive: $showScanFlashcards) { ScanFlashcardsView() } label: { EmptyView() }.hidden()
-                NavigationLink(isActive: $showScanStudyGuide) { ScanStudyGuideView() } label: { EmptyView() }.hidden()
-                NavigationLink(isActive: $showScanPracticeTest) { ScanPracticeTestView() } label: { EmptyView() }.hidden()
-                NavigationLink(isActive: $navigateToFlashcards) { FlashcardsView(openAddSetOnAppear: startFlashcardsCreation) } label: { EmptyView() }.hidden()
-                NavigationLink(isActive: $navigateToStudyGuides) { StudyGuidesView(openGeneratorOnAppear: startStudyGuidesCreation) } label: { EmptyView() }.hidden()
-                NavigationLink(isActive: $navigateToPracticeTests) { PracticeTestsView(openAICreationOnAppear: startPracticeTestsCreation) } label: { EmptyView() }.hidden()
-
                 Spacer(minLength: 0)
+            }
+            .sheet(isPresented: $showManualFlashcardsView) {
+                NavigationStack { ManualFlashcardSetCreateView() }
+            }
+            .sheet(isPresented: $showManualStudyGuideCreate) {
+                NavigationStack { ManualStudyGuideCreateView() }
+            }
+            .sheet(isPresented: $showManualPracticeTestCreate) {
+                NavigationStack { ManualPracticeTestCreateView() }
+            }
+            .sheet(isPresented: $showAIGenerateFlashcardsFromGuide) {
+                NavigationStack { AIGenerateFlashcardsFromGuideView() }
+            }
+            .sheet(isPresented: $showAIGenerateStudyGuideFromFlashcards) {
+                NavigationStack { AIGenerateStudyGuideFromFlashcardsView() }
+            }
+            .sheet(isPresented: $showAIGeneratePracticeTestFromGuide) {
+                NavigationStack { AIGeneratePracticeTestFromGuideView() }
+            }
+            .sheet(isPresented: $showScanFlashcards) {
+                NavigationStack { ScanFlashcardsView() }
+            }
+            .sheet(isPresented: $showScanStudyGuide) {
+                NavigationStack { ScanStudyGuideView() }
+            }
+            .sheet(isPresented: $showScanPracticeTest) {
+                NavigationStack { ScanPracticeTestView() }
+            }
+            .sheet(isPresented: $navigateToFlashcards) {
+                NavigationStack { FlashcardsView(openAddSetOnAppear: startFlashcardsCreation) }
+            }
+            .sheet(isPresented: $navigateToStudyGuides) {
+                NavigationStack { StudyGuidesView(openGeneratorOnAppear: startStudyGuidesCreation) }
+            }
+            .sheet(isPresented: $navigateToPracticeTests) {
+                NavigationStack { PracticeTestsView(openAICreationOnAppear: startPracticeTestsCreation) }
             }
             .sheet(isPresented: $showCreationTemplate) {
                 CreationTemplateSheet(pendingCreationType: pendingCreationType,
