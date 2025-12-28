@@ -41,8 +41,6 @@ struct PracticeTestsView: View {
 
     @State private var studyGuides: [StudyGuide] = []
     @State private var selectedGuideIndex: Int = 0
-    
-    @State private var navigateToCreatedTest = false
     @State private var selectedTestForNavigation: PracticeTest? = nil
 
     var body: some View {
@@ -154,13 +152,9 @@ struct PracticeTestsView: View {
                         EditButton().tint(.purple)
                     }
                 }
-                NavigationLink(isActive: $navigateToCreatedTest) {
-                    if let test = selectedTestForNavigation {
-                        PracticeTestDetailView(practiceTest: binding(for: test))
-                    } else {
-                        EmptyView()
-                    }
-                } label: { EmptyView() }
+            }
+            .navigationDestination(item: $selectedTestForNavigation) { test in
+                PracticeTestDetailView(practiceTest: binding(for: test))
             }
         }
         .accentColor(.purple)
@@ -183,7 +177,10 @@ struct PracticeTestsView: View {
     }
 
     private func binding(for test: PracticeTest) -> Binding<PracticeTest> {
-        guard let index = store.practiceTests.firstIndex(where: { $0.id == test.id }) else { fatalError("Test not found") }
+        guard let index = store.practiceTests.firstIndex(where: { $0.id == test.id }) else {
+            // Return a temporary binding if test not found (shouldn't happen, but prevents crash)
+            return .constant(test)
+        }
         return $store.practiceTests[index]
     }
 
@@ -228,28 +225,27 @@ struct PracticeTestsView: View {
     private func createTestFromSelectedSet() {
         guard !flashcardSets.isEmpty else { return }
         let set = flashcardSets[selectedSetIndex]
-        let cards = set.cards.shuffled()
-        let allBacks = set.cards.map { $0.back }
-        var questions: [PracticeTestQuestion] = []
-        for card in cards {
-            let correct = card.back
-            var wrongs = allBacks.filter { $0 != correct }.shuffled()
-            var options: [String] = [correct]
-            options.append(contentsOf: wrongs.prefix(3))
-            while options.count < 4 { options.append(allBacks.randomElement() ?? "—") }
-            options.shuffle()
-            let correctIndex = options.firstIndex(of: correct) ?? 0
-            questions.append(PracticeTestQuestion(prompt: card.front, options: options, correctIndex: correctIndex))
-        }
-        let title = newTestTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        let test = PracticeTest(title: title.isEmpty ? "Practice Test from \(set.title)" : title, questions: questions)
-        store.practiceTests.append(test)
-        newTestTitle = ""
-        DispatchQueue.main.async {
-            if let created = store.practiceTests.last {
-                selectedTestForNavigation = created
-                navigateToCreatedTest = true
+        
+        // Use shared utility for test generation
+        let result = StudyUtilities.generatePracticeTestQuestions(from: set.cards)
+        
+        switch result {
+        case .success(let questions):
+            let title = StudyUtilities.generateTestTitle(
+                from: set.title,
+                customTitle: newTestTitle
+            )
+            let test = PracticeTest(title: title, questions: questions)
+            store.practiceTests.append(test)
+            newTestTitle = ""
+            
+            DispatchQueue.main.async {
+                selectedTestForNavigation = store.practiceTests.last
             }
+            
+        case .failure(let error):
+            // Show error to user (you can add an @State var showError and errorMessage)
+            print("Failed to create test: \(error.localizedDescription)")
         }
     }
 
@@ -304,10 +300,7 @@ struct PracticeTestsView: View {
         newTestTitle = ""
 
         DispatchQueue.main.async {
-            if let created = store.practiceTests.last {
-                selectedTestForNavigation = created
-                navigateToCreatedTest = true
-            }
+            selectedTestForNavigation = store.practiceTests.last
         }
     }
 }
