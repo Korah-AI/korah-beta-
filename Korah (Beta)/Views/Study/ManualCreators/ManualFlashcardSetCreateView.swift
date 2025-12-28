@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ManualFlashcardSetCreateView: View {
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var networkMonitor = NetworkMonitor.shared
 
     @State private var subject: String = ""
     @State private var title: String = ""
@@ -23,6 +24,7 @@ struct ManualFlashcardSetCreateView: View {
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
+            // Main content
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     if !studyGuides.isEmpty {
@@ -51,25 +53,15 @@ struct ManualFlashcardSetCreateView: View {
                                     .pickerStyle(.menu)
                                     
                                     Button(action: generateFlashcardsFromGuide) {
-                                        if isGenerating {
-                                            HStack {
-                                                ProgressView()
-                                                    .progressViewStyle(.circular)
-                                                    .tint(.white)
-                                                Text("Generating...")
-                                            }
-                                            .frame(maxWidth: .infinity)
-                                        } else {
-                                            HStack {
-                                                Image(systemName: "wand.and.stars")
-                                                Text("Generate Flashcards")
-                                            }
-                                            .frame(maxWidth: .infinity)
+                                        HStack {
+                                            Image(systemName: "wand.and.stars")
+                                            Text("Generate Flashcards")
                                         }
+                                        .frame(maxWidth: .infinity)
                                     }
                                     .buttonStyle(.borderedProminent)
                                     .tint(.yellow)
-                                    .disabled(isGenerating)
+                                    .disabled(isGenerating || !networkMonitor.isConnected)
                                 }
                             }
                         }
@@ -110,7 +102,9 @@ struct ManualFlashcardSetCreateView: View {
                         
                         VStack(spacing: 10) {
                             ForEach(Array(cards.enumerated()), id: \.element.id) { index, _ in
-                                FlashcardInputCard(card: $cards[index])
+                                FlashcardInputCard(card: $cards[index], onDelete: {
+                                    deleteCard(at: index)
+                                })
                             }
                         }
                     }
@@ -139,6 +133,7 @@ struct ManualFlashcardSetCreateView: View {
                 .padding(.vertical, 20)
             }
 
+            // Add card button
             Button(action: addCard) {
                 Image(systemName: "plus")
                     .font(.system(size: 18, weight: .semibold))
@@ -149,6 +144,46 @@ struct ManualFlashcardSetCreateView: View {
             }
             .padding(.trailing, 20)
             .padding(.bottom, 20)
+            
+            // Loading overlay
+            if isGenerating {
+                ZStack {
+                    Color.black.opacity(0.5).ignoresSafeArea()
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                            .tint(.white)
+                            .scaleEffect(1.5)
+                        Text("Generating flashcards...")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                        Text("This may take a few moments")
+                            .font(.subheadline)
+                            .foregroundColor(.white.opacity(0.8))
+                    }
+                    .padding(24)
+                    .background(Color.white.opacity(0.1))
+                    .cornerRadius(16)
+                }
+            }
+            
+            // Offline indicator
+            if !networkMonitor.isConnected {
+                VStack {
+                    Spacer()
+                    HStack(spacing: 12) {
+                        Image(systemName: "wifi.slash")
+                            .foregroundColor(.white)
+                        Text(networkMonitor.offlineMessage)
+                            .font(.subheadline)
+                            .foregroundColor(.white)
+                    }
+                    .padding()
+                    .background(Color.red.opacity(0.8))
+                    .cornerRadius(10)
+                    .padding(.bottom, 80)
+                }
+            }
         }
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
@@ -180,6 +215,11 @@ struct ManualFlashcardSetCreateView: View {
     
     private func generateFlashcardsFromGuide() {
         guard !studyGuides.isEmpty else { return }
+        guard networkMonitor.isConnected else {
+            errorMessage = networkMonitor.offlineMessage
+            return
+        }
+        
         isGenerating = true
         errorMessage = nil
         
@@ -289,6 +329,14 @@ Rules:
     private func addCard() {
         cards.append(EditableCard(term: "", definition: ""))
     }
+    
+    private func deleteCard(at index: Int) {
+        guard cards.count > 1 else {
+            errorMessage = "You must have at least one card."
+            return
+        }
+        cards.remove(at: index)
+    }
 
     private func save() {
         errorMessage = nil
@@ -344,6 +392,7 @@ struct InputFieldView: View {
 
 struct FlashcardInputCard: View {
     @Binding var card: ManualFlashcardSetCreateView.EditableCard
+    let onDelete: () -> Void
     @State private var isExpanded = false
     
     var body: some View {
@@ -359,6 +408,14 @@ struct FlashcardInputCard: View {
                         .lineLimit(1)
                 }
                 Spacer()
+                Button(action: onDelete) {
+                    Image(systemName: "trash")
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .padding(8)
+                        .background(Color.red.opacity(0.1))
+                        .clipShape(Circle())
+                }
                 Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                     .foregroundColor(.purple)
                     .font(.subheadline)

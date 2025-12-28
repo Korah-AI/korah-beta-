@@ -123,6 +123,7 @@ struct StudyGuidesView: View {
     @State private var generatedMarkdown: String = ""
     @State private var isLoading: Bool = false
     @State private var errorMessage: String? = nil
+    @ObservedObject private var networkMonitor = NetworkMonitor.shared
 
     @State private var savedGuides: [StudyGuide] = []
     private let saveKey = "StudyGuides"
@@ -163,6 +164,11 @@ struct StudyGuidesView: View {
     }
 
     private func generateStudyGuideFromSelectedSet() {
+        guard networkMonitor.isConnected else {
+            errorMessage = networkMonitor.offlineMessage
+            return
+        }
+        
         errorMessage = nil
         isLoading = true
         generatedMarkdown = ""
@@ -306,6 +312,11 @@ Rules:
     }
 
     private func generateStudyGuideFromPastedText() {
+        guard networkMonitor.isConnected else {
+            errorMessage = networkMonitor.offlineMessage
+            return
+        }
+        
         errorMessage = nil
         isLoading = true
 
@@ -427,6 +438,7 @@ Rules:
         NavigationStack {
             ZStack {
                 Color.clear.korahGradientBackground().ignoresSafeArea()
+                
                 List {
                     Section(header: Text("Create from Flashcards")) {
                         if flashcardSets.isEmpty {
@@ -445,7 +457,7 @@ Rules:
                             }
                             .buttonStyle(.borderedProminent)
                             .tint(.purple)
-                            .disabled(isLoading || flashcardSets.isEmpty)
+                            .disabled(isLoading || flashcardSets.isEmpty || !networkMonitor.isConnected)
 
                             Button(action: generatePracticeTestFromSelectedSet) {
                                 Label("Generate Practice Test", systemImage: "doc.text.magnifyingglass")
@@ -484,7 +496,7 @@ Rules:
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(.purple)
-                        .disabled(isLoading || inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .disabled(isLoading || inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !networkMonitor.isConnected)
                     }
                     .listRowBackground(Color.clear)
 
@@ -498,7 +510,7 @@ Rules:
                                     VStack(alignment: .leading, spacing: 6) {
                                         Text(guide.title.isEmpty ? "Untitled Guide" : guide.title)
                                             .foregroundColor(.white)
-                                        Text(guide.createdAt.formatted(date: .abbreviated, time: .shortened))
+                                        Text(guide.createdAt.formattedCreatedAt())
                                             .font(.caption)
                                             .foregroundColor(.secondary)
                                     }
@@ -518,10 +530,44 @@ Rules:
                 .scrollContentBackground(.hidden)
                 .navigationTitle("Study Guides")
 
+                // Loading overlay with detailed message
                 if isLoading {
-                    ProgressView("Generating...")
-                        .progressViewStyle(.circular)
-                        .tint(.purple)
+                    ZStack {
+                        Color.black.opacity(0.5).ignoresSafeArea()
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .progressViewStyle(.circular)
+                                .tint(.white)
+                                .scaleEffect(1.5)
+                            Text("Generating study guide...")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            Text("This may take a few moments")
+                                .font(.subheadline)
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+                        .padding(24)
+                        .background(Color.white.opacity(0.1))
+                        .cornerRadius(16)
+                    }
+                }
+                
+                // Offline indicator
+                if !networkMonitor.isConnected {
+                    VStack {
+                        Spacer()
+                        HStack(spacing: 12) {
+                            Image(systemName: "wifi.slash")
+                                .foregroundColor(.white)
+                            Text(networkMonitor.offlineMessage)
+                                .font(.subheadline)
+                                .foregroundColor(.white)
+                        }
+                        .padding()
+                        .background(Color.red.opacity(0.8))
+                        .cornerRadius(10)
+                        .padding(.bottom, 20)
+                    }
                 }
             }
         }
@@ -624,7 +670,7 @@ struct StudyGuideCard: View {
                 }
             }
             
-            Text(timestamp.formatted(date: .omitted, time: .shortened))
+            Text(timestamp.formattedTime())
                 .font(.caption2)
                 .foregroundColor(.secondary)
         }

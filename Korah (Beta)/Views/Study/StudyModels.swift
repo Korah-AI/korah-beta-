@@ -6,13 +6,25 @@ struct StudyGuide: Identifiable, Codable, Equatable {
     var content: String
     var lastOpenedAt: Date? = nil
     var createdAt: Date
+    
+    // Study tracking metadata
+    var reviewCount: Int = 0
+    var lastReviewedAt: Date? = nil
 
-    init(id: UUID = UUID(), title: String, content: String, lastOpenedAt: Date? = nil, createdAt: Date = Date()) {
+    init(id: UUID = UUID(), title: String, content: String, lastOpenedAt: Date? = nil, createdAt: Date = Date(), reviewCount: Int = 0, lastReviewedAt: Date? = nil) {
         self.id = id
         self.title = title
         self.content = content
         self.lastOpenedAt = lastOpenedAt
         self.createdAt = createdAt
+        self.reviewCount = reviewCount
+        self.lastReviewedAt = lastReviewedAt
+    }
+    
+    /// Mark this guide as reviewed
+    mutating func markReviewed() {
+        reviewCount += 1
+        lastReviewedAt = Date()
     }
 }
 
@@ -44,13 +56,48 @@ struct PracticeTest: Identifiable, Codable, Equatable {
     var questions: [PracticeTestQuestion]
     var lastOpenedAt: Date? = nil
     var createdAt: Date
+    
+    // Test performance tracking
+    var attemptCount: Int = 0
+    var lastAttemptAt: Date? = nil
+    var bestScore: Int? = nil
+    var lastScore: Int? = nil
 
-    init(id: UUID = UUID(), title: String, questions: [PracticeTestQuestion], lastOpenedAt: Date? = nil, createdAt: Date = Date()) {
+    init(id: UUID = UUID(), title: String, questions: [PracticeTestQuestion], lastOpenedAt: Date? = nil, createdAt: Date = Date(), attemptCount: Int = 0, lastAttemptAt: Date? = nil, bestScore: Int? = nil, lastScore: Int? = nil) {
         self.id = id
         self.title = title
         self.questions = questions
         self.lastOpenedAt = lastOpenedAt
         self.createdAt = createdAt
+        self.attemptCount = attemptCount
+        self.lastAttemptAt = lastAttemptAt
+        self.bestScore = bestScore
+        self.lastScore = lastScore
+    }
+    
+    /// Record a test attempt with score
+    mutating func recordAttempt(score: Int) {
+        attemptCount += 1
+        lastAttemptAt = Date()
+        lastScore = score
+        
+        if let best = bestScore {
+            bestScore = max(best, score)
+        } else {
+            bestScore = score
+        }
+    }
+    
+    /// Get score percentage for last attempt
+    var lastScorePercentage: Double? {
+        guard let score = lastScore, !questions.isEmpty else { return nil }
+        return Double(score) / Double(questions.count) * 100
+    }
+    
+    /// Get best score percentage
+    var bestScorePercentage: Double? {
+        guard let score = bestScore, !questions.isEmpty else { return nil }
+        return Double(score) / Double(questions.count) * 100
     }
 }
 
