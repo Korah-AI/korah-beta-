@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ManualStudyGuideCreateView: View {
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var networkMonitor = NetworkMonitor.shared
     
     @State private var title: String = ""
     @State private var content: String = ""
@@ -14,6 +15,7 @@ struct ManualStudyGuideCreateView: View {
     
     var body: some View {
         ZStack {
+            // Main content
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Create Study Guide")
@@ -49,7 +51,7 @@ struct ManualStudyGuideCreateView: View {
                                 }
                                 .buttonStyle(.borderedProminent)
                                 .tint(.purple)
-                                .disabled(isGenerating)
+                                .disabled(isGenerating || !networkMonitor.isConnected)
                             }
                         }
                         .padding(12)
@@ -139,6 +141,46 @@ struct ManualStudyGuideCreateView: View {
                 .padding(.horizontal)
                 .padding(.top)
             }
+            
+            // Loading overlay
+            if isGenerating {
+                ZStack {
+                    Color.black.opacity(0.5).ignoresSafeArea()
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                            .tint(.white)
+                            .scaleEffect(1.5)
+                        Text("Generating study guide...")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                        Text("This may take a few moments")
+                            .font(.subheadline)
+                            .foregroundColor(.white.opacity(0.8))
+                    }
+                    .padding(24)
+                    .background(Color.white.opacity(0.1))
+                    .cornerRadius(16)
+                }
+            }
+            
+            // Offline indicator
+            if !networkMonitor.isConnected {
+                VStack {
+                    Spacer()
+                    HStack(spacing: 12) {
+                        Image(systemName: "wifi.slash")
+                            .foregroundColor(.white)
+                        Text(networkMonitor.offlineMessage)
+                            .font(.subheadline)
+                            .foregroundColor(.white)
+                    }
+                    .padding()
+                    .background(Color.red.opacity(0.8))
+                    .cornerRadius(10)
+                    .padding(.bottom, 20)
+                }
+            }
         }
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
@@ -172,6 +214,11 @@ struct ManualStudyGuideCreateView: View {
     
     private func generateGuideFromFlashcards() {
         guard !flashcardSets.isEmpty else { return }
+        guard networkMonitor.isConnected else {
+            errorMessage = networkMonitor.offlineMessage
+            return
+        }
+        
         isGenerating = true
         errorMessage = nil
         

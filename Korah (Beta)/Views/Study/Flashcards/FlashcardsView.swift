@@ -342,13 +342,37 @@ struct FlashcardSetStudyView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-            cardArea
-            Spacer()
-            studyButtons
+        ZStack {
+            VStack(spacing: 0) {
+                header
+                cardArea
+                Spacer()
+                studyButtons
+            }
+            .background(Color.clear)
+            
+            // Loading overlay for AI generation
+            if isGeneratingTest {
+                ZStack {
+                    Color.black.opacity(0.5).ignoresSafeArea()
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                            .tint(.white)
+                            .scaleEffect(1.5)
+                        Text("Generating practice test...")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                        Text("This may take a few seconds")
+                            .font(.subheadline)
+                            .foregroundColor(.white.opacity(0.8))
+                    }
+                    .padding(24)
+                    .background(Color.white.opacity(0.1))
+                    .cornerRadius(16)
+                }
+            }
         }
-        .background(Color.clear)
         .sheet(isPresented: $showTestOptions) {
             TestOptionsSheet(set: set, isGenerating: $isGeneratingTest, onMultipleChoice: createMultipleChoiceTest, onAIGenerated: generateAITest)
         }
@@ -414,12 +438,27 @@ struct FlashcardSetStudyView: View {
         case .success(let questions):
             let test = PracticeTest(title: "Test: \(set.title)", questions: questions)
             
-            if StudyDataManager.append(test, toKey: "PracticeTests") {
-                showTestOptions = false
-                generatedTest = test
+            if let data = UserDefaults.standard.data(forKey: "PracticeTests"),
+               var existing = try? JSONDecoder().decode([PracticeTest].self, from: data) {
+                existing.append(test)
+                if let encoded = try? JSONEncoder().encode(existing) {
+                    UserDefaults.standard.set(encoded, forKey: "PracticeTests")
+                    showTestOptions = false
+                    generatedTest = test
+                } else {
+                    errorMessage = "Failed to save practice test. Please try again."
+                    showErrorAlert = true
+                }
             } else {
-                errorMessage = "Failed to save practice test. Please try again."
-                showErrorAlert = true
+                let newList = [test]
+                if let encoded = try? JSONEncoder().encode(newList) {
+                    UserDefaults.standard.set(encoded, forKey: "PracticeTests")
+                    showTestOptions = false
+                    generatedTest = test
+                } else {
+                    errorMessage = "Failed to save practice test. Please try again."
+                    showErrorAlert = true
+                }
             }
             
         case .failure(let error):
@@ -1036,10 +1075,23 @@ struct FlashcardSetDetailView: View {
         case .success(let questions):
             let test = PracticeTest(title: "Practice Test from \(set.title)", questions: questions)
             
-            if StudyDataManager.append(test, toKey: "PracticeTests") {
-                generationMessage = "Saved to Practice Tests."
+            if let data = UserDefaults.standard.data(forKey: "PracticeTests"),
+               var existing = try? JSONDecoder().decode([PracticeTest].self, from: data) {
+                existing.append(test)
+                if let encoded = try? JSONEncoder().encode(existing) {
+                    UserDefaults.standard.set(encoded, forKey: "PracticeTests")
+                    generationMessage = "Saved to Practice Tests."
+                } else {
+                    generationMessage = "Failed to save Practice Test."
+                }
             } else {
-                generationMessage = "Failed to save Practice Test."
+                let newList = [test]
+                if let encoded = try? JSONEncoder().encode(newList) {
+                    UserDefaults.standard.set(encoded, forKey: "PracticeTests")
+                    generationMessage = "Saved to Practice Tests."
+                } else {
+                    generationMessage = "Failed to save Practice Test."
+                }
             }
             
         case .failure(let error):
@@ -1517,3 +1569,4 @@ extension PracticeTest: Hashable {
         hasher.combine(id)
     }
 }
+

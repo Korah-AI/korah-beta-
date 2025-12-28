@@ -31,6 +31,7 @@ struct PracticeTestsView: View {
     }
 
     @StateObject private var store = PracticeTestsStore()
+    @ObservedObject private var networkMonitor = NetworkMonitor.shared
     @State private var newTestTitle = ""
     @State private var showingAdd = false
     @State private var showDeleteAlert = false
@@ -491,21 +492,41 @@ struct TakePracticeTestView: View {
     @State private var selectedOptionIndex: Int? = nil
     @State private var score = 0
     @State private var showResult = false
+    @State private var userAnswers: [Int] = []
+    @State private var showReview = false
 
     var body: some View {
         VStack {
-            if showResult {
+            if showReview {
+                reviewView
+            } else if showResult {
                 VStack(spacing: 20) {
                     Text("Test Completed!")
                         .font(.largeTitle)
                         .bold()
                         .foregroundColor(.purple)
+                    
+                    let percentage = Double(score) / Double(practiceTest.questions.count) * 100
                     Text("Score: \(score) / \(practiceTest.questions.count)")
                         .font(.title2)
                         .foregroundColor(.white)
-                    Button("Retake Test") { resetTest() }
-                        .buttonStyle(.borderedProminent)
+                    
+                    Text(String(format: "%.0f%%", percentage))
+                        .font(.title)
+                        .bold()
+                        .foregroundColor(percentage >= 70 ? .green : percentage >= 50 ? .orange : .red)
+                    
+                    HStack(spacing: 12) {
+                        Button("Review Answers") {
+                            showReview = true
+                        }
+                        .buttonStyle(.bordered)
                         .tint(.purple)
+                        
+                        Button("Retake Test") { resetTest() }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.purple)
+                    }
                 }
                 .padding()
                 Spacer()
@@ -575,9 +596,16 @@ struct TakePracticeTestView: View {
     private func submitAnswer() {
         guard let selected = selectedOptionIndex, currentQuestionIndex < practiceTest.questions.count else { return }
         let correct = practiceTest.questions[currentQuestionIndex].correctIndex
+        
+        userAnswers.append(selected)
         if selected == correct { score += 1 }
         selectedOptionIndex = nil
-        if currentQuestionIndex + 1 == practiceTest.questions.count { showResult = true } else { currentQuestionIndex += 1 }
+        
+        if currentQuestionIndex + 1 == practiceTest.questions.count { 
+            showResult = true 
+        } else { 
+            currentQuestionIndex += 1 
+        }
     }
 
     private func resetTest() {
@@ -585,10 +613,161 @@ struct TakePracticeTestView: View {
         currentQuestionIndex = 0
         selectedOptionIndex = nil
         showResult = false
+        showReview = false
+        userAnswers = []
+    }
+    
+    private var reviewView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                backButton
+                
+                ForEach(Array(practiceTest.questions.enumerated()), id: \.element.id) { index, question in
+                    ReviewQuestionCard(
+                        questionNumber: index + 1,
+                        question: question,
+                        userAnswer: index < userAnswers.count ? userAnswers[index] : -1
+                    )
+                }
+                
+                Spacer(minLength: 20)
+            }
+        }
+        .background(Color.clear)
+    }
+    
+    private var backButton: some View {
+        HStack {
+            Button(action: { showReview = false }) {
+                HStack {
+                    Image(systemName: "chevron.left")
+                    Text("Back to Results")
+                }
+            }
+            Spacer()
+        }
+        .padding(.horizontal)
+        .padding(.top)
+    }
+}
+
+struct ReviewQuestionCard: View {
+    let questionNumber: Int
+    let question: PracticeTestQuestion
+    let userAnswer: Int
+    
+    private var isCorrect: Bool {
+        userAnswer == question.correctIndex
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            questionHeader
+            questionPrompt
+            optionsList
+        }
+        .padding(16)
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(12)
+        .padding(.horizontal)
+    }
+    
+    private var questionHeader: some View {
+        HStack {
+            Text("Question \(questionNumber)")
+                .font(.headline)
+                .foregroundColor(.white)
+            Spacer()
+            Image(systemName: isCorrect ? "checkmark.circle.fill" : "xmark.circle.fill")
+                .foregroundColor(isCorrect ? .green : .red)
+                .font(.title3)
+        }
+    }
+    
+    private var questionPrompt: some View {
+        Text(question.prompt)
+            .font(.body)
+            .foregroundColor(.white)
+            .padding(.bottom, 4)
+    }
+    
+    private var optionsList: some View {
+        ForEach(question.options.indices, id: \.self) { optionIndex in
+            ReviewOptionRow(
+                option: question.options[optionIndex],
+                isUserAnswer: optionIndex == userAnswer,
+                isCorrectAnswer: optionIndex == question.correctIndex
+            )
+        }
+    }
+}
+
+struct ReviewOptionRow: View {
+    let option: String
+    let isUserAnswer: Bool
+    let isCorrectAnswer: Bool
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            optionIcon
+            
+            Text(option)
+                .foregroundColor(.white)
+                .fontWeight(isCorrectAnswer || isUserAnswer ? .semibold : .regular)
+            
+            Spacer()
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .background(backgroundColor)
+        .overlay(borderOverlay)
+    }
+    
+    @ViewBuilder
+    private var optionIcon: some View {
+        if isCorrectAnswer {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundColor(.green)
+        } else if isUserAnswer {
+            Image(systemName: "xmark.circle.fill")
+                .foregroundColor(.red)
+        } else {
+            Image(systemName: "circle")
+                .foregroundColor(.gray)
+        }
+    }
+    
+    private var backgroundColor: some View {
+        RoundedRectangle(cornerRadius: 8)
+            .fill(backgroundFillColor)
+    }
+    
+    private var backgroundFillColor: Color {
+        if isCorrectAnswer {
+            return Color.green.opacity(0.15)
+        } else if isUserAnswer {
+            return Color.red.opacity(0.15)
+        } else {
+            return Color.clear
+        }
+    }
+    
+    private var borderOverlay: some View {
+        RoundedRectangle(cornerRadius: 8)
+            .stroke(borderColor, lineWidth: 1)
+    }
+    
+    private var borderColor: Color {
+        if isCorrectAnswer {
+            return Color.green
+        } else if isUserAnswer {
+            return Color.red
+        } else {
+            return Color.gray.opacity(0.3)
+        }
     }
 }
 
 #Preview {
     NavigationStack { PracticeTestsView() }
 }
-
