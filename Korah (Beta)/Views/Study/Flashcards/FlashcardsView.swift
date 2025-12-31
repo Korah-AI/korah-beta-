@@ -25,7 +25,7 @@ struct FlashcardsView: View {
             content
                 .korahGradientBackground()
         }
-        .accentColor(.purple)
+        .accentColor(.korahPurple)
         .navigationTitle("Flashcards")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -75,21 +75,7 @@ struct FlashcardsView: View {
     @ViewBuilder
     private var content: some View {
         if sets.isEmpty {
-            VStack(spacing: 16) {
-                Text("No flashcard sets yet.")
-                    .foregroundColor(.gray)
-                Button(action: { showingAddSet = true }) {
-                    Text("Create your first set")
-                        .foregroundColor(.white)
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(Color.purple)
-                        .cornerRadius(12)
-                        .padding(.horizontal)
-                }
-                .tint(.purple)
-            }
-            .padding()
+            emptyStateView
         } else if let set = selectedSet {
             FlashcardSetStudyView(set: set, onBack: { selectedSet = nil })
         } else {
@@ -104,6 +90,66 @@ struct FlashcardsView: View {
             )
         }
     }
+    
+    @ViewBuilder
+    private var emptyStateView: some View {
+        ScrollView {
+            VStack(spacing: 32) {
+                Spacer(minLength: 60)
+                
+                // Icon and heading
+                VStack(spacing: 20) {
+                    Image(systemName: "rectangle.stack")
+                        .font(.system(size: 70))
+                        .foregroundColor(.purple)
+                        .shadow(color: .purple.opacity(0.3), radius: 10)
+                    
+                    Text("Start Learning with Flashcards")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.center)
+                    
+                    Text("Create your first flashcard set to begin studying efficiently")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                }
+                
+                // Quick start options
+                VStack(spacing: 16) {
+                    EmptyStateActionCard(
+                        icon: "plus.circle.fill",
+                        title: "Create Flashcard Set",
+                        description: "Build your own custom study set",
+                        color: .purple,
+                        action: { showingAddSet = true }
+                    )
+                    
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Quick Tips")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 20)
+                        
+                        QuickTipRow(icon: "lightbulb.fill", text: "Add 5-10 cards for effective studying")
+                        QuickTipRow(icon: "sparkles", text: "Generate study guides from your flashcards")
+                        QuickTipRow(icon: "doc.text.magnifyingglass", text: "Create practice tests automatically")
+                    }
+                    .padding(.vertical, 16)
+                    .padding(.horizontal, 20)
+                    .background(Color.white.opacity(0.05))
+                    .cornerRadius(16)
+                    .padding(.horizontal, 20)
+                }
+                
+                Spacer(minLength: 40)
+            }
+            .padding(.vertical)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
 
     struct FlashcardSetListView: View {
         let sets: [FlashcardSet]
@@ -112,48 +158,20 @@ struct FlashcardsView: View {
         let onDelete: (FlashcardSet) -> Void
 
         var body: some View {
-            List {
-                ForEach(sets) { set in
-                    Button(action: { onSelect(set) }) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(set.title)
-                                    .font(.headline)
-                                    .foregroundColor(.white)
-                                Text("\(set.cards.count) cards")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                            }
-                            Spacer()
-                            Button(action: { onEdit(set) }) {
-                                Image(systemName: "ellipsis")
-                                    .foregroundColor(.white)
-                                    .padding(8)
-                                    .background(Color.white.opacity(0.1))
-                                    .clipShape(Circle())
-                            }
-                            .contextMenu {
-                                Button {
-                                    onEdit(set)
-                                } label: {
-                                    Label("Edit", systemImage: "pencil")
-                                }
-                                Button(role: .destructive) {
-                                    onDelete(set)
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
-                                }
-                            }
-                            Image(systemName: "chevron.right")
-                                .foregroundColor(.purple)
-                        }
+            ScrollView {
+                VStack(spacing: 12) {
+                    ForEach(sets) { set in
+                        FlashcardSetCard(
+                            set: set,
+                            onSelect: { onSelect(set) },
+                            onEdit: { onEdit(set) },
+                            onDelete: { onDelete(set) }
+                        )
                     }
-                    .listRowBackground(Color.clear)
                 }
+                .padding(.horizontal)
+                .padding(.vertical, 12)
             }
-            .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
-            .background(Color.clear)
         }
     }
 
@@ -361,6 +379,28 @@ struct FlashcardSetStudyView: View {
                             .tint(.white)
                             .scaleEffect(1.5)
                         Text("Generating practice test...")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                        Text("This may take a few seconds")
+                            .font(.subheadline)
+                            .foregroundColor(.white.opacity(0.8))
+                    }
+                    .padding(24)
+                    .background(Color.white.opacity(0.1))
+                    .cornerRadius(16)
+                }
+            }
+            
+            // Loading overlay for study guide generation
+            if isGeneratingGuide {
+                ZStack {
+                    Color.black.opacity(0.5).ignoresSafeArea()
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                            .tint(.white)
+                            .scaleEffect(1.5)
+                        Text("Generating study guide...")
                             .font(.headline)
                             .foregroundColor(.white)
                         Text("This may take a few seconds")
@@ -1624,6 +1664,153 @@ struct ErrorAlertView: View {
             .padding()
         }
         .korahGradientBackground()
+    }
+}
+
+// MARK: - Card Components
+
+private struct FlashcardSetCard: View {
+    let set: FlashcardSet
+    let onSelect: () -> Void
+    let onEdit: () -> Void
+    let onDelete: () -> Void
+    
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 16) {
+                // Icon
+                Image(systemName: "rectangle.stack.fill")
+                    .font(.system(size: 28))
+                    .foregroundColor(.purple)
+                    .frame(width: 56, height: 56)
+                    .background(Color.purple.opacity(0.15))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                
+                // Content
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(set.title)
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                    
+                    HStack(spacing: 6) {
+                        Image(systemName: "square.on.square")
+                            .font(.system(size: 11))
+                        Text("\(set.cards.count) card\(set.cards.count == 1 ? "" : "s")")
+                            .font(.subheadline)
+                    }
+                    .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                // Actions
+                HStack(spacing: 8) {
+                    Menu {
+                        Button {
+                            onEdit()
+                        } label: {
+                            Label("Edit", systemImage: "pencil")
+                        }
+                        Button(role: .destructive) {
+                            onDelete()
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.7))
+                            .frame(width: 32, height: 32)
+                            .background(Color.white.opacity(0.08))
+                            .clipShape(Circle())
+                    }
+                    
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.purple.opacity(0.7))
+                }
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.white.opacity(0.08))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.purple.opacity(0.2), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Empty State Components
+
+private struct EmptyStateActionCard: View {
+    let icon: String
+    let title: String
+    let description: String
+    let color: Color
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 16) {
+                Image(systemName: icon)
+                    .font(.system(size: 32, weight: .semibold))
+                    .foregroundColor(color)
+                    .frame(width: 60, height: 60)
+                    .background(color.opacity(0.15))
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(title)
+                        .font(.headline)
+                        .foregroundColor(.white)
+                    
+                    Text(description)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(color.opacity(0.7))
+            }
+            .padding(20)
+            .background(Color.white.opacity(0.08))
+            .cornerRadius(16)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(color.opacity(0.3), lineWidth: 1.5)
+            )
+        }
+        .padding(.horizontal, 20)
+    }
+}
+
+private struct QuickTipRow: View {
+    let icon: String
+    let text: String
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 16))
+                .foregroundColor(.purple)
+                .frame(width: 24, height: 24)
+            
+            Text(text)
+                .font(.subheadline)
+                .foregroundColor(.white.opacity(0.9))
+            
+            Spacer()
+        }
     }
 }
 

@@ -43,7 +43,7 @@ struct ManualPracticeTestCreateView: View {
                                 Spacer()
                                 Button(action: { showGuideSelectionSection.toggle() }) {
                                     Image(systemName: showGuideSelectionSection ? "chevron.up" : "chevron.down")
-                                        .foregroundColor(.purple)
+                                        .foregroundColor(.korahPurple)
                                 }
                             }
                             
@@ -57,10 +57,12 @@ struct ManualPracticeTestCreateView: View {
                                 
                                 Button(action: generateTestFromGuide) {
                                     Label("Generate Practice Test", systemImage: "sparkles")
+                                        .font(.subheadline.weight(.semibold))
                                         .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 4)
                                 }
                                 .buttonStyle(.borderedProminent)
-                                .tint(.purple)
+                                .tint(.korahPurple)
                                 .disabled(isGenerating)
                             }
                         }
@@ -117,9 +119,9 @@ struct ManualPracticeTestCreateView: View {
                 Image(systemName: "plus")
                     .font(.system(size: 20, weight: .bold))
                     .foregroundColor(.white)
-                    .frame(width: 52, height: 52)
-                    .background(Circle().fill(Color.blue))
-                    .shadow(color: Color.black.opacity(0.3), radius: 6, x: 0, y: 4)
+                    .frame(width: 56, height: 56)
+                    .background(Circle().fill(Color.korahPurple))
+                    .shadow(color: Color.korahPurple.opacity(0.5), radius: 8, x: 0, y: 4)
             }
             .padding(.trailing, 20)
             .padding(.bottom, 20)
@@ -134,7 +136,7 @@ struct ManualPracticeTestCreateView: View {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: save) { Image(systemName: "checkmark") }
                     .disabled(!canSave)
-                    .foregroundColor(canSave ? .purple : .gray)
+                    .foregroundColor(canSave ? .korahPurple : .gray)
             }
         }
         .navigationBarTitleDisplayMode(.inline)

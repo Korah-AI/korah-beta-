@@ -33,7 +33,7 @@ struct ManualStudyGuideCreateView: View {
                                 Spacer()
                                 Button(action: { showSetSelectionSection.toggle() }) {
                                     Image(systemName: showSetSelectionSection ? "chevron.up" : "chevron.down")
-                                        .foregroundColor(.purple)
+                                        .foregroundColor(.korahPurple)
                                 }
                             }
                             
@@ -47,10 +47,12 @@ struct ManualStudyGuideCreateView: View {
                                 
                                 Button(action: generateGuideFromFlashcards) {
                                     Label("Generate Study Guide", systemImage: "sparkles")
+                                        .font(.subheadline.weight(.semibold))
                                         .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 4)
                                 }
                                 .buttonStyle(.borderedProminent)
-                                .tint(.purple)
+                                .tint(.korahPurple)
                                 .disabled(isGenerating || !networkMonitor.isConnected)
                             }
                         }
@@ -192,7 +194,7 @@ struct ManualStudyGuideCreateView: View {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: save) { Image(systemName: "checkmark") }
                     .disabled(!canSave)
-                    .foregroundColor(canSave ? .purple : .gray)
+                    .foregroundColor(canSave ? .korahPurple : .gray)
             }
         }
         .navigationBarTitleDisplayMode(.inline)

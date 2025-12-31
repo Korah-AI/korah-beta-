@@ -11,13 +11,29 @@ struct AIGenerateFlashcardsFromGuideView: View {
     
     var body: some View {
         ZStack {
+            Color.clear.korahGradientBackground()
+                .ignoresSafeArea()
+            
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    Text("Generate Flashcards from Study Guide")
-                        .font(.title2).bold()
-                        .foregroundColor(.white)
+                    HStack(spacing: 12) {
+                        Image(systemName: "sparkles")
+                            .foregroundColor(.purple)
+                            .font(.title2)
+                            .shadow(color: .purple.opacity(0.3), radius: 5)
+                        Text("Generate Flashcards")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding()
+                    
+                    Text("From Study Guide")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
                         .frame(maxWidth: .infinity, alignment: .center)
-                        .padding()
+                        .padding(.horizontal)
                     
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Select Study Guide")
@@ -36,8 +52,12 @@ struct AIGenerateFlashcardsFromGuideView: View {
                             }
                             .pickerStyle(.menu)
                             .padding()
-                            .background(Color.white.opacity(0.06))
-                            .cornerRadius(10)
+                            .background(Color.white.opacity(0.08))
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                            )
                         }
                     }
                     .padding()
@@ -71,34 +91,50 @@ struct AIGenerateFlashcardsFromGuideView: View {
                     }
                     
                     Button(action: generateFlashcards) {
-                        if isGenerating {
-                            HStack {
+                        HStack(spacing: 8) {
+                            if isGenerating {
                                 ProgressView()
                                     .progressViewStyle(.circular)
                                     .tint(.white)
                                 Text("Generating...")
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.purple)
-                            .foregroundColor(.white)
-                            .cornerRadius(10)
-                        } else {
-                            HStack {
+                            } else {
                                 Image(systemName: "sparkles")
                                 Text("Generate Flashcards")
                             }
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(studyGuides.isEmpty || isGenerating ? Color.gray : Color.purple)
-                            .foregroundColor(.white)
-                            .cornerRadius(10)
                         }
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(studyGuides.isEmpty || isGenerating ? Color.gray.opacity(0.5) : Color.purple)
+                        .cornerRadius(12)
                     }
                     .disabled(studyGuides.isEmpty || isGenerating)
-                    .padding()
+                    .padding(.horizontal)
                     
                     Spacer()
+                }
+            }
+            
+            // Loading overlay
+            if isGenerating {
+                ZStack {
+                    Color.black.opacity(0.5).ignoresSafeArea()
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                            .tint(.white)
+                            .scaleEffect(1.5)
+                        Text("Generating flashcards...")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                        Text("This may take a few seconds")
+                            .font(.subheadline)
+                            .foregroundColor(.white.opacity(0.8))
+                    }
+                    .padding(24)
+                    .background(Color.white.opacity(0.1))
+                    .cornerRadius(16)
                 }
             }
         }
@@ -111,8 +147,6 @@ struct AIGenerateFlashcardsFromGuideView: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
-        .background(Color.clear)
-        .korahGradientBackground()
         .preferredColorScheme(.dark)
         .onAppear { loadStudyGuides() }
     }

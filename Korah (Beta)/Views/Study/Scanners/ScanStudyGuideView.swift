@@ -14,27 +14,29 @@ struct ScanStudyGuideView: View {
     @State private var generationProgress: Double = 0.0
     
     var body: some View {
-        ZStack {
-            VStack(spacing: 0) {
-                HStack {
-                    Button(role: .cancel) { dismiss() } label: { Image(systemName: "xmark") }
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Scan Study Guide")
-                            .font(.headline)
-                        Text("\(selectedImages.count) image\(selectedImages.count == 1 ? "" : "s") added")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+        NavigationStack {
+            ZStack {
+                VStack(spacing: 0) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Scan Study Guide")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            Text("\(selectedImages.count) image\(selectedImages.count == 1 ? "" : "s") added")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        Button(action: { selectedImages.removeAll() }) {
+                            Image(systemName: "trash")
+                                .foregroundColor(.white)
+                        }
+                        .disabled(selectedImages.isEmpty)
                     }
-                    Spacer()
-                    Button(action: { selectedImages.removeAll() }) {
-                        Image(systemName: "trash")
-                    }
-                    .disabled(selectedImages.isEmpty)
-                }
-                .padding()
-                .background(Color.white.opacity(0.06))
-                .cornerRadius(12)
-                .padding()
+                    .padding()
+                    .background(Color.white.opacity(0.06))
+                    .cornerRadius(12)
+                    .padding()
                 
                 ScrollView {
                     VStack(spacing: 20) {
@@ -171,80 +173,90 @@ struct ScanStudyGuideView: View {
                 
                 Spacer()
                 
-                VStack(spacing: 12) {
-                    Button(action: generateStudyGuide) {
-                        if isGenerating {
+                    VStack(spacing: 12) {
+                        Button(action: generateStudyGuide) {
+                            if isGenerating {
+                                HStack(spacing: 8) {
+                                    ProgressView()
+                                        .progressViewStyle(.circular)
+                                        .tint(.white)
+                                    Text("Processing...")
+                                    Spacer()
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(14)
+                                .background(Color.purple)
+                                .foregroundColor(.white)
+                                .cornerRadius(12)
+                                .fontWeight(.semibold)
+                            } else {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "sparkles")
+                                    Text("Generate Study Guide")
+                                    Spacer()
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(14)
+                                .background(selectedImages.isEmpty ? Color.gray.opacity(0.4) : Color.purple)
+                                .foregroundColor(.white)
+                                .cornerRadius(12)
+                                .fontWeight(.semibold)
+                            }
+                        }
+                        .disabled(selectedImages.isEmpty || isGenerating)
+                        
+                        Button(action: { showImageSourceAlert = true }) {
                             HStack(spacing: 8) {
-                                ProgressView()
-                                    .progressViewStyle(.circular)
-                                    .tint(.white)
-                                Text("Processing...")
+                                Image(systemName: "plus.circle.fill")
+                                Text("Add Image")
                                 Spacer()
                             }
                             .frame(maxWidth: .infinity)
                             .padding(14)
-                            .background(Color.purple)
-                            .foregroundColor(.white)
-                            .cornerRadius(12)
-                            .fontWeight(.semibold)
-                        } else {
-                            HStack(spacing: 8) {
-                                Image(systemName: "sparkles")
-                                Text("Generate Study Guide")
-                                Spacer()
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(14)
-                            .background(selectedImages.isEmpty ? Color.gray.opacity(0.4) : Color.purple)
+                            .background(Color.white.opacity(0.1))
                             .foregroundColor(.white)
                             .cornerRadius(12)
                             .fontWeight(.semibold)
                         }
+                        .disabled(isGenerating)
                     }
-                    .disabled(selectedImages.isEmpty || isGenerating)
-                    
-                    Button(action: { showImageSourceAlert = true }) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "plus.circle.fill")
-                            Text("Add Image")
-                            Spacer()
+                    .padding()
+                }
+            }
+            .confirmationDialog("Choose Image Source", isPresented: $showImageSourceAlert) {
+                Button("Camera") {
+                    imageSourceType = .camera
+                    showImagePicker = true
+                }
+                Button("Photo Library") {
+                    imageSourceType = .photoLibrary
+                    showImagePicker = true
+                }
+                Button("Cancel", role: .cancel) {}
+            }
+            .sheet(isPresented: $showImagePicker) {
+                ImagePicker(selectedImage: Binding(
+                    get: { nil },
+                    set: { img in
+                        if let img = img {
+                            selectedImages.append(img)
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(14)
-                        .background(Color.white.opacity(0.1))
-                        .foregroundColor(.white)
-                        .cornerRadius(12)
-                        .fontWeight(.semibold)
                     }
-                    .disabled(isGenerating)
+                ), sourceType: imageSourceType)
+            }
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(role: .cancel) { dismiss() } label: { Image(systemName: "xmark") }
                 }
-                .padding()
-            }
-        }
-        .confirmationDialog("Choose Image Source", isPresented: $showImageSourceAlert) {
-            Button("Camera") {
-                imageSourceType = .camera
-                showImagePicker = true
-            }
-            Button("Photo Library") {
-                imageSourceType = .photoLibrary
-                showImagePicker = true
-            }
-            Button("Cancel", role: .cancel) {}
-        }
-        .sheet(isPresented: $showImagePicker) {
-            ImagePicker(selectedImage: Binding(
-                get: { nil },
-                set: { img in
-                    if let img = img {
-                        selectedImages.append(img)
-                    }
+                ToolbarItem(placement: .principal) {
+                    Text("Scan Study Guide").font(.headline).foregroundColor(.white)
                 }
-            ), sourceType: imageSourceType)
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .background(Color.clear)
+            .korahGradientBackground()
+            .preferredColorScheme(.dark)
         }
-        .background(Color.clear)
-        .korahGradientBackground()
-        .preferredColorScheme(.dark)
     }
     
     private func generateStudyGuide() {

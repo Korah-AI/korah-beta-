@@ -436,140 +436,41 @@ Rules:
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                Color.clear.korahGradientBackground().ignoresSafeArea()
-                
-                List {
-                    Section(header: Text("Create from Flashcards")) {
-                        if flashcardSets.isEmpty {
-                            Text("No flashcard sets found.").foregroundColor(.secondary)
-                        } else {
-                            Picker("Flashcard Set", selection: $selectedSetIndex) {
-                                ForEach(flashcardSets.indices, id: \.self) { idx in
-                                    Text(flashcardSets[idx].title).tag(idx)
-                                }
-                            }
-                            .pickerStyle(MenuPickerStyle())
-
-                            Button(action: generateStudyGuideFromSelectedSet) {
-                                Label("Generate Study Guide", systemImage: "book.closed")
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .tint(.purple)
-                            .disabled(isLoading || flashcardSets.isEmpty || !networkMonitor.isConnected)
-
-                            Button(action: generatePracticeTestFromSelectedSet) {
-                                Label("Generate Practice Test", systemImage: "doc.text.magnifyingglass")
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(.bordered)
-                            .tint(.purple)
-                            .disabled(isLoading || flashcardSets.isEmpty)
-
-                            Button { showManualCreate = true } label: {
-                                Label("Create Manually", systemImage: "plus.square.on.square")
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(.bordered)
-                            .tint(.purple)
-                            .disabled(isLoading)
-                        }
-                    }
-                    .listRowBackground(Color.clear)
-
-                    Section(header: Text("Create from Pasted Text")) {
-                        TextField("Guide Title (optional)", text: $guideTitle)
-                            .textInputAutocapitalization(.words)
-                        TextEditor(text: $inputText)
-                            .frame(minHeight: 140)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                            )
-                            .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
-                        Button {
-                            generateStudyGuideFromPastedText()
-                        } label: {
-                            Label("Generate from Text", systemImage: "sparkles")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.purple)
-                        .disabled(isLoading || inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !networkMonitor.isConnected)
-                    }
-                    .listRowBackground(Color.clear)
-
-                    Section(header: Text("Saved Study Guides")) {
-                        let guides: [StudyGuide] = savedGuides.sorted(by: { (lhs: StudyGuide, rhs: StudyGuide) in lhs.createdAt > rhs.createdAt })
-                        if guides.isEmpty {
-                            Text("No study guides yet.").foregroundColor(.secondary)
-                        } else {
-                            ForEach(guides) { guide in
-                                NavigationLink(destination: StudyGuideDetailView(guide: guide)) {
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        Text(guide.title.isEmpty ? "Untitled Guide" : guide.title)
-                                            .foregroundColor(.white)
-                                        Text(guide.createdAt.formattedCreatedAt())
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
-                                }
-                            }
-                            .onDelete(perform: deleteGuides)
-                        }
-                    }
-                    .listRowBackground(Color.clear)
-
-                    if let errorMessage = errorMessage {
-                        Section { Text(errorMessage).foregroundColor(.red) }
-                            .listRowBackground(Color.clear)
-                    }
+            ScrollView {
+                VStack(spacing: 20) {
+                    flashcardsSection
+                    
+                    Divider()
+                        .background(Color.white.opacity(0.2))
+                        .padding(.horizontal, 20)
+                    
+                    pastedTextSection
+                    
+                    Divider()
+                        .background(Color.white.opacity(0.2))
+                        .padding(.horizontal, 20)
+                    
+                    savedGuidesSection
+                    
+                    errorSection
                 }
-                .listStyle(.insetGrouped)
-                .scrollContentBackground(.hidden)
-                .navigationTitle("Study Guides")
-
-                // Loading overlay with detailed message
-                if isLoading {
-                    ZStack {
-                        Color.black.opacity(0.5).ignoresSafeArea()
-                        VStack(spacing: 16) {
-                            ProgressView()
-                                .progressViewStyle(.circular)
-                                .tint(.white)
-                                .scaleEffect(1.5)
-                            Text("Generating study guide...")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                            Text("This may take a few moments")
-                                .font(.subheadline)
-                                .foregroundColor(.white.opacity(0.8))
-                        }
-                        .padding(24)
-                        .background(Color.white.opacity(0.1))
-                        .cornerRadius(16)
-                    }
-                }
-                
-                // Offline indicator
-                if !networkMonitor.isConnected {
-                    VStack {
-                        Spacer()
-                        HStack(spacing: 12) {
-                            Image(systemName: "wifi.slash")
-                                .foregroundColor(.white)
-                            Text(networkMonitor.offlineMessage)
-                                .font(.subheadline)
-                                .foregroundColor(.white)
-                        }
-                        .padding()
-                        .background(Color.red.opacity(0.8))
-                        .cornerRadius(10)
-                        .padding(.bottom, 20)
-                    }
+                .padding(.vertical, 16)
+            }
+            .background(Color.clear)
+            .korahGradientBackground()
+            .overlay {
+                loadingOverlay
+                offlineIndicator
+            }
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("Study Guides")
+                        .font(.headline)
+                        .foregroundColor(.white)
                 }
             }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
         }
         .accentColor(.purple)
         .preferredColorScheme(.dark)
@@ -583,6 +484,337 @@ Rules:
         .sheet(isPresented: $showManualCreate, onDismiss: { loadFlashcardSets() }) {
             NavigationStack { ManualFlashcardSetCreateView() }
                 .accentColor(.purple)
+        }
+    }
+    
+    // MARK: - View Components
+    
+    @ViewBuilder
+    private var flashcardsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+                        Text("Create from Flashcards")
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 20)
+                        
+                        if flashcardSets.isEmpty {
+                            VStack(spacing: 16) {
+                                Image(systemName: "rectangle.stack")
+                                    .font(.system(size: 50))
+                                    .foregroundColor(.purple.opacity(0.5))
+                                
+                                Text("No flashcard sets found")
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                                
+                                Text("Create a flashcard set first to generate study guides from it")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal, 24)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 32)
+                            .background(Color.white.opacity(0.06))
+                            .cornerRadius(16)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(Color.purple.opacity(0.2), lineWidth: 1)
+                            )
+                            .padding(.horizontal, 20)
+                        } else {
+                            VStack(spacing: 16) {
+                                // Flashcard Set Picker Card
+                                VStack(alignment: .leading, spacing: 12) {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "rectangle.stack")
+                                            .font(.system(size: 24))
+                                            .foregroundColor(.purple)
+                                            .frame(width: 50, height: 50)
+                                            .background(Color.purple.opacity(0.15))
+                                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                                        
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text("Select Flashcard Set")
+                                                .font(.headline)
+                                                .foregroundColor(.white)
+                                            
+                                            Text("Choose a set to generate from")
+                                                .font(.subheadline)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        
+                                        Spacer()
+                                    }
+                                    
+                                    Picker("Flashcard Set", selection: $selectedSetIndex) {
+                                        ForEach(flashcardSets.indices, id: \.self) { idx in
+                                            Text(flashcardSets[idx].title).tag(idx)
+                                        }
+                                    }
+                                    .pickerStyle(.menu)
+                                    .tint(.purple)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 10)
+                                    .background(Color.white.opacity(0.08))
+                                    .cornerRadius(10)
+                                }
+                                .padding(20)
+                                .background(Color.white.opacity(0.06))
+                                .cornerRadius(16)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .stroke(Color.purple.opacity(0.3), lineWidth: 1.5)
+                                )
+                                
+                                // Generation Options
+                                StudyGuideGenerationCard(
+                                    icon: "book.closed",
+                                    title: "Generate Study Guide",
+                                    description: "Create a comprehensive study guide from flashcards",
+                                    buttonText: "Generate",
+                                    color: .blue,
+                                    action: generateStudyGuideFromSelectedSet,
+                                    isDisabled: isLoading || !networkMonitor.isConnected
+                                )
+                                
+                                StudyGuideGenerationCard(
+                                    icon: "doc.text.magnifyingglass",
+                                    title: "Generate Practice Test",
+                                    description: "Create a practice test based on your flashcards",
+                                    buttonText: "Generate",
+                                    color: .green,
+                                    action: generatePracticeTestFromSelectedSet,
+                                    isDisabled: isLoading
+                                )
+                                
+                                StudyGuideGenerationCard(
+                                    icon: "pencil.line",
+                                    title: "Create Manually",
+                                    description: "Build a study guide from scratch",
+                                    buttonText: "Create",
+                                    color: .purple,
+                                    action: { showManualCreate = true },
+                                    isDisabled: isLoading
+                                )
+                            }
+                            .padding(.horizontal, 20)
+                        }
+                    }
+    }
+    
+    @ViewBuilder
+    private var pastedTextSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+                        Text("Create from Pasted Text")
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 20)
+                        
+                        VStack(spacing: 16) {
+                            VStack(alignment: .leading, spacing: 12) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "doc.text")
+                                        .font(.system(size: 24))
+                                        .foregroundColor(.blue)
+                                        .frame(width: 50, height: 50)
+                                        .background(Color.blue.opacity(0.15))
+                                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Paste Your Content")
+                                            .font(.headline)
+                                            .foregroundColor(.white)
+                                        
+                                        Text("Add text to generate a study guide")
+                                            .font(.subheadline)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    
+                                    Spacer()
+                                }
+                                
+                                TextField("Guide Title (optional)", text: $guideTitle)
+                                    .textInputAutocapitalization(.words)
+                                    .foregroundColor(.white)
+                                    .padding(12)
+                                    .background(Color.white.opacity(0.08))
+                                    .cornerRadius(10)
+                                
+                                TextEditor(text: $inputText)
+                                    .frame(minHeight: 140)
+                                    .foregroundColor(.white)
+                                    .scrollContentBackground(.hidden)
+                                    .padding(12)
+                                    .background(Color.white.opacity(0.08))
+                                    .cornerRadius(10)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                                    )
+                            }
+                            .padding(20)
+                            .background(Color.white.opacity(0.06))
+                            .cornerRadius(16)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(Color.blue.opacity(0.3), lineWidth: 1.5)
+                            )
+                            
+                            Button(action: generateStudyGuideFromPastedText) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "sparkles")
+                                        .font(.headline)
+                                    Text("Generate from Text")
+                                        .font(.headline)
+                                }
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(
+                                    (isLoading || inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !networkMonitor.isConnected) 
+                                    ? Color.blue.opacity(0.5) 
+                                    : Color.blue
+                                )
+                                .cornerRadius(12)
+                            }
+                            .disabled(isLoading || inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !networkMonitor.isConnected)
+                        }
+                        .padding(.horizontal, 20)
+        }
+    }
+    
+    @ViewBuilder
+    private var savedGuidesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+                        Text("Saved Study Guides")
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 20)
+                        
+                        let guides: [StudyGuide] = savedGuides.sorted(by: { $0.createdAt > $1.createdAt })
+                        
+                        if guides.isEmpty {
+                            VStack(spacing: 16) {
+                                Image(systemName: "book.closed")
+                                    .font(.system(size: 50))
+                                    .foregroundColor(.blue.opacity(0.5))
+                                
+                                Text("No study guides yet")
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                                
+                                Text("Generate your first study guide to get started")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal, 24)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 32)
+                            .background(Color.white.opacity(0.06))
+                            .cornerRadius(16)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+                            )
+                            .padding(.horizontal, 20)
+                        } else {
+                            ForEach(guides) { guide in
+                                NavigationLink(destination: StudyGuideDetailView(guide: guide)) {
+                                    StudyGuideItemCard(
+                                        title: guide.title.isEmpty ? "Untitled Guide" : guide.title,
+                                        subtitle: guide.createdAt.formattedCreatedAt()
+                                    )
+                                }
+                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                    Button(role: .destructive) {
+                                        if let index = savedGuides.firstIndex(where: { $0.id == guide.id }) {
+                                            savedGuides.remove(at: index)
+                                            persistGuides()
+                                        }
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
+                                .padding(.horizontal, 20)
+                            }
+                        }
+        }
+    }
+    
+    @ViewBuilder
+    private var errorSection: some View {
+        if let errorMessage = errorMessage {
+            VStack(spacing: 12) {
+                HStack(spacing: 12) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(.red)
+                    
+                    Text(errorMessage)
+                        .font(.subheadline)
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.leading)
+                    
+                    Spacer()
+                }
+                .padding(16)
+                .background(Color.red.opacity(0.15))
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.red.opacity(0.3), lineWidth: 1.5)
+                )
+            }
+            .padding(.horizontal, 20)
+        }
+    }
+    
+    @ViewBuilder
+    private var loadingOverlay: some View {
+        if isLoading {
+            ZStack {
+                Color.black.opacity(0.5).ignoresSafeArea()
+                VStack(spacing: 16) {
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                        .tint(.white)
+                        .scaleEffect(1.5)
+                    Text("Generating study guide...")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                    Text("This may take a few moments")
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.8))
+                }
+                .padding(24)
+                .background(Color.white.opacity(0.1))
+                .cornerRadius(16)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var offlineIndicator: some View {
+        if !networkMonitor.isConnected {
+            VStack {
+                Spacer()
+                HStack(spacing: 12) {
+                    Image(systemName: "wifi.slash")
+                        .foregroundColor(.white)
+                    Text(networkMonitor.offlineMessage)
+                        .font(.subheadline)
+                        .foregroundColor(.white)
+                }
+                .padding()
+                .background(Color.red.opacity(0.8))
+                .cornerRadius(10)
+                .padding(.bottom, 20)
+            }
         }
     }
 }
@@ -894,6 +1126,107 @@ struct StudyGuideGeneratorView: View {
         }
         .accentColor(.purple)
         .preferredColorScheme(.dark)
+    }
+}
+
+// MARK: - Helper Views
+
+private struct StudyGuideGenerationCard: View {
+    let icon: String
+    let title: String
+    let description: String
+    let buttonText: String
+    let color: Color
+    let action: () -> Void
+    let isDisabled: Bool
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 16) {
+                Image(systemName: icon)
+                    .font(.system(size: 32, weight: .semibold))
+                    .foregroundColor(color)
+                    .frame(width: 60, height: 60)
+                    .background(color.opacity(0.15))
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(title)
+                        .font(.title3)
+                        .bold()
+                        .foregroundColor(.white)
+                    
+                    Text(description)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                
+                Spacer()
+            }
+            .padding(20)
+            
+            Button(action: action) {
+                Text(buttonText)
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(isDisabled ? color.opacity(0.5) : color)
+                    .cornerRadius(12)
+            }
+            .disabled(isDisabled)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+        }
+        .background(Color.white.opacity(0.06))
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(color.opacity(0.3), lineWidth: 1.5)
+        )
+    }
+}
+
+private struct StudyGuideItemCard: View {
+    let title: String
+    let subtitle: String
+    
+    var body: some View {
+        HStack(spacing: 16) {
+            Image(systemName: "book.closed")
+                .font(.system(size: 32))
+                .foregroundColor(.blue)
+                .frame(width: 50, height: 50)
+                .background(Color.blue.opacity(0.15))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title)
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .lineLimit(2)
+                
+                Text(subtitle)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            Image(systemName: "chevron.right")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(.blue.opacity(0.7))
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.white.opacity(0.08))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+        )
     }
 }
 

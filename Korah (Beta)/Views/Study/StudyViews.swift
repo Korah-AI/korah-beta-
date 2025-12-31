@@ -25,6 +25,12 @@ struct StudyHomeView: View {
     @State private var flashcardsCount: Int = 0
     @State private var guidesCount: Int = 0
     @State private var testsCount: Int = 0
+    
+    // State arrays to trigger view updates
+    @State private var allFlashcards: [StudyItemRow] = []
+    @State private var allStudyGuides: [StudyItemRow] = []
+    @State private var allPracticeTests: [StudyItemRow] = []
+    @State private var refreshTrigger = false
 
     @State private var navigateToFlashcards = false
     @State private var navigateToStudyGuides = false
@@ -92,15 +98,17 @@ struct StudyHomeView: View {
                                 VStack(spacing: 16) {
                                     Image(systemName: "sparkles")
                                         .font(.system(size: 60))
-                                        .foregroundColor(.purple.opacity(0.6))
+                                        .foregroundColor(.purple)
+                                        .shadow(color: .purple.opacity(0.3), radius: 10)
                                     
                                     Text("Start Your Study Journey")
-                                        .font(.headline)
+                                        .font(.title2)
+                                        .fontWeight(.bold)
                                         .foregroundColor(.white)
                                     
                                     Text("Create flashcards, study guides, or practice tests to begin learning")
                                         .font(.subheadline)
-                                        .foregroundColor(.white.opacity(0.7))
+                                        .foregroundColor(.secondary)
                                         .multilineTextAlignment(.center)
                                         .padding(.horizontal, 24)
                                     
@@ -111,12 +119,17 @@ struct StudyHomeView: View {
                                                     .font(.system(size: 24))
                                                 Text("Flashcards")
                                                     .font(.caption)
+                                                    .fontWeight(.medium)
                                             }
                                             .frame(maxWidth: .infinity)
                                             .padding(.vertical, 16)
                                             .foregroundColor(.white)
-                                            .background(Color.purple.opacity(0.3))
+                                            .background(Color.white.opacity(0.08))
                                             .cornerRadius(12)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 12)
+                                                    .stroke(Color.purple.opacity(0.3), lineWidth: 1)
+                                            )
                                         }
                                         
                                         Button(action: { pendingCreationType = .studyGuides; showCreationTemplate = true }) {
@@ -125,12 +138,17 @@ struct StudyHomeView: View {
                                                     .font(.system(size: 24))
                                                 Text("Guide")
                                                     .font(.caption)
+                                                    .fontWeight(.medium)
                                             }
                                             .frame(maxWidth: .infinity)
                                             .padding(.vertical, 16)
                                             .foregroundColor(.white)
-                                            .background(Color.purple.opacity(0.3))
+                                            .background(Color.white.opacity(0.08))
                                             .cornerRadius(12)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 12)
+                                                    .stroke(Color.purple.opacity(0.3), lineWidth: 1)
+                                            )
                                         }
                                         
                                         Button(action: { pendingCreationType = .practiceTests; showCreationTemplate = true }) {
@@ -139,12 +157,17 @@ struct StudyHomeView: View {
                                                     .font(.system(size: 24))
                                                 Text("Test")
                                                     .font(.caption)
+                                                    .fontWeight(.medium)
                                             }
                                             .frame(maxWidth: .infinity)
                                             .padding(.vertical, 16)
                                             .foregroundColor(.white)
-                                            .background(Color.purple.opacity(0.3))
+                                            .background(Color.white.opacity(0.08))
                                             .cornerRadius(12)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 12)
+                                                    .stroke(Color.purple.opacity(0.3), lineWidth: 1)
+                                            )
                                         }
                                     }
                                     .padding(.horizontal, 24)
@@ -163,7 +186,7 @@ struct StudyHomeView: View {
                                             icon: icon(for: item.kind)
                                         )
                                     }
-                                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                    .contextMenu {
                                         Button(role: .destructive) {
                                             deleteItem(id: item.id, kind: item.kind)
                                         } label: {
@@ -195,7 +218,7 @@ struct StudyHomeView: View {
                                                 icon: icon(for: item.kind)
                                             )
                                         }
-                                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                        .contextMenu {
                                             Button(role: .destructive) {
                                                 deleteItem(id: item.id, kind: item.kind)
                                             } label: {
@@ -217,7 +240,7 @@ struct StudyHomeView: View {
                                                 icon: icon(for: item.kind)
                                             )
                                         }
-                                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                        .contextMenu {
                                             Button(role: .destructive) {
                                                 deleteItem(id: item.id, kind: item.kind)
                                             } label: {
@@ -239,7 +262,7 @@ struct StudyHomeView: View {
                                                 icon: icon(for: item.kind)
                                             )
                                         }
-                                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                        .contextMenu {
                                             Button(role: .destructive) {
                                                 deleteItem(id: item.id, kind: item.kind)
                                             } label: {
@@ -261,7 +284,7 @@ struct StudyHomeView: View {
                                                 icon: icon(for: item.kind)
                                             )
                                         }
-                                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                        .contextMenu {
                                             Button(role: .destructive) {
                                                 deleteItem(id: item.id, kind: item.kind)
                                             } label: {
@@ -280,13 +303,13 @@ struct StudyHomeView: View {
 
                 Spacer(minLength: 0)
             }
-            .sheet(isPresented: $showManualFlashcardsView) {
+            .sheet(isPresented: $showManualFlashcardsView, onDismiss: { loadRecentStudy() }) {
                 NavigationStack { ManualFlashcardSetCreateView() }
             }
-            .sheet(isPresented: $showManualStudyGuideCreate) {
+            .sheet(isPresented: $showManualStudyGuideCreate, onDismiss: { loadRecentStudy() }) {
                 NavigationStack { ManualStudyGuideCreateView() }
             }
-            .sheet(isPresented: $showManualPracticeTestCreate) {
+            .sheet(isPresented: $showManualPracticeTestCreate, onDismiss: { loadRecentStudy() }) {
                 NavigationStack { ManualPracticeTestCreateView() }
             }
             .sheet(isPresented: $showFlashcardGenerationOptions) {
@@ -303,10 +326,10 @@ struct StudyHomeView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
             }
-            .sheet(isPresented: $showAIFlashcardPromptGenerator) {
+            .sheet(isPresented: $showAIFlashcardPromptGenerator, onDismiss: { loadRecentStudy() }) {
                 NavigationStack { AIFlashcardPromptGeneratorView() }
             }
-            .sheet(isPresented: $showAIGenerateFlashcardsFromGuide) {
+            .sheet(isPresented: $showAIGenerateFlashcardsFromGuide, onDismiss: { loadRecentStudy() }) {
                 NavigationStack { AIGenerateFlashcardsFromGuideView() }
             }
             .sheet(isPresented: $showStudyGuideGenerationOptions) {
@@ -323,10 +346,10 @@ struct StudyHomeView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
             }
-            .sheet(isPresented: $showAIStudyGuidePromptGenerator) {
+            .sheet(isPresented: $showAIStudyGuidePromptGenerator, onDismiss: { loadRecentStudy() }) {
                 NavigationStack { AIStudyGuidePromptGeneratorView() }
             }
-            .sheet(isPresented: $showAIGenerateStudyGuideFromFlashcards) {
+            .sheet(isPresented: $showAIGenerateStudyGuideFromFlashcards, onDismiss: { loadRecentStudy() }) {
                 NavigationStack { AIGenerateStudyGuideFromFlashcardsView() }
             }
             .sheet(isPresented: $showPracticeTestGenerationOptions) {
@@ -343,28 +366,28 @@ struct StudyHomeView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
             }
-            .sheet(isPresented: $showAIPracticeTestPromptGenerator) {
+            .sheet(isPresented: $showAIPracticeTestPromptGenerator, onDismiss: { loadRecentStudy() }) {
                 NavigationStack { AIPracticeTestPromptGeneratorView() }
             }
-            .sheet(isPresented: $showAIGeneratePracticeTestFromGuide) {
+            .sheet(isPresented: $showAIGeneratePracticeTestFromGuide, onDismiss: { loadRecentStudy() }) {
                 NavigationStack { AIGeneratePracticeTestFromGuideView() }
             }
-            .sheet(isPresented: $showScanFlashcards) {
+            .sheet(isPresented: $showScanFlashcards, onDismiss: { loadRecentStudy() }) {
                 NavigationStack { ScanFlashcardsView() }
             }
-            .sheet(isPresented: $showScanStudyGuide) {
+            .sheet(isPresented: $showScanStudyGuide, onDismiss: { loadRecentStudy() }) {
                 NavigationStack { ScanStudyGuideView() }
             }
-            .sheet(isPresented: $showScanPracticeTest) {
+            .sheet(isPresented: $showScanPracticeTest, onDismiss: { loadRecentStudy() }) {
                 NavigationStack { ScanPracticeTestView() }
             }
-            .sheet(isPresented: $navigateToFlashcards) {
+            .sheet(isPresented: $navigateToFlashcards, onDismiss: { loadRecentStudy() }) {
                 NavigationStack { FlashcardsView(openAddSetOnAppear: startFlashcardsCreation) }
             }
-            .sheet(isPresented: $navigateToStudyGuides) {
+            .sheet(isPresented: $navigateToStudyGuides, onDismiss: { loadRecentStudy() }) {
                 NavigationStack { StudyGuidesView(openGeneratorOnAppear: startStudyGuidesCreation) }
             }
-            .sheet(isPresented: $navigateToPracticeTests) {
+            .sheet(isPresented: $navigateToPracticeTests, onDismiss: { loadRecentStudy() }) {
                 NavigationStack { PracticeTestsView(openAICreationOnAppear: startPracticeTestsCreation) }
             }
             .sheet(isPresented: $showCreationTemplate) {
@@ -414,27 +437,15 @@ struct StudyHomeView: View {
     }
 
     private func flashcardItemsSorted() -> [StudyItemRow] {
-        var rows: [StudyItemRow] = []
-        if let data = UserDefaults.standard.data(forKey: "FlashcardSets"), let sets = try? JSONDecoder().decode([FlashcardSet].self, from: data) {
-            rows = sets.map { StudyItemRow(id: $0.id, title: $0.title, kind: RecentStudyItem.flashcardsKind, lastOpenedAt: $0.lastOpenedAt) }
-        }
-        return rows.sorted { ($0.lastOpenedAt ?? .distantPast) > ($1.lastOpenedAt ?? .distantPast) }
+        return allFlashcards
     }
 
     private func studyGuideItemsSorted() -> [StudyItemRow] {
-        var rows: [StudyItemRow] = []
-        if let data = UserDefaults.standard.data(forKey: "StudyGuides"), let guides = try? JSONDecoder().decode([StudyGuide].self, from: data) {
-            rows = guides.map { StudyItemRow(id: $0.id, title: $0.title, kind: RecentStudyItem.studyGuideKind, lastOpenedAt: $0.lastOpenedAt) }
-        }
-        return rows.sorted { ($0.lastOpenedAt ?? .distantPast) > ($1.lastOpenedAt ?? .distantPast) }
+        return allStudyGuides
     }
 
     private func practiceTestItemsSorted() -> [StudyItemRow] {
-        var rows: [StudyItemRow] = []
-        if let data = UserDefaults.standard.data(forKey: "PracticeTests"), let tests = try? JSONDecoder().decode([PracticeTest].self, from: data) {
-            rows = tests.map { StudyItemRow(id: $0.id, title: $0.title, kind: RecentStudyItem.practiceTestKind, lastOpenedAt: $0.lastOpenedAt) }
-        }
-        return rows.sorted { ($0.lastOpenedAt ?? .distantPast) > ($1.lastOpenedAt ?? .distantPast) }
+        return allPracticeTests
     }
 
     @ViewBuilder
@@ -659,28 +670,46 @@ struct StudyHomeView: View {
         var allItems: [RecentStudyItem] = []
         let decoder = JSONDecoder()
 
+        // Load flashcards
         if let flashcardData = UserDefaults.standard.data(forKey: "FlashcardSets"),
            let flashcardSets = try? decoder.decode([FlashcardSet].self, from: flashcardData) {
             let flashcardsItems = flashcardSets.map {
                 RecentStudyItem(id: $0.id, title: $0.title, kind: RecentStudyItem.flashcardsKind, createdAt: $0.createdAt)
             }
             allItems.append(contentsOf: flashcardsItems)
+            allFlashcards = flashcardSets.map { 
+                StudyItemRow(id: $0.id, title: $0.title, kind: RecentStudyItem.flashcardsKind, lastOpenedAt: $0.lastOpenedAt) 
+            }.sorted { ($0.lastOpenedAt ?? .distantPast) > ($1.lastOpenedAt ?? .distantPast) }
+        } else {
+            allFlashcards = []
         }
 
+        // Load study guides
         if let guidesData = UserDefaults.standard.data(forKey: "StudyGuides"),
            let studyGuides = try? decoder.decode([StudyGuide].self, from: guidesData) {
             let guideItems = studyGuides.map {
                 RecentStudyItem(id: $0.id, title: $0.title, kind: RecentStudyItem.studyGuideKind, createdAt: $0.createdAt)
             }
             allItems.append(contentsOf: guideItems)
+            allStudyGuides = studyGuides.map { 
+                StudyItemRow(id: $0.id, title: $0.title, kind: RecentStudyItem.studyGuideKind, lastOpenedAt: $0.lastOpenedAt) 
+            }.sorted { ($0.lastOpenedAt ?? .distantPast) > ($1.lastOpenedAt ?? .distantPast) }
+        } else {
+            allStudyGuides = []
         }
 
+        // Load practice tests
         if let testsData = UserDefaults.standard.data(forKey: "PracticeTests"),
            let practiceTests = try? decoder.decode([PracticeTest].self, from: testsData) {
             let testItems = practiceTests.map {
                 RecentStudyItem(id: $0.id, title: $0.title, kind: RecentStudyItem.practiceTestKind, createdAt: $0.createdAt)
             }
             allItems.append(contentsOf: testItems)
+            allPracticeTests = practiceTests.map { 
+                StudyItemRow(id: $0.id, title: $0.title, kind: RecentStudyItem.practiceTestKind, lastOpenedAt: $0.lastOpenedAt) 
+            }.sorted { ($0.lastOpenedAt ?? .distantPast) > ($1.lastOpenedAt ?? .distantPast) }
+        } else {
+            allPracticeTests = []
         }
 
         flashcardsCount = allItems.filter { $0.kind == RecentStudyItem.flashcardsKind }.count
@@ -688,6 +717,9 @@ struct StudyHomeView: View {
         testsCount = allItems.filter { $0.kind == RecentStudyItem.practiceTestKind }.count
 
         recentStudyItems = allItems.sorted(by: { $0.createdAt > $1.createdAt })
+        
+        // Toggle refresh trigger to force view update
+        refreshTrigger.toggle()
         
         HomeDataManager.shared.loadRecentStudyItems()
     }
@@ -807,20 +839,15 @@ private struct CreationTemplateSheet: View {
     }
     
     private var crossTypeTitle: String {
-        switch pendingCreationType {
-        case .flashcards: return "From Study Guide"
-        case .studyGuides: return "From Flashcards"
-        case .practiceTests: return "From Study Guide"
-        case .none: return "Generate"
-        }
+        return "Autogenerate with A.I."
     }
     
     private var crossTypeDescription: String {
         switch pendingCreationType {
-        case .flashcards: return "Use an existing study guide"
-        case .studyGuides: return "Use existing flashcard sets"
-        case .practiceTests: return "Use an existing study guide"
-        case .none: return "Generate content"
+        case .flashcards: return "Generate flashcards using AI from a study guide"
+        case .studyGuides: return "Generate a study guide using AI from flashcards"
+        case .practiceTests: return "Generate a practice test using AI from a study guide"
+        case .none: return "Generate content with AI"
         }
     }
 }

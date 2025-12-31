@@ -11,16 +11,20 @@ struct AIStudyGuidePromptGeneratorView: View {
     
     var body: some View {
         ZStack {
+            Color.clear.korahGradientBackground()
+                .ignoresSafeArea()
+            
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     VStack(alignment: .leading, spacing: 12) {
-                        HStack {
+                        HStack(spacing: 12) {
                             Image(systemName: "sparkles")
                                 .foregroundColor(.blue)
                                 .font(.title2)
+                                .shadow(color: .blue.opacity(0.3), radius: 5)
                             Text("AI Study Guide Generator")
-                                .font(.title3)
-                                .bold()
+                                .font(.title2)
+                                .fontWeight(.bold)
                                 .foregroundColor(.white)
                         }
                         
@@ -42,6 +46,10 @@ struct AIStudyGuidePromptGeneratorView: View {
                             .background(Color.white.opacity(0.08))
                             .cornerRadius(12)
                             .foregroundColor(.white)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                            )
                             .padding(.horizontal)
                     }
                     
@@ -125,6 +133,28 @@ struct AIStudyGuidePromptGeneratorView: View {
                 }
                 .padding(.vertical)
             }
+            
+            // Loading overlay
+            if isGenerating {
+                ZStack {
+                    Color.black.opacity(0.5).ignoresSafeArea()
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                            .tint(.white)
+                            .scaleEffect(1.5)
+                        Text("Generating study guide...")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                        Text("This may take a few seconds")
+                            .font(.subheadline)
+                            .foregroundColor(.white.opacity(0.8))
+                    }
+                    .padding(24)
+                    .background(Color.white.opacity(0.1))
+                    .cornerRadius(16)
+                }
+            }
         }
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
@@ -139,8 +169,6 @@ struct AIStudyGuidePromptGeneratorView: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
-        .background(Color.clear)
-        .korahGradientBackground()
         .preferredColorScheme(.dark)
         .alert("Success!", isPresented: $showSuccessAlert) {
             Button("OK") { dismiss() }

@@ -58,30 +58,40 @@ struct ToDoListView: View {
 
     private var emptyStateView: some View {
         VStack(spacing: 24) {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("No tasks yet")
-                    .font(.title3)
+            VStack(spacing: 16) {
+                Image(systemName: "checkmark.circle")
+                    .font(.system(size: 60))
                     .foregroundColor(.purple)
-                    .bold()
-                Text("Create your first task to get started.")
+                    .shadow(color: .purple.opacity(0.3), radius: 10)
+                
+                Text("Start Your Day Right")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                
+                Text("Create tasks to organize your work and boost productivity")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
-
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+                
                 Button(action: { showingAddTask = true }) {
-                    Text("Add Task")
-                        .font(.headline)
-                        .foregroundColor(.black)
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(Color.purple)
-                        .cornerRadius(12)
+                    HStack(spacing: 8) {
+                        Image(systemName: "plus.circle.fill")
+                        Text("Create Your First Task")
+                    }
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(Color.purple)
+                    .cornerRadius(12)
                 }
-                .padding(.top, 4)
+                .padding(.horizontal, 24)
+                .padding(.top, 8)
             }
-            .padding()
-            .background(Color.white.opacity(0.06))
-            .cornerRadius(15)
-            .padding(.horizontal)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 32)
 
             Spacer(minLength: 0)
         }
@@ -91,49 +101,80 @@ struct ToDoListView: View {
 
     private func taskRow(for task: Task) -> some View {
         Button(action: { editingTask = task }) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text(task.title)
-                        .font(.headline)
-                        .foregroundColor(.white)
-                    Spacer()
-                    HStack(spacing: 4) {
-                        Text(task.difficulty.emoji)
-                        Text(task.difficulty.rawValue)
+            HStack(spacing: 16) {
+                // Icon based on task difficulty
+                Image(systemName: difficultyIcon(for: task.difficulty))
+                    .font(.system(size: 28))
+                    .foregroundColor(.purple)
+                    .frame(width: 50, height: 50)
+                    .background(Color.purple.opacity(0.15))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text(task.title)
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .lineLimit(2)
+                        Spacer()
+                        HStack(spacing: 4) {
+                            Text(task.difficulty.emoji)
+                            Text(task.difficulty.rawValue)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.purple.opacity(0.2))
+                        .foregroundColor(.purple)
+                        .cornerRadius(8)
+                    }
+                    
+                    if !task.description.isEmpty {
+                        Text(task.description)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .lineLimit(2)
+                    }
+                    
+                    HStack {
+                        Image(systemName: "calendar")
                             .font(.caption)
-                            .fontWeight(.medium)
+                        Text(task.dueDate.formatted(date: .abbreviated, time: .shortened))
+                            .font(.caption)
+                        Spacer()
+                        Button(action: {
+                            taskToDelete = task
+                            showDeleteConfirmation = true
+                        }) {
+                            Image(systemName: "trash")
+                                .font(.caption)
+                                .foregroundColor(.red.opacity(0.8))
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.purple.opacity(0.2))
-                    .foregroundColor(.purple)
-                    .cornerRadius(8)
-                }
-                if !task.description.isEmpty {
-                    Text(task.description)
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
-                }
-                Text("Due: \(task.dueDate.formatted(date: .abbreviated, time: .shortened))")
-                    .font(.caption)
-                    .foregroundColor(.purple)
-                HStack {
-                    Spacer()
-                    Button(action: {
-                        taskToDelete = task
-                        showDeleteConfirmation = true
-                    }) {
-                        Image(systemName: "trash")
-                            .foregroundColor(.red)
-                    }
-                    .buttonStyle(.plain)
+                    .foregroundColor(.secondary)
                 }
             }
-            .padding(10)
-            .background(Color.white.opacity(0.06))
-            .cornerRadius(10)
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(Color.white.opacity(0.08))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(Color.purple.opacity(0.2), lineWidth: 1)
+            )
         }
         .buttonStyle(.plain)
+    }
+    
+    private func difficultyIcon(for difficulty: TaskDifficulty) -> String {
+        switch difficulty {
+        case .easy: return "checkmark.circle"
+        case .medium: return "circle.lefthalf.filled"
+        case .hard: return "exclamationmark.circle"
+        }
     }
 
     var body: some View {
@@ -152,18 +193,16 @@ struct ToDoListView: View {
                         if dataManager.tasks.isEmpty {
                             emptyStateView
                         } else {
-                            List {
-                                ForEach(dataManager.tasks) { task in
-                                    taskRow(for: task)
+                            ScrollView {
+                                VStack(spacing: 10) {
+                                    ForEach(dataManager.tasks) { task in
+                                        taskRow(for: task)
+                                            .padding(.horizontal)
+                                    }
                                 }
-                                .onDelete { indexSet in
-                                    indexSet.map { dataManager.tasks[$0] }.forEach { dataManager.deleteTask($0) }
-                                }
-                                .listRowBackground(Color.clear)
+                                .padding(.vertical)
                             }
-                            .scrollContentBackground(.hidden)
                             .background(Color.clear)
-                            .listStyle(.insetGrouped)
                         }
                     }
                 }

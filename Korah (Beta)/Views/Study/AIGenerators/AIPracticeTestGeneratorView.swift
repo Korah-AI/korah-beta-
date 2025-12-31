@@ -24,98 +24,215 @@ struct AIPracticeTestGeneratorView: View {
     private let openAIURL = URL(string: OpenAIConfig.chatCompletionsURL)!
     
     var body: some View {
-        NavigationView {
-            Form {
-                Section(header: Text("Select Flashcard Set")) {
-                    if flashcardSets.isEmpty {
-                        Text("No flashcard sets found.")
+        NavigationStack {
+            ZStack {
+                Color.clear.korahGradientBackground()
+                    .ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "sparkles")
+                                .foregroundColor(.green)
+                                .font(.title2)
+                                .shadow(color: .green.opacity(0.3), radius: 5)
+                            Text("Generate Practice Test")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding()
+                        
+                        Text("From Flashcards")
+                            .font(.subheadline)
                             .foregroundColor(.secondary)
-                    } else {
-                        Picker("Flashcard Set", selection: $selectedSetIndex) {
-                            ForEach(flashcardSets.indices, id: \.self) { idx in
-                                Text(flashcardSets[idx].title).tag(idx)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.horizontal)
+                        
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Select Flashcard Set")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            
+                            if flashcardSets.isEmpty {
+                                Text("No flashcard sets available")
+                                    .foregroundColor(.secondary)
+                                    .padding()
+                            } else {
+                                Picker("Flashcard Set", selection: $selectedSetIndex) {
+                                    ForEach(flashcardSets.indices, id: \.self) { idx in
+                                        Text(flashcardSets[idx].title).tag(idx)
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .padding()
+                                .background(Color.white.opacity(0.08))
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                )
+                                .onChange(of: selectedSetIndex) { _ in
+                                    updateNumberOfQuestionsLimit()
+                                }
                             }
                         }
-                        .pickerStyle(MenuPickerStyle())
-                        .onChange(of: selectedSetIndex) { _ in
-                            updateNumberOfQuestionsLimit()
+                        .padding(.horizontal)
+                        
+                        if !flashcardSets.isEmpty {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Number of Questions")
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                                
+                                HStack {
+                                    Text("\(numberOfQuestions) questions")
+                                        .foregroundColor(.white)
+                                    Spacer()
+                                    Stepper("", value: $numberOfQuestions, in: 1...max(1, flashcardSets[selectedSetIndex].cards.count))
+                                }
+                                .padding()
+                                .background(Color.white.opacity(0.08))
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                )
+                            }
+                            .padding(.horizontal)
+                            
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Test Title (Optional)")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                    .padding(.horizontal)
+                                
+                                TextField("e.g., Biology Quiz", text: $customTitle)
+                                    .textInputAutocapitalization(.words)
+                                    .padding()
+                                    .background(Color.white.opacity(0.08))
+                                    .cornerRadius(12)
+                                    .foregroundColor(.white)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                    )
+                                    .padding(.horizontal)
+                            }
                         }
+                        
+                        if !progressText.isEmpty {
+                            HStack(spacing: 12) {
+                                ProgressView()
+                                    .progressViewStyle(.circular)
+                                    .tint(.purple)
+                                Text(progressText)
+                                    .font(.callout)
+                                    .foregroundColor(.purple)
+                            }
+                            .padding()
+                            .background(Color.purple.opacity(0.1))
+                            .cornerRadius(10)
+                            .padding(.horizontal)
+                        }
+                        
+                        if let error = errorMessage {
+                            HStack(spacing: 12) {
+                                Image(systemName: "exclamationmark.circle")
+                                    .foregroundColor(.red)
+                                Text(error)
+                                    .font(.callout)
+                                    .foregroundColor(.red)
+                            }
+                            .padding()
+                            .background(Color.red.opacity(0.1))
+                            .cornerRadius(10)
+                            .padding(.horizontal)
+                        }
+                        
+                        if let success = successMessage {
+                            HStack(spacing: 12) {
+                                Image(systemName: "checkmark.circle")
+                                    .foregroundColor(.green)
+                                Text(success)
+                                    .font(.callout)
+                                    .foregroundColor(.green)
+                            }
+                            .padding()
+                            .background(Color.green.opacity(0.1))
+                            .cornerRadius(10)
+                            .padding(.horizontal)
+                        }
+                        
+                        Button(action: generatePracticeTest) {
+                            HStack(spacing: 8) {
+                                if isGenerating {
+                                    ProgressView()
+                                        .progressViewStyle(.circular)
+                                        .tint(.white)
+                                    Text("Generating...")
+                                } else {
+                                    Image(systemName: "sparkles")
+                                    Text("Generate Practice Test")
+                                }
+                            }
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(flashcardSets.isEmpty || isGenerating ? Color.gray.opacity(0.5) : Color.green)
+                            .cornerRadius(12)
+                        }
+                        .disabled(flashcardSets.isEmpty || isGenerating)
+                        .padding(.horizontal)
+                        
+                        Spacer()
                     }
                 }
                 
-                if !flashcardSets.isEmpty {
-                    Section(header: Text("Number of Questions")) {
-                        Stepper(value: $numberOfQuestions, in: 1...max(1, flashcardSets[selectedSetIndex].cards.count)) {
-                            Text("\(numberOfQuestions)")
+                // Loading overlay
+                if isGenerating {
+                    ZStack {
+                        Color.black.opacity(0.5).ignoresSafeArea()
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .progressViewStyle(.circular)
+                                .tint(.white)
+                                .scaleEffect(1.5)
+                            Text("Generating practice test...")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            Text("This may take a few seconds")
+                                .font(.subheadline)
+                                .foregroundColor(.white.opacity(0.8))
                         }
-                    }
-                    
-                    Section(header: Text("Practice Test Title (optional)")) {
-                        TextField("Title", text: $customTitle)
-                            .disableAutocorrection(true)
-                            .textInputAutocapitalization(.words)
-                    }
-                    
-                    Section {
-                        Button {
-                            generatePracticeTest()
-                        } label: {
-                            HStack {
-                                Spacer()
-                                if isGenerating {
-                                    ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle(tint: Color.purple))
-                                } else {
-                                    Text("Generate Practice Test")
-                                        .bold()
-                                }
-                                Spacer()
-                            }
-                        }
-                        .disabled(isGenerating || flashcardSets.isEmpty)
-                    }
-                    
-                    if successMessage != nil {
-                        Section {
-                            Button {
-                                generatePracticeTest()
-                            } label: {
-                                HStack { Spacer(); Text(isGenerating ? "Generating…" : "Generate Again").bold(); Spacer() }
-                            }
-                            .disabled(isGenerating || flashcardSets.isEmpty)
-                        }
-                    }
-                    
-                    if !progressText.isEmpty {
-                        Section {
-                            Text(progressText)
-                                .foregroundColor(.purple)
-                        }
-                    }
-                    
-                    if let errorMessage = errorMessage {
-                        Section {
-                            Text(errorMessage)
-                                .foregroundColor(.red)
-                        }
-                    }
-                    
-                    if let successMessage = successMessage {
-                        Section {
-                            Text(successMessage)
-                                .foregroundColor(.green)
-                        }
+                        .padding(24)
+                        .background(Color.white.opacity(0.1))
+                        .cornerRadius(16)
                     }
                 }
             }
-            .scrollContentBackground(.hidden)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(role: .cancel) {
+                        // Navigation handled by parent
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                }
+                ToolbarItem(placement: .principal) {
+                    Text("Generate Practice Test")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
             .background(Color.clear)
-            .onAppear(perform: loadFlashcardSets)
             .korahGradientBackground()
+            .preferredColorScheme(.dark)
+            .onAppear(perform: loadFlashcardSets)
         }
-        .navigationTitle("Practice Test Generator")
-        .preferredColorScheme(.dark)
-        .accentColor(.purple)
     }
     
     private func updateNumberOfQuestionsLimit() {

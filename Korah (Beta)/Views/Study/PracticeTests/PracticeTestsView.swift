@@ -43,12 +43,14 @@ struct PracticeTestsView: View {
     @State private var studyGuides: [StudyGuide] = []
     @State private var selectedGuideIndex: Int = 0
     @State private var selectedTestForNavigation: PracticeTest? = nil
+    @State private var isGeneratingTest: Bool = false
 
     var body: some View {
         NavigationStack {
             ZStack {
                 Color.clear.korahGradientBackground()
                     .ignoresSafeArea()
+                
                 List {
                     Section(header: Text("Create from Flashcards")) {
                         Picker("Flashcard Set", selection: $selectedSetIndex) {
@@ -63,10 +65,12 @@ struct PracticeTestsView: View {
 
                         Button(action: createTestFromSelectedSet) {
                             Label("Create Practice Test", systemImage: "doc.text.magnifyingglass")
+                                .font(.subheadline.weight(.semibold))
                                 .frame(maxWidth: .infinity)
+                                .padding(.vertical, 2)
                         }
                         .buttonStyle(.borderedProminent)
-                        .tint(.purple)
+                        .tint(.korahPurple)
                         .disabled(flashcardSets.isEmpty)
                     }
                     .listRowBackground(Color.clear)
@@ -83,10 +87,12 @@ struct PracticeTestsView: View {
 
                         Button(action: createTestFromSelectedStudyGuide) {
                             Label("Create Practice Test", systemImage: "doc.text.magnifyingglass")
+                                .font(.subheadline.weight(.semibold))
                                 .frame(maxWidth: .infinity)
+                                .padding(.vertical, 2)
                         }
                         .buttonStyle(.borderedProminent)
-                        .tint(.purple)
+                        .tint(.korahPurple)
                         .disabled(studyGuides.isEmpty)
                     }
                     .listRowBackground(Color.clear)
@@ -150,7 +156,29 @@ struct PracticeTestsView: View {
                 .navigationTitle("Practice Tests")
                 .toolbar {
                     ToolbarItem(placement: .navigationBarLeading) {
-                        EditButton().tint(.purple)
+                        EditButton().tint(.korahPurple)
+                    }
+                }
+                
+                // Loading overlay for test generation
+                if isGeneratingTest {
+                    ZStack {
+                        Color.black.opacity(0.5).ignoresSafeArea()
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .progressViewStyle(.circular)
+                                .tint(.white)
+                                .scaleEffect(1.5)
+                            Text("Generating practice test...")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            Text("This may take a few seconds")
+                                .font(.subheadline)
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+                        .padding(24)
+                        .background(Color.white.opacity(0.1))
+                        .cornerRadius(16)
                     }
                 }
             }
@@ -158,7 +186,7 @@ struct PracticeTestsView: View {
                 PracticeTestDetailView(practiceTest: binding(for: test))
             }
         }
-        .accentColor(.purple)
+        .accentColor(.korahPurple)
         .preferredColorScheme(.dark)
         .alert("Delete Test?", isPresented: $showDeleteAlert) {
             Button("Delete", role: .destructive) {
@@ -227,32 +255,40 @@ struct PracticeTestsView: View {
         guard !flashcardSets.isEmpty else { return }
         let set = flashcardSets[selectedSetIndex]
         
+        isGeneratingTest = true
+        
         // Use shared utility for test generation
         let result = StudyUtilities.generatePracticeTestQuestions(from: set.cards)
         
-        switch result {
-        case .success(let questions):
-            let title = StudyUtilities.generateTestTitle(
-                from: set.title,
-                customTitle: newTestTitle
-            )
-            let test = PracticeTest(title: title, questions: questions)
-            store.practiceTests.append(test)
-            newTestTitle = ""
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.isGeneratingTest = false
             
-            DispatchQueue.main.async {
-                selectedTestForNavigation = store.practiceTests.last
+            switch result {
+            case .success(let questions):
+                let title = StudyUtilities.generateTestTitle(
+                    from: set.title,
+                    customTitle: newTestTitle
+                )
+                let test = PracticeTest(title: title, questions: questions)
+                store.practiceTests.append(test)
+                newTestTitle = ""
+                
+                DispatchQueue.main.async {
+                    selectedTestForNavigation = store.practiceTests.last
+                }
+                
+            case .failure(let error):
+                // Show error to user (you can add an @State var showError and errorMessage)
+                print("Failed to create test: \(error.localizedDescription)")
             }
-            
-        case .failure(let error):
-            // Show error to user (you can add an @State var showError and errorMessage)
-            print("Failed to create test: \(error.localizedDescription)")
         }
     }
 
     private func createTestFromSelectedStudyGuide() {
         guard !studyGuides.isEmpty else { return }
         let guide = studyGuides[selectedGuideIndex]
+        
+        isGeneratingTest = true
 
         let lines = guide.content.components(separatedBy: "\n")
         var questions: [PracticeTestQuestion] = []
@@ -297,11 +333,15 @@ struct PracticeTestsView: View {
         let title = newTestTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         let testTitle = title.isEmpty ? "Practice Test from \(guide.title.isEmpty ? "Study Guide" : guide.title)" : title
         let test = PracticeTest(title: testTitle, questions: questions)
-        store.practiceTests.append(test)
-        newTestTitle = ""
-
-        DispatchQueue.main.async {
-            selectedTestForNavigation = store.practiceTests.last
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.isGeneratingTest = false
+            store.practiceTests.append(test)
+            newTestTitle = ""
+            
+            DispatchQueue.main.async {
+                selectedTestForNavigation = store.practiceTests.last
+            }
         }
     }
 }
@@ -353,7 +393,7 @@ struct PracticeTestDetailView: View {
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(practiceTest.questions.isEmpty ? Color.gray.opacity(0.5) : Color.purple)
+                    .background(practiceTest.questions.isEmpty ? Color.gray.opacity(0.5) : Color.korahPurple)
                     .foregroundColor(.white)
                     .cornerRadius(10)
             }
@@ -363,7 +403,7 @@ struct PracticeTestDetailView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: { showingAddQuestionSheet = true }) { Image(systemName: "plus") }
-                .tint(.purple)
+                .tint(.korahPurple)
             }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(role: .destructive) { showDeleteTestAlert = true } label: { Image(systemName: "trash") }
@@ -378,7 +418,7 @@ struct PracticeTestDetailView: View {
             } onCancel: {
                 editingQuestion = nil
             }
-            .accentColor(.purple)
+            .accentColor(.korahPurple)
         }
         .sheet(isPresented: $showingAddQuestionSheet) {
             QuestionEditView(question: PracticeTestQuestion(prompt: "", options: ["", "", "", ""], correctIndex: 0)) { newQ in
@@ -387,7 +427,7 @@ struct PracticeTestDetailView: View {
             } onCancel: {
                 showingAddQuestionSheet = false
             }
-            .accentColor(.purple)
+            .accentColor(.korahPurple)
         }
         .alert("Delete Practice Test?", isPresented: $showDeleteTestAlert) {
             Button("Delete", role: .destructive) { deleteThisPracticeTest() }
@@ -503,7 +543,7 @@ struct TakePracticeTestView: View {
                 VStack(spacing: 20) {
                     Image(systemName: score == practiceTest.questions.count ? "trophy.fill" : "checkmark.seal.fill")
                         .font(.system(size: 60))
-                        .foregroundColor(score == practiceTest.questions.count ? .yellow : .purple)
+                        .foregroundColor(score == practiceTest.questions.count ? .yellow : .korahPurple)
                     
                     Text("Test Completed!")
                         .font(.largeTitle)
@@ -544,11 +584,11 @@ struct TakePracticeTestView: View {
                             showReview = true
                         }
                         .buttonStyle(.bordered)
-                        .tint(.purple)
+                        .tint(.korahPurple)
                         
                         Button("Retake Test") { resetTest() }
                             .buttonStyle(.borderedProminent)
-                            .tint(.purple)
+                            .tint(.korahPurple)
                     }
                 }
                 .padding()
@@ -559,7 +599,7 @@ struct TakePracticeTestView: View {
                     VStack(alignment: .leading, spacing: 20) {
                         Text("Question \(currentQuestionIndex + 1) of \(practiceTest.questions.count)")
                             .font(.headline)
-                            .foregroundColor(.purple)
+                            .foregroundColor(.korahPurple)
                         Text(question.prompt)
                             .font(.title2)
                             .bold()
@@ -569,7 +609,7 @@ struct TakePracticeTestView: View {
                             Button(action: { selectedOptionIndex = idx }) {
                                 HStack {
                                     Image(systemName: selectedOptionIndex == idx ? "largecircle.fill.circle" : "circle")
-                                        .foregroundColor(selectedOptionIndex == idx ? .purple : .secondary)
+                                        .foregroundColor(selectedOptionIndex == idx ? .korahPurple : .secondary)
                                     Text(option)
                                         .foregroundColor(.white)
                                     Spacer()
@@ -577,7 +617,7 @@ struct TakePracticeTestView: View {
                                 .padding()
                                 .background(
                                     RoundedRectangle(cornerRadius: 10)
-                                        .stroke(selectedOptionIndex == idx ? Color.purple : Color.secondary.opacity(0.5), lineWidth: 2)
+                                        .stroke(selectedOptionIndex == idx ? Color.korahPurple : Color.secondary.opacity(0.5), lineWidth: 2)
                                 )
                             }
                             .buttonStyle(.plain)
@@ -587,7 +627,7 @@ struct TakePracticeTestView: View {
                             Text("Submit Answer")
                                 .frame(maxWidth: .infinity)
                                 .padding()
-                                .background(selectedOptionIndex == nil ? Color.gray.opacity(0.5) : Color.purple)
+                                .background(selectedOptionIndex == nil ? Color.gray.opacity(0.5) : Color.korahPurple)
                                 .foregroundColor(.white)
                                 .cornerRadius(10)
                         }
@@ -602,7 +642,7 @@ struct TakePracticeTestView: View {
         .background(Color.clear)
         .korahGradientBackground()
         .preferredColorScheme(.dark)
-        .accentColor(.purple)
+        .accentColor(.korahPurple)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 Text(practiceTest.title)

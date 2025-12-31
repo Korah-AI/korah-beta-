@@ -56,8 +56,10 @@ struct ManualFlashcardSetCreateView: View {
                                         HStack {
                                             Image(systemName: "wand.and.stars")
                                             Text("Generate Flashcards")
+                                                .font(.subheadline.weight(.semibold))
                                         }
                                         .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 4)
                                     }
                                     .buttonStyle(.borderedProminent)
                                     .tint(.yellow)
@@ -139,8 +141,8 @@ struct ManualFlashcardSetCreateView: View {
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(.white)
                     .frame(width: 56, height: 56)
-                    .background(Circle().fill(Color.purple))
-                    .shadow(color: Color.purple.opacity(0.5), radius: 8, x: 0, y: 4)
+                    .background(Circle().fill(Color.korahPurple))
+                    .shadow(color: Color.korahPurple.opacity(0.5), radius: 8, x: 0, y: 4)
             }
             .padding(.trailing, 20)
             .padding(.bottom, 20)
@@ -413,11 +415,11 @@ struct FlashcardInputCard: View {
                         .font(.caption)
                         .foregroundColor(.red)
                         .padding(8)
-                        .background(Color.red.opacity(0.1))
+                        .background(Color.red.opacity(0.15))
                         .clipShape(Circle())
                 }
                 Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                    .foregroundColor(.purple)
+                    .foregroundColor(.korahPurple)
                     .font(.subheadline)
             }
             
