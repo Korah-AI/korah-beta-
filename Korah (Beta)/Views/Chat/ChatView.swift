@@ -137,6 +137,15 @@ struct ChatView: View {
     private let silenceThreshold: Float = -40.0
     private let silenceDuration: TimeInterval = 1.5
     
+    @State private var showTTSControls = false
+    @State private var isTTSLoading = false
+    @State private var ttsAudioPlayer: AVAudioPlayer?
+    @State private var ttsAudioPlayerDelegate: TTSAudioPlayerDelegate?
+    @State private var currentTTSText: String = ""
+    @State private var audioDuration: TimeInterval = 0
+    @State private var audioCurrentTime: TimeInterval = 0
+    @State private var audioTimer: Timer?
+    
     // generates follow-up suggestion chips from ai response
     private var contextSuggestions: [String] {
         if let lastAssistantContent = messages.last(where: { $0.role == "assistant" })?.content,
@@ -248,9 +257,14 @@ struct ChatView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 12) {
                         ForEach(messages) { message in
-                            ChatBubble(message: message)
-                                .id(message.id)
-                                .padding(.horizontal)
+                            ChatBubble(
+                                message: message,
+                                onCopy: { content in copyToClipboard(content) },
+                                onListen: { content, id in speakText(content, messageId: id) },
+                                onRetry: { retryLastMessage() }
+                            )
+                            .id(message.id)
+                            .padding(.horizontal)
                         }
                         
                         if showTypingIndicator {
@@ -311,6 +325,73 @@ struct ChatView: View {
                 .padding(.horizontal)
             }
             
+            if showTTSControls || isTTSLoading {
+                VStack(spacing: 0) {
+                    HStack(spacing: 12) {
+                        if isTTSLoading {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .scaleEffect(0.8)
+                            Text("Generating audio...")
+                                .font(.subheadline)
+                                .foregroundColor(.white)
+                            Spacer()
+                        } else {
+                            Image(systemName: "speaker.wave.2.fill")
+                                .foregroundColor(.white)
+                                .symbolEffect(.variableColor.iterative, isActive: ttsAudioPlayer?.isPlaying == true)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(ttsAudioPlayer?.isPlaying == true ? "Playing" : "Paused")
+                                    .font(.subheadline)
+                                    .foregroundColor(.white)
+                                Text("\(formatTime(audioCurrentTime)) / \(formatTime(audioDuration))")
+                                    .font(.caption)
+                                    .foregroundColor(.white.opacity(0.7))
+                            }
+                            
+                            Spacer()
+                            
+                            Button(action: {
+                                ttsAudioPlayer?.currentTime = 0
+                                audioCurrentTime = 0
+                                ttsAudioPlayer?.play()
+                            }) {
+                                Image(systemName: "arrow.clockwise")
+                                    .foregroundColor(.white)
+                            }
+                            
+                            Button(action: {
+                                if ttsAudioPlayer?.isPlaying == true {
+                                    ttsAudioPlayer?.pause()
+                                } else {
+                                    ttsAudioPlayer?.play()
+                                }
+                            }) {
+                                Image(systemName: ttsAudioPlayer?.isPlaying == true ? "pause.fill" : "play.fill")
+                                    .foregroundColor(.white)
+                            }
+                            
+                            Button(action: stopTTS) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.white.opacity(0.7))
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(
+                        LinearGradient(
+                            colors: [Color.purple.opacity(0.3), Color.purple.opacity(0.5)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(12)
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
+                }
+            }
+            
             HStack(spacing: 8) {
                 Button(action: toggleVoiceMode) {
                     Image(systemName: isVoiceModeActive ? "waveform" : "mic.fill")
@@ -322,7 +403,10 @@ struct ChatView: View {
                 }
                 
                 TextField("Type your message…", text: $userInput, axis: .vertical)
-                    .textFieldStyle(.roundedBorder)
+                    .padding(12)
+                    .background(Color.white.opacity(0.1))
+                    .cornerRadius(20)
+                    .foregroundColor(.white)
                     .lineLimit(1...4)
                     .disabled(isVoiceModeActive)
                 
@@ -330,14 +414,14 @@ struct ChatView: View {
                     Image(systemName: "paperplane.fill")
                         .foregroundColor(.white)
                         .padding(10)
-                        .background(userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray : Color.accentColor)
-                        .clipShape(Capsule())
+                        .background(userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray : Color.purple)
+                        .clipShape(Circle())
                 }
                 .disabled(userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isVoiceModeActive)
             }
             .padding(.all, 12)
             .background(Color.white.opacity(0.06))
-            .cornerRadius(12)
+            .cornerRadius(25)
             .padding(.horizontal)
         }
         .alert("Delete Chat", isPresented: $showClearChatAlert) {
@@ -407,30 +491,60 @@ struct ChatView: View {
 
     struct ChatBubble: View {
         let message: Message
+        @State private var isSpeaking = false
+        let onCopy: (String) -> Void
+        let onListen: (String, UUID) -> Void
+        let onRetry: () -> Void
 
         var body: some View {
-            HStack(alignment: .bottom) {
-                Spacer().frame(width: 0)
-                if message.role == "assistant" {
-                    if let formatted = message.content.decodeKorahFormatted() {
-                        AssistantCard(formatted: formatted, timestamp: message.timestamp)
-                            .frame(maxWidth: 320, alignment: .leading)
+            VStack(alignment: message.role == "assistant" ? .leading : .trailing, spacing: 4) {
+                HStack(alignment: .bottom) {
+                    Spacer().frame(width: 0)
+                    if message.role == "assistant" {
+                        if let formatted = message.content.decodeKorahFormatted() {
+                            AssistantCard(formatted: formatted, timestamp: message.timestamp)
+                                .frame(maxWidth: 320, alignment: .leading)
+                        } else {
+                            Text(message.content)
+                                .foregroundColor(.white)
+                                .padding(12)
+                                .background(Color.white.opacity(0.06))
+                                .cornerRadius(12)
+                                .frame(maxWidth: 260, alignment: .leading)
+                        }
                     } else {
+                        Spacer()
                         Text(message.content)
                             .foregroundColor(.white)
                             .padding(12)
-                            .background(Color.white.opacity(0.06))
+                            .background(Color.blue)
                             .cornerRadius(12)
-                            .frame(maxWidth: 260, alignment: .leading)
+                            .frame(maxWidth: 260, alignment: .trailing)
                     }
-                } else {
-                    Spacer()
-                    Text(message.content)
-                        .foregroundColor(.white)
-                        .padding(12)
-                        .background(Color.blue)
-                        .cornerRadius(12)
-                        .frame(maxWidth: 260, alignment: .trailing)
+                }
+                
+                if message.role == "assistant" {
+                    HStack(spacing: 16) {
+                        Button(action: { onCopy(message.content) }) {
+                            Image(systemName: "doc.on.doc")
+                                .font(.system(size: 14))
+                                .foregroundColor(.purple)
+                        }
+                        
+                        Button(action: { onListen(message.content, message.id) }) {
+                            Image(systemName: isSpeaking ? "speaker.wave.2.fill" : "speaker.wave.2")
+                                .font(.system(size: 14))
+                                .foregroundColor(.purple)
+                                .symbolEffect(.variableColor.iterative, isActive: isSpeaking)
+                        }
+                        
+                        Button(action: onRetry) {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 14))
+                                .foregroundColor(.purple)
+                        }
+                    }
+                    .padding(.leading, 4)
                 }
             }
         }
@@ -524,6 +638,62 @@ struct ChatView: View {
 
     private func hideKeyboard() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+    
+    private func copyToClipboard(_ text: String) {
+        let readableText = extractReadableText(from: text)
+        UIPasteboard.general.string = readableText
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
+    }
+    
+    private func extractReadableText(from content: String) -> String {
+        // Try to decode as formatted JSON response
+        if let formatted = content.decodeKorahFormatted() {
+            var text = ""
+            
+            if let title = formatted.title, !title.isEmpty {
+                text += title + "\n\n"
+            }
+            
+            if let summary = formatted.summary, !summary.isEmpty {
+                text += summary + "\n\n"
+            }
+            
+            if let steps = formatted.steps, !steps.isEmpty {
+                text += "Steps:\n"
+                for (index, step) in steps.enumerated() {
+                    text += "\(index + 1). \(step)\n"
+                }
+                text += "\n"
+            }
+            
+            if let hints = formatted.hints, !hints.isEmpty {
+                text += "Hints:\n"
+                for hint in hints {
+                    text += "• \(hint)\n"
+                }
+                text += "\n"
+            }
+            
+            if let footer = formatted.footer, !footer.isEmpty {
+                text += footer
+            }
+            
+            return text.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        
+        // Return original content if not JSON formatted
+        return content
+    }
+    
+    private func retryLastMessage() {
+        guard let lastUserMessage = messages.last(where: { $0.role == "user" }) else { return }
+        if let lastAssistantIndex = messages.lastIndex(where: { $0.role == "assistant" }) {
+            messages.remove(at: lastAssistantIndex)
+        }
+        userInput = lastUserMessage.content
+        sendMessage()
     }
     
     // MARK: - Conversation Management
@@ -740,10 +910,11 @@ struct ChatView: View {
                    let message = choices.first?["message"] as? [String: Any],
                    let content = message["content"] as? String {
                     
-                    self.messages.append(Message(role: "assistant", content: content, timestamp: Date()))
+                    let newMessage = Message(role: "assistant", content: content, timestamp: Date())
+                    self.messages.append(newMessage)
                     self.saveCurrentConversation()
                     
-                    self.speakText(content)
+                    self.speakText(content, messageId: newMessage.id)
                 } else {
                     self.messages.append(Message(role: "assistant", content: "I couldn't process that. Can you try again?", timestamp: Date()))
                 }
@@ -752,8 +923,24 @@ struct ChatView: View {
     }
     
     // converts ai response to speech using openai tts
-    func speakText(_ text: String) {
-        isSpeaking = true
+    func speakText(_ text: String, messageId: UUID) {
+        currentTTSText = text
+        
+        // Check if audio is already cached
+        if let cachedAudioURL = getCachedAudioURL(for: messageId),
+           FileManager.default.fileExists(atPath: cachedAudioURL.path),
+           let audioData = try? Data(contentsOf: cachedAudioURL) {
+            // Play cached audio
+            showTTSControls = true
+            playTTSAudio(data: audioData)
+            return
+        }
+        
+        // Generate new audio
+        isTTSLoading = true
+        showTTSControls = true
+        
+        let readableText = extractReadableText(from: text)
         
         let url = URL(string: OpenAIConfig.speechURL)!
         var request = URLRequest(url: url)
@@ -762,7 +949,7 @@ struct ChatView: View {
         
         let body: [String: Any] = [
             "model": "tts-1",
-            "input": text,
+            "input": readableText,
             "voice": "nova",
             "speed": 1.0
         ]
@@ -770,20 +957,88 @@ struct ChatView: View {
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
         
         URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                self.isTTSLoading = false
+            }
+            
             guard let data = data else {
                 DispatchQueue.main.async {
-                    self.isSpeaking = false
-                    if self.isVoiceModeActive {
-                        self.startListening()
-                    }
+                    self.showTTSControls = false
                 }
                 return
             }
             
+            // Cache the audio data
+            self.cacheAudioData(data, for: messageId)
+            
             DispatchQueue.main.async {
-                self.playAudio(data: data)
+                self.playTTSAudio(data: data)
             }
         }.resume()
+    }
+    
+    private func playTTSAudio(data: Data) {
+        do {
+            let audioSession = AVAudioSession.sharedInstance()
+            try audioSession.setCategory(.playback, mode: .default)
+            try audioSession.setActive(true)
+            
+            ttsAudioPlayer = try AVAudioPlayer(data: data)
+            ttsAudioPlayer?.prepareToPlay()
+            
+            audioDuration = ttsAudioPlayer?.duration ?? 0
+            audioCurrentTime = 0
+            
+            let delegate = TTSAudioPlayerDelegate {
+                self.stopTTS()
+            }
+            ttsAudioPlayerDelegate = delegate
+            ttsAudioPlayer?.delegate = delegate
+            
+            ttsAudioPlayer?.play()
+            startAudioTimer()
+        } catch {
+            print("Audio playback error: \(error)")
+            showTTSControls = false
+        }
+    }
+    
+    private func stopTTS() {
+        audioTimer?.invalidate()
+        audioTimer = nil
+        ttsAudioPlayer?.stop()
+        ttsAudioPlayer = nil
+        ttsAudioPlayerDelegate = nil
+        showTTSControls = false
+        isTTSLoading = false
+        audioCurrentTime = 0
+        audioDuration = 0
+    }
+    
+    private func startAudioTimer() {
+        audioTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+            if let player = self.ttsAudioPlayer {
+                self.audioCurrentTime = player.currentTime
+            }
+        }
+    }
+    
+    private func formatTime(_ time: TimeInterval) -> String {
+        let minutes = Int(time) / 60
+        let seconds = Int(time) % 60
+        return String(format: "%d:%02d", minutes, seconds)
+    }
+    
+    // MARK: - Audio Caching
+    
+    private func getCachedAudioURL(for messageId: UUID) -> URL? {
+        let cacheDirectory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+        return cacheDirectory?.appendingPathComponent("tts_\(messageId.uuidString).m4a")
+    }
+    
+    private func cacheAudioData(_ data: Data, for messageId: UUID) {
+        guard let cacheURL = getCachedAudioURL(for: messageId) else { return }
+        try? data.write(to: cacheURL)
     }
     
     // plays tts audio and auto-restarts listening when done
@@ -847,6 +1102,7 @@ struct ChatView: View {
           - "Explain that again with a simpler example"
           - "Quiz me on the key ideas"
         - Avoid leading with phrases like "Do you want...", "Would you like...", or "Do you need..." in `questions`.
+        - REMINDER: Students can ask you to create flashcards, study guides, or practice tests about what they're learning. Let them know they can do this if appropriate.
         """
 
         let apiMessages: [[String: Any]] =
@@ -933,6 +1189,19 @@ struct ChatView: View {
 
 
 class AudioPlayerDelegate: NSObject, AVAudioPlayerDelegate {
+    private let onFinish: () -> Void
+    
+    init(onFinish: @escaping () -> Void) {
+        self.onFinish = onFinish
+        super.init()
+    }
+    
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        onFinish()
+    }
+}
+
+class TTSAudioPlayerDelegate: NSObject, AVAudioPlayerDelegate {
     private let onFinish: () -> Void
     
     init(onFinish: @escaping () -> Void) {

@@ -129,6 +129,14 @@ struct ScanView: View {
     @State private var showNewChatAlert = false
     @State private var currentConversation: Conversation?
     
+    @State private var showTTSControls = false
+    @State private var isTTSLoading = false
+    @State private var ttsAudioPlayer: AVAudioPlayer?
+    @State private var currentTTSText: String = ""
+    @State private var audioDuration: TimeInterval = 0
+    @State private var audioCurrentTime: TimeInterval = 0
+    @State private var audioTimer: Timer?
+    
     @State private var starterSuggestions: [String] = [
         "Help me solve this math problem",
         "Explain this concept step by step",
@@ -301,9 +309,14 @@ struct ScanView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 12) {
                         ForEach(messages) { message in
-                            ScanChatBubble(message: message)
-                                .id(message.id)
-                                .padding(.horizontal, 16)
+                            ScanChatBubble(
+                                message: message,
+                                onCopy: { content in copyToClipboard(content) },
+                                onListen: { content, id in speakText(content, messageId: id) },
+                                onRetry: { retryLastMessage() }
+                            )
+                            .id(message.id)
+                            .padding(.horizontal, 16)
                         }
                         
                         if showTypingIndicator {
@@ -352,6 +365,73 @@ struct ScanView: View {
                 .padding(.horizontal)
             }
             
+            if showTTSControls || isTTSLoading {
+                VStack(spacing: 0) {
+                    HStack(spacing: 12) {
+                        if isTTSLoading {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .scaleEffect(0.8)
+                            Text("Generating audio...")
+                                .font(.subheadline)
+                                .foregroundColor(.white)
+                            Spacer()
+                        } else {
+                            Image(systemName: "speaker.wave.2.fill")
+                                .foregroundColor(.white)
+                                .symbolEffect(.variableColor.iterative, isActive: ttsAudioPlayer?.isPlaying == true)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(ttsAudioPlayer?.isPlaying == true ? "Playing" : "Paused")
+                                    .font(.subheadline)
+                                    .foregroundColor(.white)
+                                Text("\(formatTime(audioCurrentTime)) / \(formatTime(audioDuration))")
+                                    .font(.caption)
+                                    .foregroundColor(.white.opacity(0.7))
+                            }
+                            
+                            Spacer()
+                            
+                            Button(action: {
+                                ttsAudioPlayer?.currentTime = 0
+                                audioCurrentTime = 0
+                                ttsAudioPlayer?.play()
+                            }) {
+                                Image(systemName: "arrow.clockwise")
+                                    .foregroundColor(.white)
+                            }
+                            
+                            Button(action: {
+                                if ttsAudioPlayer?.isPlaying == true {
+                                    ttsAudioPlayer?.pause()
+                                } else {
+                                    ttsAudioPlayer?.play()
+                                }
+                            }) {
+                                Image(systemName: ttsAudioPlayer?.isPlaying == true ? "pause.fill" : "play.fill")
+                                    .foregroundColor(.white)
+                            }
+                            
+                            Button(action: stopTTS) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.white.opacity(0.7))
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(
+                        LinearGradient(
+                            colors: [Color.purple.opacity(0.3), Color.purple.opacity(0.5)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(12)
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
+                }
+            }
+            
             HStack(spacing: 8) {
                 Button(action: {
                     if UIImagePickerController.isSourceTypeAvailable(.camera) {
@@ -362,26 +442,29 @@ struct ScanView: View {
                     Image(systemName: "photo.on.rectangle.angled")
                         .foregroundColor(.white)
                         .padding(10)
-                        .background(Color.white.opacity(0.1))
+                        .background(Color.purple.opacity(0.8))
                         .clipShape(Circle())
                 }
                 
                 TextField("Type your message…", text: $userInput, axis: .vertical)
-                    .textFieldStyle(.roundedBorder)
+                    .padding(12)
+                    .background(Color.white.opacity(0.1))
+                    .cornerRadius(20)
+                    .foregroundColor(.white)
                     .lineLimit(1...4)
                 
                 Button(action: sendMessage) {
                     Image(systemName: "paperplane.fill")
                         .foregroundColor(.white)
                         .padding(10)
-                        .background((userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedImage == nil) ? Color.gray : Color.accentColor)
-                        .clipShape(Capsule())
+                        .background((userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedImage == nil) ? Color.gray : Color.purple)
+                        .clipShape(Circle())
                 }
                 .disabled(userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedImage == nil)
             }
             .padding(.all, 12)
             .background(Color.white.opacity(0.06))
-            .cornerRadius(12)
+            .cornerRadius(25)
             .padding(.horizontal)
         }
         .alert("Delete Chat", isPresented: $showClearChatAlert) {
@@ -501,48 +584,78 @@ struct ScanView: View {
 
     struct ScanChatBubble: View {
         let message: ScanMessage
+        @State private var isSpeaking = false
+        let onCopy: (String) -> Void
+        let onListen: (String, UUID) -> Void
+        let onRetry: () -> Void
 
         var body: some View {
-            HStack(alignment: .bottom) {
-                Spacer().frame(width: 0)
-                if message.role == "assistant" {
-                    if let formatted = message.content.decodeScanKorahFormatted() {
-                        ScanAnswerView(formatted: formatted, timestamp: message.timestamp)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    } else {
-                        ScrollView {
-                            Text(scanFormattedResponse(message.content))
-                                .font(.body)
-                                .foregroundColor(.white)
-                                .textSelection(.enabled)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .monospaced(false)
-                                .padding(16)
-                                .background(Color.white.opacity(0.06))
-                                .cornerRadius(12)
+            VStack(alignment: message.role == "assistant" ? .leading : .trailing, spacing: 4) {
+                HStack(alignment: .bottom) {
+                    Spacer().frame(width: 0)
+                    if message.role == "assistant" {
+                        if let formatted = message.content.decodeScanKorahFormatted() {
+                            ScanAnswerView(formatted: formatted, timestamp: message.timestamp)
                                 .frame(maxWidth: .infinity, alignment: .leading)
+                        } else {
+                            ScrollView {
+                                Text(scanFormattedResponse(message.content))
+                                    .font(.body)
+                                    .foregroundColor(.white)
+                                    .textSelection(.enabled)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .monospaced(false)
+                                    .padding(16)
+                                    .background(Color.white.opacity(0.06))
+                                    .cornerRadius(12)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .none, alignment: .topLeading)
                         }
-                        .frame(maxWidth: .infinity, maxHeight: .none, alignment: .topLeading)
+                    } else {
+                        Spacer()
+                        VStack(alignment: .trailing, spacing: 8) {
+                            if let image = message.image {
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(maxWidth: 200)
+                                    .cornerRadius(8)
+                            }
+                            if !message.content.isEmpty {
+                                Text(message.content)
+                                    .foregroundColor(.white)
+                                    .padding(12)
+                                    .background(Color.blue)
+                                    .cornerRadius(12)
+                            }
+                        }
+                        .frame(maxWidth: min(UIScreen.main.bounds.width - 48, 360), alignment: .trailing)
                     }
-                } else {
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 8) {
-                        if let image = message.image {
-                            Image(uiImage: image)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(maxWidth: 200)
-                                .cornerRadius(8)
+                }
+                
+                if message.role == "assistant" {
+                    HStack(spacing: 16) {
+                        Button(action: { onCopy(message.content) }) {
+                            Image(systemName: "doc.on.doc")
+                                .font(.system(size: 14))
+                                .foregroundColor(.purple)
                         }
-                        if !message.content.isEmpty {
-                            Text(message.content)
-                                .foregroundColor(.white)
-                                .padding(12)
-                                .background(Color.blue)
-                                .cornerRadius(12)
+                        
+                        Button(action: { onListen(message.content, message.id) }) {
+                            Image(systemName: isSpeaking ? "speaker.wave.2.fill" : "speaker.wave.2")
+                                .font(.system(size: 14))
+                                .foregroundColor(.purple)
+                                .symbolEffect(.variableColor.iterative, isActive: isSpeaking)
+                        }
+                        
+                        Button(action: onRetry) {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 14))
+                                .foregroundColor(.purple)
                         }
                     }
-                    .frame(maxWidth: min(UIScreen.main.bounds.width - 48, 360), alignment: .trailing)
+                    .padding(.leading, 4)
                 }
             }
         }
@@ -1027,6 +1140,173 @@ struct ScanView: View {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
     
+    private func copyToClipboard(_ text: String) {
+        let readableText = extractReadableText(from: text)
+        UIPasteboard.general.string = readableText
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
+    }
+    
+    private func extractReadableText(from content: String) -> String {
+        // Try to decode as formatted JSON response
+        if let formatted = content.decodeScanKorahFormatted() {
+            var text = ""
+            
+            if let title = formatted.title, !title.isEmpty {
+                text += title + "\n\n"
+            }
+            
+            if let summary = formatted.summary, !summary.isEmpty {
+                text += summary + "\n\n"
+            }
+            
+            if let steps = formatted.steps, !steps.isEmpty {
+                text += "Steps:\n"
+                for (index, step) in steps.enumerated() {
+                    text += "\(index + 1). \(step)\n"
+                }
+                text += "\n"
+            }
+            
+            if let hints = formatted.hints, !hints.isEmpty {
+                text += "Hints:\n"
+                for hint in hints {
+                    text += "• \(hint)\n"
+                }
+                text += "\n"
+            }
+            
+            if let footer = formatted.footer, !footer.isEmpty {
+                text += footer
+            }
+            
+            return text.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        
+        // Return original content if not JSON formatted
+        return content
+    }
+    
+    private func speakText(_ text: String, messageId: UUID) {
+        currentTTSText = text
+        
+        // Check if audio is already cached
+        if let cachedAudioURL = getCachedAudioURL(for: messageId),
+           FileManager.default.fileExists(atPath: cachedAudioURL.path),
+           let audioData = try? Data(contentsOf: cachedAudioURL) {
+            // Play cached audio
+            showTTSControls = true
+            playTTSAudio(data: audioData)
+            return
+        }
+        
+        // Generate new audio
+        isTTSLoading = true
+        showTTSControls = true
+        
+        let readableText = extractReadableText(from: text)
+        
+        let url = URL(string: OpenAIConfig.speechURL)!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let body: [String: Any] = [
+            "model": "tts-1",
+            "input": readableText,
+            "voice": "nova",
+            "speed": 1.0
+        ]
+        
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                self.isTTSLoading = false
+            }
+            
+            guard let data = data else {
+                DispatchQueue.main.async {
+                    self.showTTSControls = false
+                }
+                return
+            }
+            
+            // Cache the audio data
+            self.cacheAudioData(data, for: messageId)
+            
+            DispatchQueue.main.async {
+                self.playTTSAudio(data: data)
+            }
+        }.resume()
+    }
+    
+    private func playTTSAudio(data: Data) {
+        do {
+            let audioSession = AVAudioSession.sharedInstance()
+            try audioSession.setCategory(.playback, mode: .default)
+            try audioSession.setActive(true)
+            
+            ttsAudioPlayer = try AVAudioPlayer(data: data)
+            ttsAudioPlayer?.prepareToPlay()
+            
+            audioDuration = ttsAudioPlayer?.duration ?? 0
+            audioCurrentTime = 0
+            
+            ttsAudioPlayer?.play()
+            startAudioTimer()
+        } catch {
+            print("Audio playback error: \(error)")
+            showTTSControls = false
+        }
+    }
+    
+    private func stopTTS() {
+        audioTimer?.invalidate()
+        audioTimer = nil
+        ttsAudioPlayer?.stop()
+        ttsAudioPlayer = nil
+        showTTSControls = false
+        isTTSLoading = false
+        audioCurrentTime = 0
+        audioDuration = 0
+    }
+    
+    private func startAudioTimer() {
+        audioTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+            if let player = self.ttsAudioPlayer {
+                self.audioCurrentTime = player.currentTime
+            }
+        }
+    }
+    
+    private func formatTime(_ time: TimeInterval) -> String {
+        let minutes = Int(time) / 60
+        let seconds = Int(time) % 60
+        return String(format: "%d:%02d", minutes, seconds)
+    }
+    
+    // MARK: - Audio Caching
+    
+    private func getCachedAudioURL(for messageId: UUID) -> URL? {
+        let cacheDirectory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+        return cacheDirectory?.appendingPathComponent("tts_\(messageId.uuidString).m4a")
+    }
+    
+    private func cacheAudioData(_ data: Data, for messageId: UUID) {
+        guard let cacheURL = getCachedAudioURL(for: messageId) else { return }
+        try? data.write(to: cacheURL)
+    }
+    
+    private func retryLastMessage() {
+        guard let lastUserMessage = messages.last(where: { $0.role == "user" }) else { return }
+        if let lastAssistantIndex = messages.lastIndex(where: { $0.role == "assistant" }) {
+            messages.remove(at: lastAssistantIndex)
+        }
+        userInput = lastUserMessage.content
+        sendMessage()
+    }
+    
     // MARK: - Conversation Management
     
     private func loadConversation(_ conversation: Conversation) {
@@ -1117,6 +1397,7 @@ extension ScanView {
         - Keep it kid-friendly, concise, and actionable.
         - Do NOT include any non-JSON text.
         - If the user asks for direct answers, redirect with hints in JSON.
+        - REMINDER: Students can ask you to create flashcards, study guides, or practice tests about what they're learning. Let them know they can do this if appropriate.
         """
 
         var apiMessages: [[String: Any]] = [["role": "system", "content": systemInstruction]]
