@@ -70,14 +70,12 @@ struct EditTaskView: View {
             }
         }
         .korahGradientBackground()
-        .fullScreenCover(isPresented: $showCelebration) {
-            CongratulationsView(
-                title: "Task Complete!",
-                message: "You completed \"\(title)\". Keep up the great work!"
-            )
-            .onDisappear {
+        .alert("Task Complete! 🎉", isPresented: $showCelebration) {
+            Button("Great!") {
                 dismiss()
             }
+        } message: {
+            Text("You completed \"\(title)\". Keep up the great work!")
         }
     }
     

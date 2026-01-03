@@ -12,14 +12,12 @@ This app was developed with assistance from AI coding tools:
 - ChatGPT in Xcode: Assisted with SwiftUI layout debugging, data persistence with @AppStorage,
   navigation flows, and JSON parsing for structured AI responses.
 
-This is our first time coding in Swift and C++ (for the Arduino bracelet hardware). 
-AI tools were essential for learning syntax, debugging, and implementing features beyond 
-our initial skill level.
+This is our first time coding in Swift. AI tools were essential for learning syntax, 
+debugging, and implementing features beyond our initial skill level.
 
 REQUIREMENTS
 ------------
 - iOS 18.0 or later
-- Custom Arduino-based wellness bracelet (optional, for mood tracking features)
 - OpenAI API key (required for chat and voice features)
 
 FEATURES
@@ -28,14 +26,9 @@ FEATURES
 - Study Tools: Flashcards, study guides, and practice tests
 - Document Scanning: Extract text from images using Vision framework
 - Task Management: To-do lists with Pomodoro timer
-- Mood Tracking: Integration with custom Arduino bracelet via Bluetooth
-
-HARDWARE
---------
-We prototyped an Arduino-powered bracelet that works alongside the app as a productivity tool. The app runs entirely on its own without the bracelet.
+- Mood Tracking: Focus level check-ins for personalized task recommendations
 
 DEVELOPMENT
 -----------
 Built using Swift, SwiftUI, and AVFoundation.
-Arduino firmware written in C++.
 API integration with OpenAI for GPT-3.5-turbo and Whisper models.

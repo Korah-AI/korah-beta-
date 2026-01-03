@@ -410,7 +410,6 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Korah;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
-				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Korah connects to your Focus Bracelet via Bluetooth to track focus and mood during study sessions";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Korah uses your camera to scan study materials and documents";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Korah uses your microphone for AI voice tutoring conversations";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Korah uses your photo library to access select study materials and documents";
@@ -452,7 +451,6 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Korah;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
-				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Korah connects to your Focus Bracelet via Bluetooth to track focus and mood during study sessions";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Korah uses your camera to scan study materials and documents";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Korah uses your microphone for AI voice tutoring conversations";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Korah uses your photo library to access select study materials and documents";

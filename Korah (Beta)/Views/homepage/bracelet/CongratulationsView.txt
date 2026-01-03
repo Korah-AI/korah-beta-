@@ -75,8 +75,6 @@ struct CongratulationsView: View {
             }
         }
         .onAppear {
-            BLEManager.shared.sendCommand("CELEBRATE")
-            
             withAnimation {
                 showContent = true
                 animateConfetti = true
