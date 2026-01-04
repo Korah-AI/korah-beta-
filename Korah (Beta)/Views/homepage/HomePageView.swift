@@ -13,7 +13,13 @@ struct HomePageView: View {
     @ObservedObject private var timerManager = PomodoroTimerManager.shared
     
     private var recommendedTasks: [Task] {
-        MoodHelpers.getRecommendedTasks(for: userMood, tasks: dataManager.tasks)
+        if userMood.isEmpty {
+            // If no mood is set, show upcoming tasks sorted by date
+            return dataManager.tasks.sorted { $0.dueDate < $1.dueDate }
+        } else {
+            // Get tasks sorted with recommended ones first
+            return MoodHelpers.getSortedTasks(for: userMood, tasks: dataManager.tasks)
+        }
     }
 
     var body: some View {
@@ -102,9 +108,10 @@ struct HomePageView: View {
                         
                         // Mood-based recommendation message
                         if !userMood.isEmpty {
-                            Text(MoodHelpers.getRecommendationMessage(for: userMood, taskCount: recommendedTasks.count))
+                            let recommendedCount = recommendedTasks.filter { MoodHelpers.isTaskRecommended(task: $0, for: userMood) }.count
+                            Text(MoodHelpers.getRecommendationMessage(for: userMood, recommendedCount: recommendedCount, totalCount: recommendedTasks.count))
                                 .font(.subheadline)
-                                .foregroundColor(.purple.opacity(0.9))
+                                .foregroundColor(.yellow.opacity(0.9))
                                 .padding(.bottom, 4)
                         }
 

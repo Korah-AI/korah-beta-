@@ -8,23 +8,51 @@ struct FocusExercise: Identifiable {
 }
 
 class MoodHelpers {
-    /// Get tasks filtered and sorted based on current mood
-    static func getRecommendedTasks(for mood: String, tasks: [Task]) -> [Task] {
+    /// Check if a task is recommended based on current mood
+    static func isTaskRecommended(task: Task, for mood: String) -> Bool {
         switch mood {
         case "🟢": // Very focused
-            // Show harder tasks first
-            return tasks.sorted { $0.difficulty.rawValue > $1.difficulty.rawValue }
+            // All tasks are good, but harder tasks are better
+            return true
         case "🟡": // Moderately focused
-            // Show medium and easy tasks
-            return tasks.filter { $0.difficulty == .medium || $0.difficulty == .easy }
-                .sorted { $0.dueDate < $1.dueDate }
+            // Recommend medium and easy tasks
+            return task.difficulty == .medium || task.difficulty == .easy
         case "🔴": // Not focused
-            // Only show easy tasks
-            return tasks.filter { $0.difficulty == .easy }
-                .sorted { $0.dueDate < $1.dueDate }
+            // Only recommend easy tasks
+            return task.difficulty == .easy
         default:
+            return true
+        }
+    }
+    
+    /// Get tasks sorted with recommended tasks first based on current mood
+    static func getSortedTasks(for mood: String, tasks: [Task]) -> [Task] {
+        if mood.isEmpty {
             return tasks.sorted { $0.dueDate < $1.dueDate }
         }
+        
+        // Separate recommended and non-recommended tasks
+        let recommended = tasks.filter { isTaskRecommended(task: $0, for: mood) }
+        let others = tasks.filter { !isTaskRecommended(task: $0, for: mood) }
+        
+        // Sort each group
+        let sortedRecommended: [Task]
+        switch mood {
+        case "🟢": // Very focused - prioritize harder tasks
+            sortedRecommended = recommended.sorted { 
+                if $0.difficulty != $1.difficulty {
+                    return $0.difficulty.rawValue > $1.difficulty.rawValue
+                }
+                return $0.dueDate < $1.dueDate
+            }
+        default: // Other moods - sort by due date
+            sortedRecommended = recommended.sorted { $0.dueDate < $1.dueDate }
+        }
+        
+        let sortedOthers = others.sorted { $0.dueDate < $1.dueDate }
+        
+        // Return recommended tasks first, then others
+        return sortedRecommended + sortedOthers
     }
     
     /// Get suggested exercises based on mood
@@ -69,17 +97,20 @@ class MoodHelpers {
     }
     
     /// Get recommendation message based on mood
-    static func getRecommendationMessage(for mood: String, taskCount: Int) -> String {
+    static func getRecommendationMessage(for mood: String, recommendedCount: Int, totalCount: Int) -> String {
         switch mood {
         case "🟢":
-            return "You're feeling great! Here are your harder tasks to tackle:"
+            return "You're feeling great! Tackle your tasks starting with the harder ones:"
         case "🟡":
-            return "Let's start with medium-difficulty tasks:"
-        case "🔴":
-            if taskCount == 0 {
-                return "No easy tasks available right now. Try one of these exercises to boost your focus:"
+            if recommendedCount > 0 {
+                return "\(recommendedCount) recommended task\(recommendedCount == 1 ? "" : "s") for your current focus level:"
             }
-            return "Let's keep it simple with easier tasks:"
+            return "Start with easier tasks to build momentum:"
+        case "🔴":
+            if recommendedCount == 0 {
+                return "No easy tasks right now. Consider these exercises to boost your focus:"
+            }
+            return "\(recommendedCount) easy task\(recommendedCount == 1 ? "" : "s") recommended for you:"
         default:
             return "Here are your tasks:"
         }

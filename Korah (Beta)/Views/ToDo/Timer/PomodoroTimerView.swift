@@ -3,6 +3,11 @@ import Foundation
 import UserNotifications
 import UIKit
 import Combine
+import FamilyControls
+import ManagedSettings
+
+typealias UserTask = Task
+typealias AsyncTask = _Concurrency.Task
 
 class PomodoroTimerManager: ObservableObject {
     static let shared = PomodoroTimerManager()
@@ -11,28 +16,45 @@ class PomodoroTimerManager: ObservableObject {
     @Published var totalTime = 600
     @Published var isTimerRunning = false
     @Published var showingCompletionAlert = false
-    @Published var selectedTasks: [Task] = []
+    @Published var selectedTasks: [UserTask] = []
+    @Published var lockInModeEnabled = false
+    @Published var blockedApps = FamilyActivitySelection()
     
     private var timer: Timer?
     private var lastProgressQuarter = 0
+    private let store = ManagedSettingsStore()
+    private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
+    private var pauseTime: Date?
     var onStart: (() -> Void)?
     var onStop: (() -> Void)?
     var onComplete: (() -> Void)?
     
-    private init() {}
+    private init() {
+        // Add observers for app lifecycle
+        NotificationCenter.default.addObserver(self, selector: #selector(appDidEnterBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(appWillEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
+    }
     
     func startTimer() {
         guard !isTimerRunning else { return }
         isTimerRunning = true
         onStart?()
         scheduleFocusReminderLoop()
+        
+        // Schedule completion notification for when timer finishes
+        scheduleCompletionNotification()
+        
+        // Block apps if Lock-In Mode is enabled
+        if lockInModeEnabled {
+            blockApps()
+        }
+        
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             guard let self = self else { return }
             if self.timeRemaining > 0 {
                 self.timeRemaining -= 1
             } else {
-                self.stopTimer()
-                self.showCompletionFeedback()
+                self.timerCompleted()
             }
         }
     }
@@ -41,13 +63,19 @@ class PomodoroTimerManager: ObservableObject {
         isTimerRunning = false
         timer?.invalidate()
         timer = nil
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["focus-minute-reminder"])
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["focus-minute-reminder", "timer-completion"])
+        
+        // Unblock apps
+        unblockApps()
+        
         onStop?()
     }
     
     func resetTimer() {
         stopTimer()
         timeRemaining = totalTime
+        // Unblock apps when resetting
+        unblockApps()
     }
     
     func setDuration(_ seconds: Int) {
@@ -56,7 +84,9 @@ class PomodoroTimerManager: ObservableObject {
         totalTime = seconds
     }
     
-    func showCompletionFeedback() {
+    private func timerCompleted() {
+        stopTimer()
+        
         let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
         impactFeedback.impactOccurred()
         
@@ -65,20 +95,33 @@ class PomodoroTimerManager: ObservableObject {
         }
         
         onComplete?()
+    }
+    
+    private func scheduleCompletionNotification() {
+        // Remove any existing completion notification
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["timer-completion"])
         
+        // Schedule notification for when timer completes
         let content = UNMutableNotificationContent()
         content.title = "✅ Focus Session Complete!"
-        content.body = "Nice work! Take a short break."
+        content.body = "Great work! You've completed your focus session."
         content.sound = .default
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
-        let request = UNNotificationRequest(identifier: "session-complete", content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request)
+        content.interruptionLevel = .timeSensitive // Ensures it shows even in Do Not Disturb
+        
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: TimeInterval(timeRemaining), repeats: false)
+        let request = UNNotificationRequest(identifier: "timer-completion", content: content, trigger: trigger)
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("Error scheduling completion notification: \(error)")
+            }
+        }
     }
     
     func scheduleFocusReminderLoop() {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["focus-minute-reminder"])
         let content = UNMutableNotificationContent()
-        content.title = "🍅 Stay Focused"
+        content.title = "⏱️ Stay Focused"
         content.body = "Remember your focus session!"
         content.sound = .default
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 60, repeats: true)
@@ -89,6 +132,58 @@ class PomodoroTimerManager: ObservableObject {
     var progress: Double {
         guard totalTime > 0 else { return 0 }
         return 1 - Double(timeRemaining) / Double(totalTime)
+    }
+    
+    // MARK: - Screen Time Controls
+    
+    func requestScreenTimeAuthorization() async throws {
+        try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
+    }
+    
+    private func blockApps() {
+        guard !blockedApps.applicationTokens.isEmpty || !blockedApps.categoryTokens.isEmpty else { return }
+        store.shield.applications = blockedApps.applicationTokens.isEmpty ? nil : blockedApps.applicationTokens
+        store.shield.applicationCategories = .specific(blockedApps.categoryTokens)
+    }
+    
+    private func unblockApps() {
+        store.shield.applications = nil
+        store.shield.applicationCategories = nil
+        store.shield.webDomains = nil
+    }
+    
+    // MARK: - Background Handling
+    
+    @objc private func appDidEnterBackground() {
+        if isTimerRunning {
+            pauseTime = Date()
+            // Request background time to keep timer running
+            backgroundTaskID = UIApplication.shared.beginBackgroundTask { [weak self] in
+                self?.endBackgroundTask()
+            }
+        }
+    }
+    
+    @objc private func appWillEnterForeground() {
+        if let pauseTime = pauseTime, isTimerRunning {
+            // Calculate elapsed time while in background
+            let elapsedTime = Int(Date().timeIntervalSince(pauseTime))
+            timeRemaining = max(0, timeRemaining - elapsedTime)
+            
+            if timeRemaining == 0 {
+                timerCompleted()
+            }
+            
+            self.pauseTime = nil
+        }
+        endBackgroundTask()
+    }
+    
+    private func endBackgroundTask() {
+        if backgroundTaskID != .invalid {
+            UIApplication.shared.endBackgroundTask(backgroundTaskID)
+            backgroundTaskID = .invalid
+        }
     }
 }
 
@@ -101,47 +196,85 @@ struct PomodoroTimerView: View {
     @State private var showTaskPicker = false
     @State private var showCustomTimePicker = false
     @State private var customMinutes = 10
-    @State private var allTasks: [Task] = []
-    @State private var showCelebration = false
+    @State private var allTasks: [UserTask] = []
     @State private var goHome = false
+    @State private var showBlockedAppsPicker = false
+    @State private var screenTimeAuthorized = false
+    @State private var showAuthorizationAlert = false
 
-    var backButton: some View {
+    var navigationBar: some View {
         HStack {
             Button(action: {
                 goHome = true
             }) {
                 HStack(spacing: 6) {
                     Image(systemName: "chevron.left")
-                    Text("Back")
+                        .font(.system(size: 16, weight: .semibold))
+                    Text("Home")
+                        .font(.system(size: 16, weight: .medium))
                 }
-                .font(.headline)
                 .foregroundColor(.white)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Color.white.opacity(0.15))
-                .cornerRadius(10)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.white.opacity(0.1))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
+                        )
+                )
             }
-            .padding(.leading)
             
             Spacer()
+            
+            // Timer status badge
+            if timerManager.isTimerRunning {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 8, height: 8)
+                        .overlay(
+                            Circle()
+                                .fill(Color.green.opacity(0.3))
+                                .scaleEffect(1.5)
+                        )
+                    Text("Active")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(
+                    Capsule()
+                        .fill(Color.green.opacity(0.2))
+                        .overlay(
+                            Capsule()
+                                .strokeBorder(Color.green.opacity(0.3), lineWidth: 1)
+                        )
+                )
+            }
         }
+        .padding(.horizontal, 20)
+        .padding(.top, 8)
     }
     
     var headerView: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 4) {
+            Text("Focus Session")
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .foregroundColor(.white)
+            
             HStack(spacing: 8) {
-                Image(systemName: "timer")
-                    .font(.title)
-                    .foregroundColor(.purple)
-                Text("Study Timer")
-                    .font(.largeTitle).bold()
-                    .foregroundColor(.white)
+                Image(systemName: timerManager.isTimerRunning ? "flame.fill" : "moon.stars.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(timerManager.isTimerRunning ? .orange : .purple.opacity(0.8))
+                Text(timerManager.isTimerRunning ? "Deep Work Mode" : "Ready to Focus")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(.white.opacity(0.7))
             }
-            Text(timerManager.isTimerRunning ? "Focus Time 🔥" : "Ready to Focus 💪")
-                .font(.headline)
-                .foregroundColor(.white.opacity(0.8))
         }
-        .padding(.top, 12)
+        .padding(.top, 8)
     }
     
     var selectedTasksView: some View {
@@ -195,161 +328,327 @@ struct PomodoroTimerView: View {
     
     var timerCircle: some View {
         ZStack {
+            // Outer glow
             Circle()
-                .stroke(Color.white.opacity(0.15), lineWidth: 18)
-                .frame(width: 280, height: 280)
-                .shadow(color: .black.opacity(0.5), radius: 10, x: 0, y: 8)
+                .fill(
+                    RadialGradient(
+                        colors: [Color.purple.opacity(0.3), Color.clear],
+                        center: .center,
+                        startRadius: 140,
+                        endRadius: 180
+                    )
+                )
+                .frame(width: 320, height: 320)
+                .blur(radius: 20)
+            
+            // Background circle
+            Circle()
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 20
+                )
+                .frame(width: 260, height: 260)
+                .shadow(color: .black.opacity(0.3), radius: 15, x: 0, y: 10)
 
+            // Progress circle
             Circle()
                 .trim(from: 0, to: CGFloat(timerManager.progress))
                 .stroke(
                     AngularGradient(
-                        gradient: Gradient(colors: [Color.purple, Color.blue, Color.green, Color.purple]),
+                        colors: timerManager.isTimerRunning 
+                            ? [Color.orange, Color.pink, Color.purple, Color.blue, Color.orange]
+                            : [Color.purple, Color.blue, Color.cyan, Color.purple],
                         center: .center
                     ),
-                    style: StrokeStyle(lineWidth: 18, lineCap: .round)
+                    style: StrokeStyle(lineWidth: 20, lineCap: .round)
                 )
-                .frame(width: 280, height: 280)
+                .frame(width: 260, height: 260)
                 .rotationEffect(.degrees(-90))
                 .animation(.linear(duration: 1), value: timerManager.timeRemaining)
-                .shadow(color: .purple.opacity(0.5), radius: 8, x: 0, y: 0)
+                .shadow(color: timerManager.isTimerRunning ? .orange.opacity(0.6) : .purple.opacity(0.6), radius: 10, x: 0, y: 0)
 
-            VStack(spacing: 10) {
+            // Inner content
+            VStack(spacing: 12) {
                 Text(timeString(from: timerManager.timeRemaining))
-                    .font(.system(size: 60, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
-                    .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
-                HStack(spacing: 6) {
-                    Image(systemName: timerManager.isTimerRunning ? "flame.fill" : "play.circle.fill")
-                        .foregroundColor(timerManager.isTimerRunning ? .orange : .green)
-                    Text(timerManager.isTimerRunning ? "Stay focused" : "Tap start")
-                        .foregroundColor(.white.opacity(0.9))
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(Color.white.opacity(0.1))
-                .cornerRadius(20)
+                    .font(.system(size: 68, weight: .bold, design: .rounded))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [.white, .white.opacity(0.9)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 2)
+                
+                Text(timerManager.isTimerRunning ? "Stay Locked In" : "Ready When You Are")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.6))
+                    .textCase(.uppercase)
+                    .tracking(1.2)
             }
         }
-        .padding(.vertical, 20)
+        .padding(.vertical, 30)
     }
     
     var durationButtons: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
+        VStack(spacing: 12) {
+            Text("Session Duration")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.white.opacity(0.5))
+                .textCase(.uppercase)
+                .tracking(1)
+            
+            HStack(spacing: 10) {
                 ForEach([300, 600, 1500], id: \.self) { seconds in
                     Button(action: { timerManager.setDuration(seconds) }) {
-                        Text(label(for: seconds))
-                            .font(.subheadline).bold()
-                            .foregroundColor(.white)
-                            .padding(.vertical, 10)
-                            .padding(.horizontal, 14)
-                            .background(Color.white.opacity(timerManager.timeRemaining == seconds && !timerManager.isTimerRunning ? 0.25 : 0.12))
-                            .cornerRadius(10)
+                        VStack(spacing: 6) {
+                            Text("\(seconds/60)")
+                                .font(.system(size: 24, weight: .bold, design: .rounded))
+                            Text("min")
+                                .font(.system(size: 11, weight: .medium))
+                                .opacity(0.7)
+                        }
+                        .foregroundColor(timerManager.timeRemaining == seconds && !timerManager.isTimerRunning ? .white : .white.opacity(0.7))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(
+                                    timerManager.timeRemaining == seconds && !timerManager.isTimerRunning
+                                        ? Color.purple.opacity(0.5)
+                                        : Color.white.opacity(0.08)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .strokeBorder(
+                                            timerManager.timeRemaining == seconds && !timerManager.isTimerRunning
+                                                ? Color.purple.opacity(0.6)
+                                                : Color.white.opacity(0.1),
+                                            lineWidth: 1.5
+                                        )
+                                )
+                        )
+                        .shadow(color: timerManager.timeRemaining == seconds && !timerManager.isTimerRunning ? .purple.opacity(0.3) : .clear, radius: 10, x: 0, y: 5)
                     }
                     .disabled(timerManager.isTimerRunning)
                 }
                 
                 Button(action: { showCustomTimePicker = true }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "clock.badge.questionmark")
+                    VStack(spacing: 6) {
+                        Image(systemName: "slider.horizontal.3")
+                            .font(.system(size: 20, weight: .semibold))
                         Text("Custom")
+                            .font(.system(size: 11, weight: .medium))
+                            .opacity(0.7)
                     }
-                    .font(.subheadline).bold()
-                    .foregroundColor(.white)
-                    .padding(.vertical, 10)
-                    .padding(.horizontal, 14)
-                    .background(Color.white.opacity(0.12))
-                    .cornerRadius(10)
-                }
-                .disabled(timerManager.isTimerRunning)
-            }
-            .padding(.horizontal)
-        }
-    }
-    
-    var controlButtons: some View {
-        VStack(spacing: 14) {
-            HStack(spacing: 14) {
-                Button(action: toggleTimer) {
-                    HStack(spacing: 8) {
-                        Image(systemName: timerManager.isTimerRunning ? "pause.fill" : "play.fill")
-                            .font(.title3)
-                        Text(timerManager.isTimerRunning ? "Pause" : "Start")
-                            .fontWeight(.bold)
-                    }
-                    .foregroundColor(.black)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(timerManager.isTimerRunning ? Color.orange : Color.green)
-                    .cornerRadius(14)
-                    .shadow(color: .black.opacity(0.3), radius: 6, x: 0, y: 4)
-                }
-
-                Button(action: { timerManager.resetTimer() }) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "arrow.counterclockwise")
-                            .font(.title3)
-                        Text("Reset")
-                            .fontWeight(.bold)
-                    }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(Color.white.opacity(0.15))
-                    .cornerRadius(14)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                    )
-                }
-            }
-            
-            if !timerManager.isTimerRunning {
-                Button(action: { showTaskPicker = true }) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "checklist")
-                            .font(.title3)
-                        Text("Select Tasks (\(timerManager.selectedTasks.count))")
-                            .fontWeight(.bold)
-                    }
-                    .foregroundColor(.white)
+                    .foregroundColor(.white.opacity(0.7))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
                     .background(
-                        LinearGradient(
-                            colors: [Color.purple, Color.purple.opacity(0.7)],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color.white.opacity(0.08))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .strokeBorder(Color.white.opacity(0.1), lineWidth: 1.5)
+                            )
                     )
-                    .cornerRadius(14)
-                    .shadow(color: .purple.opacity(0.4), radius: 8, x: 0, y: 4)
+                }
+                .disabled(timerManager.isTimerRunning)
+            }
+            .padding(.horizontal, 20)
+        }
+    }
+    
+    var lockInModeSection: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                // Lock-In Mode icon and badge
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(
+                            LinearGradient(
+                                colors: timerManager.lockInModeEnabled 
+                                    ? [Color.orange.opacity(0.3), Color.orange.opacity(0.2)]
+                                    : [Color.white.opacity(0.1), Color.white.opacity(0.05)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 50, height: 50)
+                    
+                    Image(systemName: timerManager.lockInModeEnabled ? "lock.shield.fill" : "lock.open")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundColor(timerManager.lockInModeEnabled ? .orange : .white.opacity(0.5))
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Lock-In Mode")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.white)
+                    Text("Block apps during focus")
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundColor(.white.opacity(0.5))
+                }
+                
+                Spacer()
+                
+                Toggle("", isOn: $timerManager.lockInModeEnabled)
+                    .labelsHidden()
+                    .tint(.orange)
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.white.opacity(0.06))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .strokeBorder(
+                                timerManager.lockInModeEnabled ? Color.orange.opacity(0.3) : Color.white.opacity(0.1),
+                                lineWidth: 1.5
+                            )
+                    )
+            )
+            
+            if timerManager.lockInModeEnabled {
+                Button(action: {
+                    if screenTimeAuthorized {
+                        showBlockedAppsPicker = true
+                    } else {
+                        showAuthorizationAlert = true
+                    }
+                }) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "apps.iphone")
+                            .font(.system(size: 18, weight: .semibold))
+                        
+                        let appCount = timerManager.blockedApps.applicationTokens.count + timerManager.blockedApps.categoryTokens.count
+                        Text(appCount > 0 ? "\(appCount) App\(appCount == 1 ? "" : "s") to Block" : "Choose Apps to Block")
+                            .font(.system(size: 15, weight: .semibold))
+                        
+                        Spacer()
+                        
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .opacity(0.5)
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(Color.orange.opacity(0.2))
+                    )
+                }
+                .padding(.top, 8)
+            }
+        }
+        .padding(.horizontal, 20)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: timerManager.lockInModeEnabled)
+    }
+    
+    var controlButtons: some View {
+        VStack(spacing: 12) {
+            // Primary action button
+            Button(action: toggleTimer) {
+                HStack(spacing: 12) {
+                    Image(systemName: timerManager.isTimerRunning ? "pause.circle.fill" : "play.circle.fill")
+                        .font(.system(size: 24, weight: .semibold))
+                    Text(timerManager.isTimerRunning ? "Pause Session" : "Start Focus")
+                        .font(.system(size: 18, weight: .bold))
+                }
+                .foregroundColor(timerManager.isTimerRunning ? .white : .black)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 18)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(
+                            timerManager.isTimerRunning 
+                                ? Color.orange
+                                : Color.green
+                        )
+                        .shadow(color: timerManager.isTimerRunning ? .orange.opacity(0.4) : .green.opacity(0.4), radius: 15, x: 0, y: 8)
+                )
+            }
+            
+            // Secondary actions
+            HStack(spacing: 12) {
+                Button(action: { timerManager.resetTimer() }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "arrow.counterclockwise")
+                            .font(.system(size: 16, weight: .semibold))
+                        Text("Reset")
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                    .foregroundColor(.white.opacity(0.8))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(Color.white.opacity(0.1))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .strokeBorder(Color.white.opacity(0.2), lineWidth: 1.5)
+                            )
+                    )
+                }
+                
+                if !timerManager.isTimerRunning {
+                    Button(action: { showTaskPicker = true }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "checklist")
+                                .font(.system(size: 16, weight: .semibold))
+                            Text("Tasks (\(timerManager.selectedTasks.count))")
+                                .font(.system(size: 15, weight: .semibold))
+                        }
+                        .foregroundColor(.white.opacity(0.8))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14)
+                                .fill(Color.purple.opacity(0.25))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .strokeBorder(Color.purple.opacity(0.3), lineWidth: 1.5)
+                                )
+                        )
+                    }
                 }
             }
         }
-        .padding(.bottom, 20)
+        .padding(.horizontal, 20)
+        .padding(.bottom, 10)
     }
     
     var body: some View {
-        ZStack {
-            VStack(spacing: 28) {
-                backButton
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 24) {
+                navigationBar
+                
                 headerView
                 
                 if !timerManager.selectedTasks.isEmpty {
                     selectedTasksView
+                        .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
                 timerCircle
+                
                 durationButtons
+                
+                if !timerManager.isTimerRunning {
+                    lockInModeSection
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+                
                 controlButtons
                 
-                Spacer()
+                Spacer(minLength: 20)
             }
-            .padding()
+            .padding(.vertical, 8)
         }
         .korahGradientBackground()
         .background(Color.clear)
@@ -357,21 +656,16 @@ struct PomodoroTimerView: View {
         .onAppear {
             requestNotificationPermission()
             loadTasks()
+            checkScreenTimeAuthorization()
         }
-        .alert("Amazing Work! 🎉", isPresented: $showCelebration) {
+        .alert("Amazing Work! 🎉", isPresented: $timerManager.showingCompletionAlert) {
             Button("Great!") {
                 timerManager.resetTimer()
-                timerManager.showingCompletionAlert = false
             }
         } message: {
             Text(timerManager.selectedTasks.isEmpty 
                 ? "You've completed your focus session. Time for a break!"
                 : "You focused on \(timerManager.selectedTasks.count) task\(timerManager.selectedTasks.count == 1 ? "" : "s"). Great job!")
-        }
-        .onChange(of: timerManager.showingCompletionAlert) { isShowing in
-            if isShowing {
-                showCelebration = true
-            }
         }
         .sheet(isPresented: $showTaskPicker) {
             TaskPickerSheet(selectedTasks: $timerManager.selectedTasks, allTasks: allTasks)
@@ -381,6 +675,18 @@ struct PomodoroTimerView: View {
                 timerManager.setDuration(customMinutes * 60)
                 showCustomTimePicker = false
             })
+        }
+        .familyActivityPicker(
+            isPresented: $showBlockedAppsPicker,
+            selection: $timerManager.blockedApps
+        )
+        .alert("Screen Time Authorization Required", isPresented: $showAuthorizationAlert) {
+            Button("Authorize") {
+                requestScreenTimeAuth()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("To use Lock-In Mode, Korah needs permission to manage Screen Time settings. This allows the app to block selected apps during your focus sessions.")
         }
         .fullScreenCover(isPresented: $goHome) {
             HomePageView()
@@ -405,8 +711,26 @@ struct PomodoroTimerView: View {
     
     func loadTasks() {
         if let data = UserDefaults.standard.data(forKey: "SavedTasks"),
-           let decoded = try? JSONDecoder().decode([Task].self, from: data) {
+           let decoded = try? JSONDecoder().decode([UserTask].self, from: data) {
             allTasks = decoded
+        }
+    }
+    
+    func checkScreenTimeAuthorization() {
+        screenTimeAuthorized = AuthorizationCenter.shared.authorizationStatus == .approved
+    }
+    
+    func requestScreenTimeAuth() {
+        AsyncTask {
+            do {
+                try await timerManager.requestScreenTimeAuthorization()
+                await MainActor.run {
+                    screenTimeAuthorized = true
+                    showBlockedAppsPicker = true
+                }
+            } catch {
+                print("Authorization failed: \(error)")
+            }
         }
     }
 
@@ -427,8 +751,8 @@ struct PomodoroTimerView: View {
 }
 
 struct TaskPickerSheet: View {
-    @Binding var selectedTasks: [Task]
-    let allTasks: [Task]
+    @Binding var selectedTasks: [UserTask]
+    let allTasks: [UserTask]
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {

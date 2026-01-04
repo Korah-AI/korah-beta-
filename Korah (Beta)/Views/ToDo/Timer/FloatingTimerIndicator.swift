@@ -5,7 +5,8 @@ struct FloatingTimerIndicator: View {
     @State private var showTimer = false
     
     var body: some View {
-        if timerManager.isTimerRunning {
+        // Show when timer is active (running or paused), hide only when reset
+        if timerManager.timeRemaining < timerManager.totalTime || timerManager.isTimerRunning {
             Button(action: {
                 showTimer = true
             }) {
@@ -18,7 +19,7 @@ struct FloatingTimerIndicator: View {
                         .trim(from: 0, to: CGFloat(timerManager.progress))
                         .stroke(
                             AngularGradient(
-                                gradient: Gradient(colors: [Color.purple, Color.blue, Color.purple]),
+                                gradient: Gradient(colors: timerManager.isTimerRunning ? [Color.orange, Color.pink, Color.purple] : [Color.purple, Color.blue, Color.purple]),
                                 center: .center
                             ),
                             style: StrokeStyle(lineWidth: 4, lineCap: .round)
@@ -27,9 +28,9 @@ struct FloatingTimerIndicator: View {
                         .rotationEffect(.degrees(-90))
                         .animation(.linear(duration: 1), value: timerManager.timeRemaining)
                     
-                    Image(systemName: "timer")
+                    Image(systemName: timerManager.isTimerRunning ? "flame.fill" : "pause.fill")
                         .font(.system(size: 24))
-                        .foregroundColor(.white)
+                        .foregroundColor(timerManager.isTimerRunning ? .orange : .white)
                 }
                 .shadow(color: .black.opacity(0.5), radius: 10, x: 0, y: 5)
             }

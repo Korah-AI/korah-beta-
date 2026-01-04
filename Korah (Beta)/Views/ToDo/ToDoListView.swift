@@ -6,7 +6,10 @@ struct ToDoListView: View {
     @State private var editingTask: Task? = nil
     @State private var taskToDelete: Task? = nil
     @State private var showDeleteConfirmation = false
-    @State private var timerExpanded: Bool = false
+    @State private var taskToComplete: Task? = nil
+    @State private var showCompleteConfirmation = false
+    @State private var showTimerSheet: Bool = false
+    @ObservedObject private var timerManager = PomodoroTimerManager.shared
     @State private var searchText: String = ""
     @State private var selectedDifficulty: TaskDifficulty? = nil
     @State private var showCompletionCelebration = false
@@ -65,9 +68,9 @@ struct ToDoListView: View {
             tasks = tasks.filter { $0.difficulty == difficulty }
         }
         
-        // Apply mood-based filtering if no search or difficulty filter is active
+        // Apply mood-based sorting if no search or difficulty filter is active
         if searchText.isEmpty && selectedDifficulty == nil && !userMood.isEmpty {
-            tasks = MoodHelpers.getRecommendedTasks(for: userMood, tasks: tasks)
+            tasks = MoodHelpers.getSortedTasks(for: userMood, tasks: tasks)
         } else {
             tasks = tasks.sorted { $0.dueDate < $1.dueDate }
         }
@@ -110,29 +113,109 @@ struct ToDoListView: View {
             return nil
         }
     }
-
-    private var studyTimerSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Image(systemName: "timer")
-                    .foregroundColor(.purple)
-                    .font(.title3)
-                Text("Study Timer")
-                    .font(.title3)
-                    .foregroundColor(.white)
-                    .bold()
+    
+    private var studyTimerButton: some View {
+        Button(action: {
+            showTimerSheet = true
+        }) {
+            HStack(spacing: 16) {
+                // Timer icon with progress ring
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.purple.opacity(0.3), Color.blue.opacity(0.2)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 60, height: 60)
+                    
+                    if timerManager.timeRemaining < timerManager.totalTime || timerManager.isTimerRunning {
+                        Circle()
+                            .trim(from: 0, to: CGFloat(timerManager.progress))
+                            .stroke(
+                                AngularGradient(
+                                    colors: timerManager.isTimerRunning
+                                        ? [Color.orange, Color.pink, Color.purple]
+                                        : [Color.purple, Color.blue, Color.cyan],
+                                    center: .center
+                                ),
+                                style: StrokeStyle(lineWidth: 4, lineCap: .round)
+                            )
+                            .frame(width: 56, height: 56)
+                            .rotationEffect(.degrees(-90))
+                            .animation(.linear(duration: 1), value: timerManager.timeRemaining)
+                    }
+                    
+                    Image(systemName: timerManager.isTimerRunning ? "flame.fill" : "timer")
+                        .font(.system(size: 26, weight: .semibold))
+                        .foregroundColor(timerManager.isTimerRunning ? .orange : .purple)
+                }
+                
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Focus Timer")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(.white)
+                    
+                    if timerManager.timeRemaining < timerManager.totalTime || timerManager.isTimerRunning {
+                        HStack(spacing: 6) {
+                            Text(timeString(from: timerManager.timeRemaining))
+                                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                .foregroundColor(timerManager.isTimerRunning ? .orange : .purple)
+                            
+                            if timerManager.isTimerRunning {
+                                Text("• Active")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(.green)
+                            } else {
+                                Text("• Paused")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(.white.opacity(0.6))
+                            }
+                        }
+                    } else {
+                        Text("Start a focus session")
+                            .font(.system(size: 15))
+                            .foregroundColor(.white.opacity(0.7))
+                    }
+                }
+                
                 Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.4))
             }
-            .padding(.horizontal)
-
-            CompactStudyTimerView(isExpanded: $timerExpanded)
-                .padding(.horizontal)
+            .padding(20)
+            .background(
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(Color.white.opacity(0.08))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18)
+                            .strokeBorder(
+                                timerManager.isTimerRunning
+                                    ? Color.orange.opacity(0.5)
+                                    : Color.purple.opacity(0.3),
+                                lineWidth: 2
+                            )
+                    )
+            )
+            .shadow(
+                color: timerManager.isTimerRunning ? .orange.opacity(0.3) : .purple.opacity(0.2),
+                radius: 12,
+                x: 0,
+                y: 6
+            )
         }
-        .padding(.vertical, 12)
-        .background(Color.white.opacity(0.05))
-        .cornerRadius(16)
-        .shadow(color: .purple.opacity(0.15), radius: 6, x: 0, y: 3)
+        .buttonStyle(.plain)
         .padding(.horizontal)
+    }
+    
+    private func timeString(from seconds: Int) -> String {
+        let minutes = seconds / 60
+        let secs = seconds % 60
+        return String(format: "%02d:%02d", minutes, secs)
     }
 
     private var emptyStateView: some View {
@@ -186,14 +269,122 @@ struct ToDoListView: View {
         .padding(.top, 40)
     }
 
+    private func taskIconView(task: Task, isOverdue: Bool, showRecommendation: Bool, isRecommended: Bool) -> some View {
+        ZStack(alignment: .topTrailing) {
+            Image(systemName: difficultyIcon(for: task.difficulty))
+                .font(.system(size: 28))
+                .foregroundColor(isOverdue ? .red : .purple)
+                .frame(width: 50, height: 50)
+                .background((isOverdue ? Color.red : Color.purple).opacity(0.15))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            
+            if showRecommendation && isRecommended {
+                Image(systemName: "star.fill")
+                    .font(.system(size: 12))
+                    .foregroundColor(.yellow)
+                    .background(
+                        Circle()
+                            .fill(Color.black.opacity(0.7))
+                            .frame(width: 18, height: 18)
+                    )
+                    .offset(x: 4, y: -4)
+            }
+        }
+    }
+    
+    private func taskContentView(task: Task, isOverdue: Bool, showRecommendation: Bool, isRecommended: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(task.title)
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .lineLimit(2)
+                Spacer()
+                
+                if showRecommendation && isRecommended {
+                    HStack(spacing: 4) {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 10))
+                        Text("Recommended")
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.yellow.opacity(0.3))
+                    .foregroundColor(.yellow)
+                    .cornerRadius(8)
+                }
+                
+                HStack(spacing: 4) {
+                    Text(task.difficulty.emoji)
+                    Text(task.difficulty.rawValue)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.purple.opacity(0.2))
+                .foregroundColor(.purple)
+                .cornerRadius(8)
+            }
+            
+            if !task.description.isEmpty {
+                Text(task.description)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+            }
+            
+            HStack {
+                if isOverdue {
+                    HStack(spacing: 4) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.caption2)
+                        Text("OVERDUE")
+                            .font(.caption2)
+                            .fontWeight(.bold)
+                    }
+                    .foregroundColor(.red)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.red.opacity(0.2))
+                    .cornerRadius(6)
+                }
+                
+                Image(systemName: "calendar")
+                    .font(.caption)
+                Text(task.dueDate.formatted(date: .abbreviated, time: .shortened))
+                    .font(.caption)
+                Spacer()
+                Button(action: {
+                    taskToDelete = task
+                    showDeleteConfirmation = true
+                }) {
+                    Image(systemName: "trash")
+                        .font(.caption)
+                        .foregroundColor(.red.opacity(0.8))
+                }
+                .buttonStyle(.plain)
+            }
+            .foregroundColor(.secondary)
+        }
+    }
+    
     private func taskRow(for task: Task) -> some View {
         let isOverdue = task.dueDate < Date()
+        let isRecommended = !userMood.isEmpty && MoodHelpers.isTaskRecommended(task: task, for: userMood)
+        let showRecommendation = !userMood.isEmpty && searchText.isEmpty && selectedDifficulty == nil
+        let backgroundOpacity = showRecommendation && isRecommended ? 0.12 : 0.08
+        let strokeColor = isOverdue ? Color.red.opacity(0.3) : (showRecommendation && isRecommended ? Color.yellow.opacity(0.4) : Color.purple.opacity(0.3))
+        let strokeWidth = isOverdue ? 2.0 : (showRecommendation && isRecommended ? 1.5 : 1.0)
+        let shadowColor = isOverdue ? Color.red.opacity(0.2) : (showRecommendation && isRecommended ? Color.yellow.opacity(0.3) : Color.purple.opacity(0.2))
         
         return Button(action: { editingTask = task }) {
             HStack(spacing: 16) {
-                // Quick complete checkbox
                 Button(action: {
-                    completeTask(task)
+                    taskToComplete = task
+                    showCompleteConfirmation = true
                 }) {
                     Image(systemName: "circle")
                         .font(.system(size: 24))
@@ -201,85 +392,20 @@ struct ToDoListView: View {
                 }
                 .buttonStyle(.plain)
                 
-                // Icon based on task difficulty
-                Image(systemName: difficultyIcon(for: task.difficulty))
-                    .font(.system(size: 28))
-                    .foregroundColor(isOverdue ? .red : .purple)
-                    .frame(width: 50, height: 50)
-                    .background((isOverdue ? Color.red : Color.purple).opacity(0.15))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                taskIconView(task: task, isOverdue: isOverdue, showRecommendation: showRecommendation, isRecommended: isRecommended)
                 
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text(task.title)
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .lineLimit(2)
-                        Spacer()
-                        HStack(spacing: 4) {
-                            Text(task.difficulty.emoji)
-                            Text(task.difficulty.rawValue)
-                                .font(.caption)
-                                .fontWeight(.medium)
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.purple.opacity(0.2))
-                        .foregroundColor(.purple)
-                        .cornerRadius(8)
-                    }
-                    
-                    if !task.description.isEmpty {
-                        Text(task.description)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .lineLimit(2)
-                    }
-                    
-                    HStack {
-                        if isOverdue {
-                            HStack(spacing: 4) {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .font(.caption2)
-                                Text("OVERDUE")
-                                    .font(.caption2)
-                                    .fontWeight(.bold)
-                            }
-                            .foregroundColor(.red)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.red.opacity(0.2))
-                            .cornerRadius(6)
-                        }
-                        
-                        Image(systemName: "calendar")
-                            .font(.caption)
-                        Text(task.dueDate.formatted(date: .abbreviated, time: .shortened))
-                            .font(.caption)
-                        Spacer()
-                        Button(action: {
-                            taskToDelete = task
-                            showDeleteConfirmation = true
-                        }) {
-                            Image(systemName: "trash")
-                                .font(.caption)
-                                .foregroundColor(.red.opacity(0.8))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .foregroundColor(.secondary)
-                }
+                taskContentView(task: task, isOverdue: isOverdue, showRecommendation: showRecommendation, isRecommended: isRecommended)
             }
             .padding(16)
             .background(
                 RoundedRectangle(cornerRadius: 14)
-                    .fill(Color.white.opacity(0.08))
+                    .fill(Color.white.opacity(backgroundOpacity))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
-                    .stroke((isOverdue ? Color.red : Color.purple).opacity(0.3), lineWidth: isOverdue ? 2 : 1)
+                    .stroke(strokeColor, lineWidth: strokeWidth)
             )
-            .shadow(color: (isOverdue ? Color.red : Color.purple).opacity(0.2), radius: 6, x: 0, y: 3)
+            .shadow(color: shadowColor, radius: 6, x: 0, y: 3)
         }
         .buttonStyle(.plain)
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -292,7 +418,8 @@ struct ToDoListView: View {
         }
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
             Button {
-                completeTask(task)
+                taskToComplete = task
+                showCompleteConfirmation = true
             } label: {
                 Label("Complete", systemImage: "checkmark")
             }
@@ -335,256 +462,273 @@ struct ToDoListView: View {
         default: return .purple
         }
     }
-
-    var body: some View {
-        NavigationStack {
-            Group {
-                if timerExpanded {
-                    CompactStudyTimerView(isExpanded: $timerExpanded)
-                        .padding(.horizontal)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                } else {
-                    VStack(spacing: 0) {
-                        // Fixed header section
-                        VStack(spacing: 0) {
-                            taskStatsCard
-                            
-                            // Search and filter bar
-                            VStack(spacing: 12) {
-                                HStack {
-                                    Image(systemName: "magnifyingglass")
-                                        .foregroundColor(.secondary)
-                                    TextField("Search tasks...", text: $searchText)
-                                        .foregroundColor(.white)
-                                }
-                                .padding(12)
-                                .background(Color.white.opacity(0.1))
-                                .cornerRadius(12)
-                                
-                                ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack(spacing: 8) {
-                                        FilterChip(title: "All", isSelected: selectedDifficulty == nil) {
-                                            selectedDifficulty = nil
-                                        }
-                                        ForEach(TaskDifficulty.allCases, id: \.self) { difficulty in
-                                            FilterChip(title: "\(difficulty.emoji) \(difficulty.rawValue)", isSelected: selectedDifficulty == difficulty) {
-                                                selectedDifficulty = difficulty
-                                            }
-                                        }
-                                    }
-                                }
-                                
-                                // Mood indicator
-                                if !userMood.isEmpty && searchText.isEmpty && selectedDifficulty == nil {
-                                    Button(action: {
-                                        showMoodPicker = true
-                                    }) {
-                                        HStack(spacing: 8) {
-                                            Text(userMood)
-                                                .font(.title3)
-                                            VStack(alignment: .leading, spacing: 2) {
-                                                Text(MoodHelpers.getMoodDescription(for: userMood))
-                                                    .font(.subheadline)
-                                                    .fontWeight(.semibold)
-                                                Text("Tap to change mood")
-                                                    .font(.caption)
-                                                    .foregroundColor(.secondary)
-                                            }
-                                            Spacer()
-                                            Image(systemName: "chevron.right")
-                                                .font(.caption)
-                                                .foregroundColor(.secondary)
-                                        }
-                                        .foregroundColor(.white)
-                                        .padding(12)
-                                        .background(Color.white.opacity(0.08))
-                                        .cornerRadius(12)
-                                    }
-                                }
-                            }
-                            .padding(.horizontal)
-                            .padding(.vertical, 12)
+    
+    private var headerSection: some View {
+        VStack(spacing: 0) {
+            taskStatsCard
+            
+            // Search and filter bar
+            VStack(spacing: 12) {
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.secondary)
+                    TextField("Search tasks...", text: $searchText)
+                        .foregroundColor(.white)
+                }
+                .padding(12)
+                .background(Color.white.opacity(0.1))
+                .cornerRadius(12)
+                
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        FilterChip(title: "All", isSelected: selectedDifficulty == nil) {
+                            selectedDifficulty = nil
                         }
-                        .background(Color.korahBackgroundStart)
-                        
-                        // Scrollable content
-                        ZStack(alignment: .bottomTrailing) {
-                            ScrollView {
-                                VStack(spacing: 16) {
-                                    studyTimerSection
-
-                                    if filteredTasks.isEmpty {
-                                        if dataManager.tasks.isEmpty {
-                                            emptyStateView
-                                        } else {
-                                            VStack(spacing: 16) {
-                                                Image(systemName: "magnifyingglass")
-                                                    .font(.system(size: 50))
-                                                    .foregroundColor(.gray)
-                                                Text("No tasks found")
-                                                    .font(.headline)
-                                                    .foregroundColor(.white)
-                                                Text("Try adjusting your search or filters")
-                                                    .font(.subheadline)
-                                                    .foregroundColor(.secondary)
-                                            }
-                                            .padding(.vertical, 40)
-                                        }
-                                    } else {
-                                        VStack(spacing: 16) {
-                                            // Mood-based message
-                                            if !userMood.isEmpty && searchText.isEmpty && selectedDifficulty == nil {
-                                                HStack {
-                                                    Text(MoodHelpers.getRecommendationMessage(for: userMood, taskCount: filteredTasks.count))
-                                                        .font(.subheadline)
-                                                        .foregroundColor(.purple.opacity(0.9))
-                                                    Spacer()
-                                                }
-                                                .padding(.horizontal)
-                                            }
-                                            
-                                            ForEach(groupedTasks, id: \.0) { section in
-                                                VStack(alignment: .leading, spacing: 12) {
-                                                    // Section Header
-                                                    Button(action: {
-                                                        if collapsedSections.contains(section.0) {
-                                                            collapsedSections.remove(section.0)
-                                                        } else {
-                                                            collapsedSections.insert(section.0)
-                                                        }
-                                                    }) {
-                                                        HStack {
-                                                            Image(systemName: sectionIcon(for: section.0))
-                                                                .foregroundColor(sectionColor(for: section.0))
-                                                                .font(.title3)
-                                                            
-                                                            Text(section.0)
-                                                                .font(.title3)
-                                                                .fontWeight(.bold)
-                                                                .foregroundColor(.white)
-                                                            
-                                                            Text("(\(section.1.count))")
-                                                                .font(.subheadline)
-                                                                .foregroundColor(.secondary)
-                                                            
-                                                            Spacer()
-                                                            
-                                                            Image(systemName: collapsedSections.contains(section.0) ? "chevron.down" : "chevron.up")
-                                                                .foregroundColor(.secondary)
-                                                                .font(.caption)
-                                                        }
-                                                        .padding(.horizontal)
-                                                    }
-                                                    .buttonStyle(.plain)
-                                                    
-                                                    // Section Content
-                                                    if !collapsedSections.contains(section.0) {
-                                                        VStack(spacing: 10) {
-                                                            ForEach(section.1) { task in
-                                                                taskRow(for: task)
-                                                                    .padding(.horizontal)
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                            
-                                            // Exercise suggestions for low/moderate focus
-                                            if !userMood.isEmpty && (userMood == "🔴" || userMood == "🟡") && searchText.isEmpty && selectedDifficulty == nil {
-                                                VStack(alignment: .leading, spacing: 12) {
-                                                    HStack {
-                                                        Image(systemName: "heart.circle.fill")
-                                                            .foregroundColor(.purple)
-                                                        Text("Boost Your Focus")
-                                                            .font(.headline)
-                                                            .foregroundColor(.white)
-                                                    }
-                                                    .padding(.horizontal)
-                                                    .padding(.top, 8)
-                                                    
-                                                    ForEach(MoodHelpers.getSuggestedExercises(for: userMood).prefix(3)) { exercise in
-                                                        HStack(spacing: 12) {
-                                                            Image(systemName: exercise.icon)
-                                                                .font(.title3)
-                                                                .foregroundColor(.purple)
-                                                                .frame(width: 40, height: 40)
-                                                                .background(Color.purple.opacity(0.15))
-                                                                .clipShape(Circle())
-                                                            
-                                                            VStack(alignment: .leading, spacing: 4) {
-                                                                Text(exercise.title)
-                                                                    .font(.subheadline)
-                                                                    .foregroundColor(.white)
-                                                                Text(exercise.duration)
-                                                                    .font(.caption)
-                                                                    .foregroundColor(.secondary)
-                                                            }
-                                                            Spacer()
-                                                        }
-                                                        .padding(12)
-                                                        .background(Color.white.opacity(0.08))
-                                                        .cornerRadius(10)
-                                                        .padding(.horizontal)
-                                                    }
-                                                }
-                                                .padding(.vertical)
-                                                .background(Color.white.opacity(0.05))
-                                                .cornerRadius(14)
-                                                .padding(.horizontal)
-                                            }
-                                        }
-                                        .padding(.vertical)
-                                        .padding(.bottom, 80)
-                                    }
-                                }
+                        ForEach(TaskDifficulty.allCases, id: \.self) { difficulty in
+                            FilterChip(title: "\(difficulty.emoji) \(difficulty.rawValue)", isSelected: selectedDifficulty == difficulty) {
+                                selectedDifficulty = difficulty
                             }
-                            .background(Color.clear)
-                            .refreshable {
-                                dataManager.loadTasks()
-                            }
-                            
-                            // Floating Action Button
-                            Button(action: {
-                                showingAddTask = true
-                            }) {
-                                Image(systemName: "plus")
-                                    .font(.system(size: 24, weight: .semibold))
-                                    .foregroundColor(.white)
-                                    .frame(width: 60, height: 60)
-                                    .background(Color.purple)
-                                    .clipShape(Circle())
-                                    .shadow(color: .purple.opacity(0.5), radius: 10, x: 0, y: 5)
-                            }
-                            .padding(.trailing, 20)
-                            .padding(.bottom, 20)
                         }
                     }
                 }
+                
+                // Mood indicator
+                if !userMood.isEmpty && searchText.isEmpty && selectedDifficulty == nil {
+                    Button(action: {
+                        showMoodPicker = true
+                    }) {
+                        HStack(spacing: 8) {
+                            Text(userMood)
+                                .font(.title3)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(MoodHelpers.getMoodDescription(for: userMood))
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                Text("Tap to change mood")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .foregroundColor(.white)
+                        .padding(12)
+                        .background(Color.white.opacity(0.08))
+                        .cornerRadius(12)
+                    }
+                }
             }
-            .navigationTitle(timerExpanded ? "" : "Your Tasks")
+            .padding(.horizontal)
+            .padding(.vertical, 12)
+        }
+    }
+    
+    private var mainContentView: some View {
+        ZStack(alignment: .bottomTrailing) {
+            ScrollView {
+                VStack(spacing: 16) {
+                    // Move header section inside ScrollView
+                    headerSection
+                    
+                    studyTimerButton
+
+                    if filteredTasks.isEmpty {
+                        emptyOrNoResultsView
+                    } else {
+                        taskListView
+                    }
+                }
+            }
+            .background(Color.clear)
+            .refreshable {
+                dataManager.loadTasks()
+            }
+            
+            // Floating Action Button
+            floatingAddButton
+        }
+    }
+    
+    @ViewBuilder
+    private var emptyOrNoResultsView: some View {
+        if dataManager.tasks.isEmpty {
+            emptyStateView
+        } else {
+            VStack(spacing: 16) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 50))
+                    .foregroundColor(.gray)
+                Text("No tasks found")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                Text("Try adjusting your search or filters")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.vertical, 40)
+        }
+    }
+    
+    private var taskListView: some View {
+        VStack(spacing: 16) {
+            // Mood-based message
+            if !userMood.isEmpty && searchText.isEmpty && selectedDifficulty == nil {
+                let recommendedCount = filteredTasks.filter { MoodHelpers.isTaskRecommended(task: $0, for: userMood) }.count
+                HStack {
+                    Text(MoodHelpers.getRecommendationMessage(for: userMood, recommendedCount: recommendedCount, totalCount: filteredTasks.count))
+                        .font(.subheadline)
+                        .foregroundColor(.yellow.opacity(0.9))
+                    Spacer()
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+                .background(Color.yellow.opacity(0.1))
+                .cornerRadius(8)
+                .padding(.horizontal)
+            }
+            
+            ForEach(groupedTasks, id: \.0) { section in
+                taskSectionView(section: section)
+            }
+            
+            exerciseSuggestionsView
+        }
+        .padding(.vertical)
+        .padding(.bottom, 80)
+    }
+    
+    private func taskSectionView(section: (String, [Task])) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Section Header
+            Button(action: {
+                if collapsedSections.contains(section.0) {
+                    collapsedSections.remove(section.0)
+                } else {
+                    collapsedSections.insert(section.0)
+                }
+            }) {
+                HStack {
+                    Image(systemName: sectionIcon(for: section.0))
+                        .foregroundColor(sectionColor(for: section.0))
+                        .font(.title3)
+                    
+                    Text(section.0)
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                    
+                    Text("(\(section.1.count))")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    Image(systemName: collapsedSections.contains(section.0) ? "chevron.down" : "chevron.up")
+                        .foregroundColor(.secondary)
+                        .font(.caption)
+                }
+                .padding(.horizontal)
+            }
+            .buttonStyle(.plain)
+            
+            // Section Content
+            if !collapsedSections.contains(section.0) {
+                VStack(spacing: 10) {
+                    ForEach(section.1) { task in
+                        taskRow(for: task)
+                            .padding(.horizontal)
+                    }
+                }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var exerciseSuggestionsView: some View {
+        if !userMood.isEmpty && (userMood == "🔴" || userMood == "🟡") && searchText.isEmpty && selectedDifficulty == nil {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Image(systemName: "heart.circle.fill")
+                        .foregroundColor(.purple)
+                    Text("Boost Your Focus")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                }
+                .padding(.horizontal)
+                .padding(.top, 8)
+                
+                ForEach(MoodHelpers.getSuggestedExercises(for: userMood).prefix(3)) { exercise in
+                    HStack(spacing: 12) {
+                        Image(systemName: exercise.icon)
+                            .font(.title3)
+                            .foregroundColor(.purple)
+                            .frame(width: 40, height: 40)
+                            .background(Color.purple.opacity(0.15))
+                            .clipShape(Circle())
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(exercise.title)
+                                .font(.subheadline)
+                                .foregroundColor(.white)
+                            Text(exercise.duration)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                    }
+                    .padding(12)
+                    .background(Color.white.opacity(0.08))
+                    .cornerRadius(10)
+                    .padding(.horizontal)
+                }
+            }
+            .padding(.vertical)
+            .background(Color.white.opacity(0.05))
+            .cornerRadius(14)
+            .padding(.horizontal)
+        }
+    }
+    
+    private var floatingAddButton: some View {
+        Button(action: {
+            showingAddTask = true
+        }) {
+            Image(systemName: "plus")
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(width: 60, height: 60)
+                .background(Color.purple)
+                .clipShape(Circle())
+                .shadow(color: .purple.opacity(0.5), radius: 10, x: 0, y: 5)
+        }
+        .padding(.trailing, 20)
+        .padding(.bottom, 20)
+    }
+
+    var body: some View {
+        NavigationStack {
+            mainContentView
+            .navigationTitle("Your Tasks")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarBackground(.visible, for: .tabBar)
             .toolbar {
-                if !timerExpanded {
-                    ToolbarItem(placement: .principal) {
-                        Text("Your Tasks")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .lineLimit(2)
-                            .multilineTextAlignment(.center)
-                            .minimumScaleFactor(0.7)
-                    }
+                ToolbarItem(placement: .principal) {
+                    Text("Your Tasks")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
+                        .minimumScaleFactor(0.7)
                 }
             }
-            .toolbar(timerExpanded ? .hidden : .visible, for: .navigationBar)
-            .toolbar(timerExpanded ? .hidden : .visible, for: .tabBar)
             .preferredColorScheme(.dark)
             .accentColor(.purple)
             .korahGradientBackground()
-        }
-        .background(Color.clear)
-        .onAppear {
+            .background(Color.clear)
+            .onAppear {
             let tabBarAppearance = UITabBarAppearance()
             tabBarAppearance.configureWithTransparentBackground()
             UITabBar.appearance().standardAppearance = tabBarAppearance
@@ -616,10 +760,29 @@ struct ToDoListView: View {
                 Text("Are you sure you want to delete \"\(task.title)\"?")
             }
         }
+        .alert("Complete Task?", isPresented: $showCompleteConfirmation) {
+            Button("Complete", role: .none) {
+                if let task = taskToComplete {
+                    completeTask(task)
+                }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            if let task = taskToComplete {
+                Text("Are you sure you've completed \"\(task.title)\"?")
+            }
+        }
         .alert("Task Complete! 🎉", isPresented: $showCompletionCelebration) {
             Button("Awesome!") { }
         } message: {
             Text("You completed \"\(completedTaskTitle)\". Keep up the great work!")
+        }
+        .sheet(isPresented: $showTimerSheet) {
+            NavigationStack {
+                PomodoroTimerView(onDismiss: {
+                    showTimerSheet = false
+                })
+            }
         }
         .sheet(isPresented: $showMoodPicker) {
             NavigationStack {
@@ -677,6 +840,7 @@ struct ToDoListView: View {
                 .padding()
                 .korahGradientBackground()
             }
+        }
         }
     }
 }
