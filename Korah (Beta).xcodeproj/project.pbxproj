@@ -410,6 +410,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Korah;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Korah uses your camera to scan study materials and documents";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Korah uses your microphone for AI voice tutoring conversations";
@@ -452,6 +453,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Korah;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Korah uses your camera to scan study materials and documents";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Korah uses your microphone for AI voice tutoring conversations";
