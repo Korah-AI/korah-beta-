@@ -3,8 +3,9 @@ import Foundation
 import UserNotifications
 import UIKit
 import Combine
-import FamilyControls
-import ManagedSettings
+// COMMENTED OUT FOR TESTFLIGHT - AWAITING FAMILY SHARING CAPABILITY APPROVAL
+// import FamilyControls
+// import ManagedSettings
 
 typealias UserTask = Task
 typealias AsyncTask = _Concurrency.Task
@@ -17,12 +18,14 @@ class PomodoroTimerManager: ObservableObject {
     @Published var isTimerRunning = false
     @Published var showingCompletionAlert = false
     @Published var selectedTasks: [UserTask] = []
-    @Published var lockInModeEnabled = false
-    @Published var blockedApps = FamilyActivitySelection()
+    // COMMENTED OUT FOR TESTFLIGHT - AWAITING FAMILY SHARING CAPABILITY APPROVAL
+    // @Published var lockInModeEnabled = false
+    // @Published var blockedApps = FamilyActivitySelection()
     
     private var timer: Timer?
     private var lastProgressQuarter = 0
-    private let store = ManagedSettingsStore()
+    // COMMENTED OUT FOR TESTFLIGHT - AWAITING FAMILY SHARING CAPABILITY APPROVAL
+    // private let store = ManagedSettingsStore()
     private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
     private var pauseTime: Date?
     var onStart: (() -> Void)?
@@ -44,10 +47,11 @@ class PomodoroTimerManager: ObservableObject {
         // Schedule completion notification for when timer finishes
         scheduleCompletionNotification()
         
+        // COMMENTED OUT FOR TESTFLIGHT - AWAITING FAMILY SHARING CAPABILITY APPROVAL
         // Block apps if Lock-In Mode is enabled
-        if lockInModeEnabled {
-            blockApps()
-        }
+        // if lockInModeEnabled {
+        //     blockApps()
+        // }
         
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             guard let self = self else { return }
@@ -65,8 +69,9 @@ class PomodoroTimerManager: ObservableObject {
         timer = nil
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["focus-minute-reminder", "timer-completion"])
         
+        // COMMENTED OUT FOR TESTFLIGHT - AWAITING FAMILY SHARING CAPABILITY APPROVAL
         // Unblock apps
-        unblockApps()
+        // unblockApps()
         
         onStop?()
     }
@@ -74,8 +79,9 @@ class PomodoroTimerManager: ObservableObject {
     func resetTimer() {
         stopTimer()
         timeRemaining = totalTime
+        // COMMENTED OUT FOR TESTFLIGHT - AWAITING FAMILY SHARING CAPABILITY APPROVAL
         // Unblock apps when resetting
-        unblockApps()
+        // unblockApps()
     }
     
     func setDuration(_ seconds: Int) {
@@ -135,7 +141,8 @@ class PomodoroTimerManager: ObservableObject {
     }
     
     // MARK: - Screen Time Controls
-    
+    // COMMENTED OUT FOR TESTFLIGHT - AWAITING FAMILY SHARING CAPABILITY APPROVAL
+    /*
     func requestScreenTimeAuthorization() async throws {
         try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
     }
@@ -151,6 +158,7 @@ class PomodoroTimerManager: ObservableObject {
         store.shield.applicationCategories = nil
         store.shield.webDomains = nil
     }
+    */
     
     // MARK: - Background Handling
     
@@ -198,9 +206,10 @@ struct PomodoroTimerView: View {
     @State private var customMinutes = 10
     @State private var allTasks: [UserTask] = []
     @State private var goHome = false
-    @State private var showBlockedAppsPicker = false
-    @State private var screenTimeAuthorized = false
-    @State private var showAuthorizationAlert = false
+    // COMMENTED OUT FOR TESTFLIGHT - AWAITING FAMILY SHARING CAPABILITY APPROVAL
+    // @State private var showBlockedAppsPicker = false
+    // @State private var screenTimeAuthorized = false
+    // @State private var showAuthorizationAlert = false
 
     var navigationBar: some View {
         HStack {
@@ -463,6 +472,8 @@ struct PomodoroTimerView: View {
         }
     }
     
+    // COMMENTED OUT FOR TESTFLIGHT - AWAITING FAMILY SHARING CAPABILITY APPROVAL
+    /*
     var lockInModeSection: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
@@ -549,6 +560,7 @@ struct PomodoroTimerView: View {
         .padding(.horizontal, 20)
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: timerManager.lockInModeEnabled)
     }
+    */
     
     var controlButtons: some View {
         VStack(spacing: 12) {
@@ -639,10 +651,11 @@ struct PomodoroTimerView: View {
                 
                 durationButtons
                 
-                if !timerManager.isTimerRunning {
-                    lockInModeSection
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                }
+                // COMMENTED OUT FOR TESTFLIGHT - AWAITING FAMILY SHARING CAPABILITY APPROVAL
+                // if !timerManager.isTimerRunning {
+                //     lockInModeSection
+                //         .transition(.move(edge: .top).combined(with: .opacity))
+                // }
                 
                 controlButtons
                 
@@ -656,7 +669,8 @@ struct PomodoroTimerView: View {
         .onAppear {
             requestNotificationPermission()
             loadTasks()
-            checkScreenTimeAuthorization()
+            // COMMENTED OUT FOR TESTFLIGHT - AWAITING FAMILY SHARING CAPABILITY APPROVAL
+            // checkScreenTimeAuthorization()
         }
         .alert("Amazing Work! 🎉", isPresented: $timerManager.showingCompletionAlert) {
             Button("Great!") {
@@ -676,6 +690,8 @@ struct PomodoroTimerView: View {
                 showCustomTimePicker = false
             })
         }
+        // COMMENTED OUT FOR TESTFLIGHT - AWAITING FAMILY SHARING CAPABILITY APPROVAL
+        /*
         .familyActivityPicker(
             isPresented: $showBlockedAppsPicker,
             selection: $timerManager.blockedApps
@@ -688,6 +704,7 @@ struct PomodoroTimerView: View {
         } message: {
             Text("To use Lock-In Mode, Korah needs permission to manage Screen Time settings. This allows the app to block selected apps during your focus sessions.")
         }
+        */
         .fullScreenCover(isPresented: $goHome) {
             HomePageView()
         }
@@ -716,6 +733,8 @@ struct PomodoroTimerView: View {
         }
     }
     
+    // COMMENTED OUT FOR TESTFLIGHT - AWAITING FAMILY SHARING CAPABILITY APPROVAL
+    /*
     func checkScreenTimeAuthorization() {
         screenTimeAuthorized = AuthorizationCenter.shared.authorizationStatus == .approved
     }
@@ -733,6 +752,7 @@ struct PomodoroTimerView: View {
             }
         }
     }
+    */
 
     func timeString(from seconds: Int) -> String {
         let minutes = seconds / 60
