@@ -2,55 +2,57 @@ import SwiftUI
 
 struct MoodCheckInView: View {
     @AppStorage("UserMood") private var userMood: String = ""
-    @State private var navigateToHome = false
     
     var body: some View {
-        ZStack {
-            LinearGradient(colors: [Color.black, Color.purple.opacity(0.35)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                .ignoresSafeArea()
-
-            VStack(spacing: 24) {
-                VStack(spacing: 8) {
-                    Text("How are you feeling today?")
-                        .font(.largeTitle).bold()
-                        .foregroundColor(.white)
-                        .multilineTextAlignment(.center)
-                    Text("Pick one to tailor your focus plan.")
-                        .foregroundColor(.white.opacity(0.7))
+        NavigationStack {
+            VStack {
+                Spacer()
+                
+                VStack(spacing: 32) {
+                    VStack(spacing: 12) {
+                        Image(systemName: "brain.head.profile")
+                            .font(.system(size: 60))
+                            .foregroundColor(.purple)
+                        Text("How are you feeling?")
+                            .font(.title)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                        Text("Help us understand your focus level")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                
+                    VStack(spacing: 16) {
+                        MoodButton(emoji: "🟢", title: "Very Focused", description: "Ready to tackle anything!", color: .green) {
+                            selectMood("🟢")
+                        }
+                        
+                        MoodButton(emoji: "🟡", title: "Moderately Focused", description: "Somewhere in the middle", color: .yellow) {
+                            selectMood("🟡")
+                        }
+                        
+                        MoodButton(emoji: "🔴", title: "Not Focused", description: "Having trouble concentrating", color: .red) {
+                            selectMood("🔴")
+                        }
+                    }
+                    .padding(.horizontal, 24)
                 }
-                .padding(.top, 20)
-
-                VStack(spacing: 16) {
-                    MoodButton(title: "Very focused, ready to go", emoji: "🟢", color: .green) {
-                        selectMood("🟢")
-                    }
-                    MoodButton(title: "I feel okay, somewhere near the middle", emoji: "🟡", color: .yellow) {
-                        selectMood("🟡")
-                    }
-                    MoodButton(title: "Not very focused, not good", emoji: "🔴", color: .red) {
-                        selectMood("🔴")
-                    }
-                }
-                .padding(.horizontal)
-
+                
                 Spacer()
             }
-            .padding()
-        }
-        .fullScreenCover(isPresented: $navigateToHome) {
-            HomePageView()
+            .korahGradientBackground()
         }
     }
     
     private func selectMood(_ mood: String) {
         userMood = mood
-        UserDefaults.standard.set(Date(), forKey: "LastMoodCheckInDate")
-        navigateToHome = true
+        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: "LastMoodCheckInDate")
     }
     
     struct MoodButton: View {
-        let title: String
         let emoji: String
+        let title: String
+        let description: String
         let color: Color
         let action: () -> Void
         @State private var pressed = false
@@ -60,19 +62,29 @@ struct MoodCheckInView: View {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { pressed = true }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { pressed = false; action() }
             }) {
-                HStack(spacing: 12) {
-                    Text(emoji).font(.largeTitle)
-                    Text(title)
-                        .font(.headline)
-                        .foregroundColor(.black)
-                        .multilineTextAlignment(.leading)
+                HStack(spacing: 16) {
+                    Text(emoji)
+                        .font(.system(size: 32))
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(title)
+                            .font(.headline)
+                            .foregroundColor(.white)
+                        Text(description)
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.7))
+                    }
+                    Spacer()
                 }
                 .padding()
                 .frame(maxWidth: .infinity)
-                .background(color)
+                .background(color.opacity(0.2))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(color, lineWidth: 2)
+                )
                 .cornerRadius(14)
                 .scaleEffect(pressed ? 0.97 : 1)
-                .shadow(color: color.opacity(0.4), radius: 8, x: 0, y: 6)
             }
         }
     }

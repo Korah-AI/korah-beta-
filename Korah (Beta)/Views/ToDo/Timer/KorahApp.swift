@@ -8,7 +8,7 @@ struct KorahApp: App {
     }
     var body: some Scene {
         WindowGroup {
-            HomePageView()
+            LauncherView()
                 .preferredColorScheme(.dark)
         }
     }
