@@ -36,6 +36,12 @@ struct OnboardingView: View {
             title: "Study",
             description: "Access flashcards, study guides, and practice tests to master your subjects.",
             color: .cyan
+        ),
+        OnboardingPage(
+            imageName: "lock.shield.fill",
+            title: "Your Data, Your Device",
+            description: "This beta version is completely accountless. All your data is saved locally on your phone—no internet required, no servers involved.",
+            color: .indigo
         )
     ]
     

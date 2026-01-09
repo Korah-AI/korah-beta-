@@ -29,7 +29,7 @@
 
 /* Begin PBXFileReference section */
 		2C4A03D82EFF535D00862664 /* README.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = README.txt; sourceTree = "<group>"; };
-		2C98C8C32EFE4F0800BF141B /* Korah (Beta).app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Korah (Beta).app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		2C98C8C32EFE4F0800BF141B /* Korah (Beta).app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = "Korah (Beta).app"; path = Korah.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2C98C8D02EFE4F0A00BF141B /* Korah (Beta)Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Korah (Beta)Tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2C98C8DA2EFE4F0A00BF141B /* Korah (Beta)UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Korah (Beta)UITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -427,9 +427,9 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-			MARKETING_VERSION = 1.0;
-			PRODUCT_BUNDLE_IDENTIFIER = com.korah.korah;
-			PRODUCT_NAME = "Korah";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.korah.korah;
+				PRODUCT_NAME = Korah;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -470,9 +470,9 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-			MARKETING_VERSION = 1.0;
-			PRODUCT_BUNDLE_IDENTIFIER = com.korah.korah;
-			PRODUCT_NAME = "Korah";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.korah.korah;
+				PRODUCT_NAME = Korah;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
