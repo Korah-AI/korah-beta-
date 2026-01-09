@@ -132,16 +132,31 @@ struct ScanView: View {
     @State private var showTTSControls = false
     @State private var isTTSLoading = false
     @State private var ttsAudioPlayer: AVAudioPlayer?
+    @State private var ttsAudioPlayerDelegate: TTSAudioPlayerDelegate?
     @State private var currentTTSText: String = ""
     @State private var audioDuration: TimeInterval = 0
     @State private var audioCurrentTime: TimeInterval = 0
     @State private var audioTimer: Timer?
     
+    // Voice mode state
+    @State private var isVoiceModeActive = false
+    @State private var isListening = false
+    @State private var isThinking = false
+    @State private var isSpeaking = false
+    @State private var audioRecorder: AVAudioRecorder?
+    @State private var audioPlayer: AVAudioPlayer?
+    @State private var audioPlayerDelegate: AudioPlayerDelegate?
+    @State private var recordingURL: URL?
+    @State private var silenceTimer: Timer?
+    @State private var audioLevelTimer: Timer?
+    private let silenceThreshold: Float = -40.0
+    private let silenceDuration: TimeInterval = 1.5
+    
     @State private var starterSuggestions: [String] = [
         "Help me solve this math problem",
         "Explain this concept step by step",
         "Check my homework answer",
-        "Break down this question for me"
+        "What can you help me learn?"
     ]
     
     var onQuickTip: (String) -> Void = { _ in }
@@ -261,10 +276,15 @@ struct ScanView: View {
             if messages.isEmpty {
                 VStack(spacing: 20) {
                     Spacer()
-                    Text("Scan any image!")
+                    Text("Scan An Image,")
                         .font(.largeTitle).bold()
                         .multilineTextAlignment(.center)
                         .foregroundColor(.white.opacity(0.95))
+                        .padding(.horizontal)
+                    Text("or Just Ask A Question!")
+                        .font(.title2).bold()
+                        .multilineTextAlignment(.center)
+                        .foregroundColor(.white.opacity(0.8))
                         .padding(.horizontal)
                     SuggestionChips(suggestions: starterSuggestions) { suggestion in
                         sendSuggestion(suggestion)
@@ -344,6 +364,38 @@ struct ScanView: View {
                 }
             }
             .padding(.horizontal, 12)
+            
+            if isVoiceModeActive {
+                HStack(spacing: 8) {
+                    Image(systemName: isListening ? "waveform" : isThinking ? "brain" : isSpeaking ? "speaker.wave.2.fill" : "mic.fill")
+                        .foregroundColor(.white)
+                        .symbolEffect(.variableColor.iterative, isActive: isListening || isThinking || isSpeaking)
+                    
+                    Text(isListening ? "Listening..." : isThinking ? "Thinking..." : isSpeaking ? "Speaking..." : "Voice mode active")
+                        .foregroundColor(.white)
+                        .font(.subheadline)
+                    
+                    Spacer()
+                    
+                    Button(action: stopVoiceMode) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.white.opacity(0.7))
+                    }
+                }
+                .padding()
+                .background(
+                    LinearGradient(
+                        colors: isListening ? [Color.blue.opacity(0.3), Color.blue.opacity(0.5)] :
+                                isThinking ? [Color.orange.opacity(0.3), Color.orange.opacity(0.5)] :
+                                isSpeaking ? [Color.green.opacity(0.3), Color.green.opacity(0.5)] :
+                                [Color.purple.opacity(0.3), Color.purple.opacity(0.5)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .cornerRadius(12)
+                .padding(.horizontal)
+            }
 
             if let image = selectedImage {
                 HStack {
@@ -433,6 +485,15 @@ struct ScanView: View {
             }
             
             HStack(spacing: 8) {
+                Button(action: toggleVoiceMode) {
+                    Image(systemName: isVoiceModeActive ? "waveform" : "mic.fill")
+                        .foregroundColor(.white)
+                        .padding(10)
+                        .background(isVoiceModeActive ? Color.blue : Color.purple)
+                        .clipShape(Circle())
+                        .symbolEffect(.pulse, isActive: isVoiceModeActive)
+                }
+                
                 Button(action: {
                     if UIImagePickerController.isSourceTypeAvailable(.camera) {
                         imageSourceType = .camera
@@ -445,6 +506,7 @@ struct ScanView: View {
                         .background(Color.purple.opacity(0.8))
                         .clipShape(Circle())
                 }
+                .disabled(isVoiceModeActive)
                 
                 TextField("Type your message…", text: $userInput, axis: .vertical)
                     .padding(12)
@@ -452,6 +514,7 @@ struct ScanView: View {
                     .cornerRadius(20)
                     .foregroundColor(.white)
                     .lineLimit(1...4)
+                    .disabled(isVoiceModeActive)
                 
                 Button(action: sendMessage) {
                     Image(systemName: "paperplane.fill")
@@ -460,7 +523,7 @@ struct ScanView: View {
                         .background((userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedImage == nil) ? Color.gray : Color.purple)
                         .clipShape(Circle())
                 }
-                .disabled(userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedImage == nil)
+                .disabled((userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedImage == nil) || isVoiceModeActive)
             }
             .padding(.all, 12)
             .background(Color.white.opacity(0.06))
@@ -1253,6 +1316,12 @@ struct ScanView: View {
             audioDuration = ttsAudioPlayer?.duration ?? 0
             audioCurrentTime = 0
             
+            let delegate = TTSAudioPlayerDelegate {
+                self.stopTTS()
+            }
+            ttsAudioPlayerDelegate = delegate
+            ttsAudioPlayer?.delegate = delegate
+            
             ttsAudioPlayer?.play()
             startAudioTimer()
         } catch {
@@ -1556,6 +1625,261 @@ extension ScanView {
             completion(false)
         }
     }
+    
+    // MARK: - Voice Mode Functions
+    
+    func toggleVoiceMode() {
+        if isVoiceModeActive {
+            stopVoiceMode()
+        } else {
+            startVoiceMode()
+        }
+    }
+    
+    func startVoiceMode() {
+        isVoiceModeActive = true
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+        startListening()
+    }
+    
+    func stopVoiceMode() {
+        isVoiceModeActive = false
+        stopListening()
+        audioPlayer?.stop()
+        isSpeaking = false
+        isThinking = false
+    }
+    
+    func startListening() {
+        guard isVoiceModeActive && !isListening else { return }
+        
+        do {
+            try startRecording()
+        } catch {
+            print("Failed to start recording: \(error)")
+        }
+    }
+    
+    func startRecording() throws {
+        let audioSession = AVAudioSession.sharedInstance()
+        try audioSession.setCategory(.record, mode: .default, options: [])
+        try audioSession.setActive(true)
+        
+        let tempDir = FileManager.default.temporaryDirectory
+        recordingURL = tempDir.appendingPathComponent("voice_\(Date().timeIntervalSince1970).m4a")
+        
+        guard let url = recordingURL else { return }
+        
+        let settings: [String: Any] = [
+            AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
+            AVSampleRateKey: 16000.0,
+            AVNumberOfChannelsKey: 1,
+            AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
+        ]
+        
+        audioRecorder = try AVAudioRecorder(url: url, settings: settings)
+        audioRecorder?.isMeteringEnabled = true
+        audioRecorder?.prepareToRecord()
+        audioRecorder?.record()
+        
+        isListening = true
+        startSilenceDetection()
+    }
+    
+    func startSilenceDetection() {
+        audioLevelTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+            self.audioRecorder?.updateMeters()
+            let level = self.audioRecorder?.averagePower(forChannel: 0) ?? -160.0
+            
+            if level > self.silenceThreshold {
+                self.silenceTimer?.invalidate()
+                self.silenceTimer = nil
+            } else {
+                if self.silenceTimer == nil {
+                    self.silenceTimer = Timer.scheduledTimer(withTimeInterval: self.silenceDuration, repeats: false) { _ in
+                        DispatchQueue.main.async {
+                            self.stopListening()
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    func stopListening() {
+        guard isListening else { return }
+        
+        silenceTimer?.invalidate()
+        audioLevelTimer?.invalidate()
+        audioRecorder?.stop()
+        isListening = false
+        
+        if let url = recordingURL {
+            transcribeAudio(fileURL: url)
+        }
+    }
+    
+    func transcribeAudio(fileURL: URL) {
+        let url = URL(string: OpenAIConfig.transcriptionsURL)!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        
+        let boundary = "Boundary-\(UUID().uuidString)"
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        
+        var body = Data()
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"model\"\r\n\r\n".data(using: .utf8)!)
+        body.append("whisper-1\r\n".data(using: .utf8)!)
+        
+        if let audioData = try? Data(contentsOf: fileURL) {
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"file\"; filename=\"audio.m4a\"\r\n".data(using: .utf8)!)
+            body.append("Content-Type: audio/m4a\r\n\r\n".data(using: .utf8)!)
+            body.append(audioData)
+            body.append("\r\n".data(using: .utf8)!)
+        }
+        
+        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+        request.httpBody = body
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let data = data,
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let text = json["text"] as? String, !text.isEmpty {
+                    self.messages.append(ScanMessage(role: "user", content: text, timestamp: Date(), image: nil))
+                    self.saveCurrentConversation()
+                    self.sendVoiceMessageToAI(text: text)
+                }
+                
+                try? FileManager.default.removeItem(at: fileURL)
+            }
+        }.resume()
+    }
+    
+    func sendVoiceMessageToAI(text: String) {
+        isThinking = true
+        showTypingIndicator = true
+        
+        let url = URL(string: OpenAIConfig.chatCompletionsURL)!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let systemInstruction = """
+        You are Korah, a friendly AI tutor for younger students (ages 8-14). Keep responses concise and conversational for voice interaction. You are meant to interactively teach students how to learn and study things they find challenging.
+        
+        IMPORTANT RULES:
+        - Never give direct answers to homework or test questions
+        - Instead, ask guiding questions and give hints to help them figure it out themselves
+        - Use age-appropriate language and simple examples
+        - Keep responses to 2-3 sentences maximum for easy listening
+        - Be encouraging and patient
+        - If they're stuck, break the problem into smaller steps
+        
+        Example approach:
+        Student: "What's 12 times 8?"
+        You: "Great question! Let's break it down. Can you tell me what 12 times 10 would be? Then we can work backwards from there."
+        """
+        
+        let apiMessages: [[String: Any]] =
+            [["role": "system", "content": systemInstruction]] +
+            messages.map { ["role": $0.role, "content": $0.content] }
+        
+        let body: [String: Any] = [
+            "model": "gpt-3.5-turbo",
+            "messages": apiMessages,
+            "temperature": 0.7
+        ]
+        
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                self.isThinking = false
+                self.showTypingIndicator = false
+                
+                if let data = data,
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let choices = json["choices"] as? [[String: Any]],
+                   let message = choices.first?["message"] as? [String: Any],
+                   let content = message["content"] as? String {
+                    
+                    let newMessage = ScanMessage(role: "assistant", content: content, timestamp: Date(), image: nil)
+                    self.messages.append(newMessage)
+                    self.saveCurrentConversation()
+                    
+                    self.speakTextForVoiceMode(content, messageId: newMessage.id)
+                } else {
+                    self.messages.append(ScanMessage(role: "assistant", content: "I couldn't process that. Can you try again?", timestamp: Date(), image: nil))
+                }
+            }
+        }.resume()
+    }
+    
+    func speakTextForVoiceMode(_ text: String, messageId: UUID) {
+        isSpeaking = true
+        
+        let url = URL(string: OpenAIConfig.speechURL)!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let body: [String: Any] = [
+            "model": "tts-1",
+            "input": text,
+            "voice": "nova",
+            "speed": 1.0
+        ]
+        
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            guard let data = data else {
+                DispatchQueue.main.async {
+                    self.isSpeaking = false
+                    if self.isVoiceModeActive {
+                        self.startListening()
+                    }
+                }
+                return
+            }
+            
+            DispatchQueue.main.async {
+                self.playAudio(data: data)
+            }
+        }.resume()
+    }
+    
+    func playAudio(data: Data) {
+        do {
+            let audioSession = AVAudioSession.sharedInstance()
+            try audioSession.setCategory(.playback, mode: .default)
+            try audioSession.setActive(true)
+            
+            audioPlayer = try AVAudioPlayer(data: data)
+            audioPlayer?.prepareToPlay()
+            
+            let delegate = AudioPlayerDelegate {
+                self.isSpeaking = false
+                if self.isVoiceModeActive {
+                    self.startListening()
+                }
+            }
+            audioPlayerDelegate = delegate
+            audioPlayer?.delegate = delegate
+            
+            audioPlayer?.play()
+        } catch {
+            print("Audio playback error: \(error)")
+            isSpeaking = false
+            if isVoiceModeActive {
+                startListening()
+            }
+        }
+    }
 }
 
 
@@ -1610,5 +1934,31 @@ struct ImagePicker: UIViewControllerRepresentable {
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
             parent.dismiss()
         }
+    }
+}
+
+class AudioPlayerDelegate: NSObject, AVAudioPlayerDelegate {
+    private let onFinish: () -> Void
+    
+    init(onFinish: @escaping () -> Void) {
+        self.onFinish = onFinish
+        super.init()
+    }
+    
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        onFinish()
+    }
+}
+
+class TTSAudioPlayerDelegate: NSObject, AVAudioPlayerDelegate {
+    private let onFinish: () -> Void
+    
+    init(onFinish: @escaping () -> Void) {
+        self.onFinish = onFinish
+        super.init()
+    }
+    
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        onFinish()
     }
 }

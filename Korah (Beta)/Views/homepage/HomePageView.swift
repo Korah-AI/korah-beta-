@@ -398,17 +398,11 @@ struct HomePageView: View {
                 }
                 .tag(2)
 
-            ChatView()
-                .tabItem {
-                    Label("Chat", systemImage: "message.fill")
-                }
-                .tag(3)
-
             StudyHomeView()
                 .tabItem {
                     Label("Study", systemImage: "book.closed")
                 }
-                .tag(5)
+                .tag(3)
         }
         
         VStack {
