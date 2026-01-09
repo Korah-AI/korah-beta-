@@ -910,6 +910,7 @@ struct ScanView: View {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addDeviceIDHeader()
 
         let systemInstruction = "You are Korah. Always respond with PURE JSON matching the existing schema."
         var apiMessages: [[String: Any]] = [["role": "system", "content": systemInstruction]]
@@ -958,17 +959,7 @@ struct ScanView: View {
             }
 
             if let http = response as? HTTPURLResponse, http.statusCode != 200 {
-                var friendlyMessage = "Oops! Something went wrong. "
-                
-                if http.statusCode == 401 {
-                    friendlyMessage += "There's an issue with the app's authentication. Please contact support."
-                } else if http.statusCode == 429 {
-                    friendlyMessage += "I'm getting too many requests right now. Please wait a moment and try again."
-                } else if http.statusCode >= 500 {
-                    friendlyMessage += "The service is having trouble right now. Please try again in a few minutes."
-                } else {
-                    friendlyMessage += "Please try again."
-                }
+                let friendlyMessage = APIErrorHandler.handleError(statusCode: http.statusCode, data: data)
                 
                 DispatchQueue.main.async {
                     self.messages.append(ScanMessage(role: "assistant", content: friendlyMessage, timestamp: Date(), image: nil))
@@ -1044,6 +1035,7 @@ struct ScanView: View {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addDeviceIDHeader()
         
         let systemInstruction = """
         You are Korah. Always respond with PURE JSON matching the StudyGuide schema:
@@ -1104,17 +1096,7 @@ struct ScanView: View {
             }
             
             if let http = response as? HTTPURLResponse, http.statusCode != 200 {
-                var friendlyMessage = "Oops! Something went wrong. "
-                
-                if http.statusCode == 401 {
-                    friendlyMessage += "There's an issue with the app's authentication. Please contact support."
-                } else if http.statusCode == 429 {
-                    friendlyMessage += "I'm getting too many requests right now. Please wait a moment and try again."
-                } else if http.statusCode >= 500 {
-                    friendlyMessage += "The service is having trouble right now. Please try again in a few minutes."
-                } else {
-                    friendlyMessage += "Please try again."
-                }
+                let friendlyMessage = APIErrorHandler.handleError(statusCode: http.statusCode, data: data)
                 
                 DispatchQueue.main.async {
                     self.messages.append(ScanMessage(role: "assistant", content: friendlyMessage, timestamp: Date(), image: nil))
@@ -1273,6 +1255,7 @@ struct ScanView: View {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addDeviceIDHeader()
         
         let body: [String: Any] = [
             "model": "tts-1",
@@ -1448,6 +1431,7 @@ extension ScanView {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addDeviceIDHeader()
         
         let systemInstruction =
         """
@@ -1767,6 +1751,7 @@ extension ScanView {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addDeviceIDHeader()
         
         let systemInstruction = """
         You are Korah, a friendly AI tutor for younger students (ages 8-14). Keep responses concise and conversational for voice interaction. You are meant to interactively teach students how to learn and study things they find challenging.
@@ -1826,6 +1811,7 @@ extension ScanView {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addDeviceIDHeader()
         
         let body: [String: Any] = [
             "model": "tts-1",

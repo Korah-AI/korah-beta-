@@ -285,6 +285,7 @@ struct ScanPracticeTestView: View {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addDeviceIDHeader()
         
         let systemPrompt = """
 You are Korah, a study assistant. Analyze the provided images and create practice test questions. Return PURE JSON (no code fences, no markdown) matching this schema:

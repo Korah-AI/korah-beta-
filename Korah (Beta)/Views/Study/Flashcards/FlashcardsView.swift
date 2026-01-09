@@ -543,6 +543,7 @@ struct FlashcardSetStudyView: View {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addDeviceIDHeader()
         
         let systemPrompt = """
 You are a test generator. Generate a multiple-choice test based on the provided flashcard content and broader knowledge of the concept. Output **PURE JSON** (no code fences) matching this schema:
@@ -696,6 +697,7 @@ Create 5-10 questions mixing direct flashcard content with related conceptual qu
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addDeviceIDHeader()
         
         let systemPrompt = """
 You are a study coach. Output **PURE JSON** (no code fences, no markdown) that matches this schema exactly:
@@ -1174,6 +1176,7 @@ struct FlashcardSetDetailView: View {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addDeviceIDHeader()
 
         let systemJSONSchema = """
 You are a study coach. Output **PURE JSON** (no code fences, no markdown) that matches this schema exactly:

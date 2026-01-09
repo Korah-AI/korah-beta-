@@ -236,6 +236,7 @@ struct ManualStudyGuideCreateView: View {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addDeviceIDHeader()
         
         let systemPrompt = """
 You are Korah, a study assistant. Generate a study guide from flashcards in plain text format (no JSON, no markdown code fences).

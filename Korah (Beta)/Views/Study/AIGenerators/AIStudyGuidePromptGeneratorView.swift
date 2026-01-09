@@ -198,6 +198,7 @@ struct AIStudyGuidePromptGeneratorView: View {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addDeviceIDHeader()
         
         let systemPrompt = """
 You are Korah, a study coach. Create study guides from text using **PURE JSON** (no code fences, no markdown) that matches this schema exactly:

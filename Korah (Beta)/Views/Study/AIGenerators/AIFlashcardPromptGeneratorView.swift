@@ -199,6 +199,7 @@ struct AIFlashcardPromptGeneratorView: View {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addDeviceIDHeader()
         
         let systemPrompt = """
 You are Korah, a study assistant. Generate flashcards based on the user's prompt using PURE JSON (no code fences, no markdown) that matches this schema exactly:
@@ -252,7 +253,8 @@ Rules:
             }
             
             if let http = response as? HTTPURLResponse, http.statusCode != 200 {
-                DispatchQueue.main.async { errorMessage = "HTTP Error \(http.statusCode). Check your API key." }
+                let friendlyMessage = APIErrorHandler.handleError(statusCode: http.statusCode, data: data)
+                DispatchQueue.main.async { errorMessage = friendlyMessage }
                 return
             }
             

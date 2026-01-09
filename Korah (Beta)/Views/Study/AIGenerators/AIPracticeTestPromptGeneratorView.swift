@@ -215,6 +215,7 @@ struct AIPracticeTestPromptGeneratorView: View {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addDeviceIDHeader()
         
         let systemPrompt = """
 You are Korah, a test generator. Generate a multiple-choice test based on the provided topic using **PURE JSON** (no code fences) matching this schema:

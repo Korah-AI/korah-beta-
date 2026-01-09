@@ -172,6 +172,7 @@ struct ManualPracticeTestCreateView: View {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addDeviceIDHeader()
         
         let systemPrompt = """
 You are Korah, a study assistant. Generate practice test questions from a study guide in JSON format (no code fences, no markdown) that matches this schema exactly:

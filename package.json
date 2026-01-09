@@ -2,5 +2,7 @@
   "name": "vercel-proxy",
   "version": "1.0.0",
   "type": "module",
-  "dependencies": {}
+  "dependencies": {
+    "@upstash/redis": "^1.36.1"
+  }
 }

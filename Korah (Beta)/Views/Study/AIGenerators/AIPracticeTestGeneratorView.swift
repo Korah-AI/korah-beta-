@@ -309,6 +309,7 @@ struct AIPracticeTestGeneratorView: View {
         var request = URLRequest(url: openAIURL)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addDeviceIDHeader()
         request.httpBody = bodyData
         
         progressText = "Sending request to OpenAI..."
