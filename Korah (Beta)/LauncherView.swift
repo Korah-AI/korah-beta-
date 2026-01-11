@@ -2,6 +2,7 @@ import SwiftUI
 
 struct LauncherView: View {
     @StateObject private var appState = AppStateManager()
+    @ObservedObject private var streakManager = StreakManager.shared
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("LastMoodCheckInDate") private var lastMoodCheckInDate: Double = 0
     @State private var showMoodCheckIn = false
@@ -35,10 +36,24 @@ struct LauncherView: View {
             }
         }
         .onAppear {
+            // Track app open for streak
+            streakManager.checkAndUpdateStreak()
+            // Cancel any pending streak reminder
+            NotificationManager.shared.cancelStreakReminder()
+            // Schedule new streak reminder for 18 hours from now
+            NotificationManager.shared.scheduleStreakReminderNotification()
+            
             checkIfMoodCheckInNeeded()
         }
         .onChange(of: scenePhase) { newPhase in
             if newPhase == .active {
+                // Track app open for streak
+                streakManager.checkAndUpdateStreak()
+                // Cancel any pending streak reminder
+                NotificationManager.shared.cancelStreakReminder()
+                // Schedule new streak reminder for 18 hours from now
+                NotificationManager.shared.scheduleStreakReminderNotification()
+                
                 // Check again when app becomes active
                 checkIfMoodCheckInNeeded()
             }

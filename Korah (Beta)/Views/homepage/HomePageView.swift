@@ -11,6 +11,7 @@ struct HomePageView: View {
 
     @ObservedObject private var dataManager = HomeDataManager.shared
     @ObservedObject private var timerManager = FocusTimerManager.shared
+    @ObservedObject private var streakManager = StreakManager.shared
     
     private var recommendedTasks: [Task] {
         if userMood.isEmpty {
@@ -48,7 +49,7 @@ struct HomePageView: View {
                             HStack(spacing: 12) {
                                 StatCard(icon: "checkmark.circle.fill", value: "\(dataManager.tasks.count)", label: "Tasks")
                                 StatCard(icon: "book.fill", value: "\(dataManager.recentStudyItems.count)", label: "Study Items")
-                                StatCard(icon: "flame.fill", value: studyStreakDays(), label: "Day Streak")
+                                StatCard(icon: "flame.fill", value: "\(streakManager.getCurrentStreak())", label: "Day Streak")
                             }
                         }
                         .padding()
@@ -460,26 +461,6 @@ struct HomePageView: View {
         }
     }
     
-    private func studyStreakDays() -> String {
-        // Simple streak calculation - can be enhanced later
-        if dataManager.recentStudyItems.isEmpty {
-            return "0"
-        }
-        
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        let recentDates = dataManager.recentStudyItems.map { calendar.startOfDay(for: $0.createdAt) }
-        
-        var streak = 0
-        var currentDate = today
-        
-        while recentDates.contains(currentDate) {
-            streak += 1
-            currentDate = calendar.date(byAdding: .day, value: -1, to: currentDate)!
-        }
-        
-        return "\(streak)"
-    }
 
     @ViewBuilder
     private func homeDestination(for id: UUID, kind: String) -> some View {
