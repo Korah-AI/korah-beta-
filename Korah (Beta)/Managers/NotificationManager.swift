@@ -39,13 +39,9 @@ class NotificationManager: ObservableObject {
         // Remove all pending notifications first
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
         
-        // Morning notifications (8 AM - 11 AM)
+        // Pick one random notification for each time period
         scheduleMorningNotifications()
-        
-        // Afternoon notifications (2 PM - 5 PM)
         scheduleAfternoonNotifications()
-        
-        // Evening notifications (7 PM - 9 PM)
         scheduleEveningNotifications()
     }
     
@@ -91,7 +87,10 @@ class NotificationManager: ObservableObject {
             )
         ]
         
-        scheduleNotifications(morningNotifications, identifier: "morning")
+        // Pick one random notification from the morning options
+        if let randomNotification = morningNotifications.randomElement() {
+            scheduleNotification(randomNotification, identifier: "morning")
+        }
     }
     
     // MARK: - Afternoon Notifications (2 PM - 5 PM)
@@ -136,7 +135,10 @@ class NotificationManager: ObservableObject {
             )
         ]
         
-        scheduleNotifications(afternoonNotifications, identifier: "afternoon")
+        // Pick one random notification from the afternoon options
+        if let randomNotification = afternoonNotifications.randomElement() {
+            scheduleNotification(randomNotification, identifier: "afternoon")
+        }
     }
     
     // MARK: - Evening Notifications (7 PM - 9 PM)
@@ -175,36 +177,38 @@ class NotificationManager: ObservableObject {
             )
         ]
         
-        scheduleNotifications(eveningNotifications, identifier: "evening")
+        // Pick one random notification from the evening options
+        if let randomNotification = eveningNotifications.randomElement() {
+            scheduleNotification(randomNotification, identifier: "evening")
+        }
     }
     
     // MARK: - Helper Methods
     
-    private func scheduleNotifications(_ notifications: [NotificationContent], identifier: String) {
-        for (index, notification) in notifications.enumerated() {
-            let content = UNMutableNotificationContent()
-            content.title = notification.title
-            content.body = notification.body
-            content.sound = .default
-            content.badge = 1
-            
-            // Create date components for the notification
-            var dateComponents = DateComponents()
-            dateComponents.hour = notification.hour
-            dateComponents.minute = notification.minute
-            
-            // Create a trigger that repeats daily
-            let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
-            
-            // Create request with unique identifier
-            let requestIdentifier = "\(identifier)_\(index)_\(notification.hour)_\(notification.minute)"
-            let request = UNNotificationRequest(identifier: requestIdentifier, content: content, trigger: trigger)
-            
-            // Schedule the notification
-            UNUserNotificationCenter.current().add(request) { error in
-                if let error = error {
-                    print("Error scheduling notification: \(error.localizedDescription)")
-                }
+    // Schedule a single notification
+    private func scheduleNotification(_ notification: NotificationContent, identifier: String) {
+        let content = UNMutableNotificationContent()
+        content.title = notification.title
+        content.body = notification.body
+        content.sound = .default
+        content.badge = 1
+        
+        // Create date components for the notification
+        var dateComponents = DateComponents()
+        dateComponents.hour = notification.hour
+        dateComponents.minute = notification.minute
+        
+        // Create a trigger that repeats daily
+        let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
+        
+        // Create request with unique identifier
+        let requestIdentifier = "\(identifier)_\(notification.hour)_\(notification.minute)"
+        let request = UNNotificationRequest(identifier: requestIdentifier, content: content, trigger: trigger)
+        
+        // Schedule the notification
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("Error scheduling notification: \(error.localizedDescription)")
             }
         }
     }
