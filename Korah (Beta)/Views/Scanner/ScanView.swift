@@ -73,36 +73,49 @@ extension String {
 
 
 struct ScanTypingIndicator: View {
-    @State private var animationAmount: Double = 1.0
+    @State private var scales: [CGFloat] = [1.0, 1.0, 1.0]
     
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 8) {
             Text("Korah is thinking")
-                .foregroundColor(.white.opacity(0.7))
-                .font(.subheadline)
+                .foregroundColor(.white.opacity(0.9))
+                .font(.subheadline.weight(.medium))
             
-            HStack(spacing: 4) {
+            HStack(spacing: 6) {
                 ForEach(0..<3) { index in
                     Circle()
-                        .fill(Color.white.opacity(0.6))
-                        .frame(width: 6, height: 6)
-                        .scaleEffect(animationAmount)
+                        .fill(
+                            LinearGradient(
+                                colors: [.purple, .blue],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 8, height: 8)
+                        .scaleEffect(scales[index])
                         .animation(
                             Animation.easeInOut(duration: 0.6)
-                                .repeatForever(autoreverses: true)
-                                .delay(Double(index) * 0.2),
-                            value: animationAmount
+                                .repeatForever()
+                                .delay(Double(index) * 0.15),
+                            value: scales[index]
                         )
                 }
             }
         }
-        .padding(12)
-        .background(Color.white.opacity(0.06))
-        .cornerRadius(12)
-        .frame(maxWidth: 260, alignment: .leading)
+        .padding(16)
+        .background(
+            Capsule()
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    Capsule()
+                        .stroke(.white.opacity(0.2), lineWidth: 1)
+                )
+        )
+        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+        .frame(maxWidth: 280, alignment: .leading)
         .id("typing-indicator")
         .onAppear {
-            animationAmount = 0.5
+            scales = [0.5, 0.5, 0.5]
         }
     }
 }
@@ -112,6 +125,7 @@ struct ScanView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var navigateToHome = false
+    @State private var animateGradient = false
     
     @State private var selectedFlashcardSetID: UUID? = nil
     @State private var navigateToGuideID: UUID? = nil
@@ -208,13 +222,30 @@ struct ScanView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            NavigationLink(isActive: $navigateToHome) {
-                HomePageView()
-            } label: {
-                EmptyView()
+        ZStack {
+            // Animated gradient background
+            LinearGradient(
+                colors: animateGradient ? 
+                    [.purple.opacity(0.3), .blue.opacity(0.2), .purple.opacity(0.3)] :
+                    [.blue.opacity(0.3), .purple.opacity(0.2), .blue.opacity(0.3)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+            .blur(radius: 60)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 5).repeatForever(autoreverses: true)) {
+                    animateGradient.toggle()
+                }
             }
-            .hidden()
+            
+            VStack(spacing: 0) {
+                NavigationLink(isActive: $navigateToHome) {
+                    HomePageView()
+                } label: {
+                    EmptyView()
+                }
+                .hidden()
             
             NavigationLink(isActive: Binding(get: { selectedFlashcardSetID != nil }, set: { if !$0 { selectedFlashcardSetID = nil } })) {
                 if let id = selectedFlashcardSetID {
@@ -245,9 +276,11 @@ struct ScanView: View {
                 Button(action: { hideKeyboard(); navigateToHome = true }) {
                     Image(systemName: "chevron.left")
                         .font(.headline)
+                        .foregroundStyle(.white)
                 }
                 Text("Scan")
                     .font(.headline)
+                    .foregroundStyle(.white)
                 Spacer()
                 Button {
                     if !messages.isEmpty {
@@ -255,22 +288,32 @@ struct ScanView: View {
                     }
                 } label: {
                     Image(systemName: "square.and.pencil")
+                        .foregroundStyle(.white)
                 }
                 Button {
                     showConversationHistory = true
                 } label: {
                     Image(systemName: "clock.arrow.circlepath")
+                        .foregroundStyle(.white)
                 }
                 Button(role: .destructive) {
                     showClearChatAlert = true
                 } label: {
                     Image(systemName: "trash")
+                        .foregroundStyle(.red.opacity(0.9))
                 }
                 .disabled(messages.isEmpty)
             }
             .padding()
-            .background(Color.white.opacity(0.06))
-            .cornerRadius(12)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(.white.opacity(0.2), lineWidth: 1)
+                    )
+            )
+            .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 2)
             .padding(.horizontal)
             
             if messages.isEmpty {
@@ -366,34 +409,47 @@ struct ScanView: View {
             .padding(.horizontal, 12)
             
             if isVoiceModeActive {
-                HStack(spacing: 8) {
+                HStack(spacing: 12) {
                     Image(systemName: isListening ? "waveform" : isThinking ? "brain" : isSpeaking ? "speaker.wave.2.fill" : "mic.fill")
                         .foregroundColor(.white)
+                        .font(.system(size: 18, weight: .semibold))
                         .symbolEffect(.variableColor.iterative, isActive: isListening || isThinking || isSpeaking)
                     
                     Text(isListening ? "Listening..." : isThinking ? "Thinking..." : isSpeaking ? "Speaking..." : "Voice mode active")
                         .foregroundColor(.white)
-                        .font(.subheadline)
+                        .font(.subheadline.weight(.medium))
                     
                     Spacer()
                     
                     Button(action: stopVoiceMode) {
                         Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.white.opacity(0.7))
+                            .foregroundColor(.white.opacity(0.8))
+                            .font(.system(size: 20))
                     }
                 }
                 .padding()
                 .background(
-                    LinearGradient(
-                        colors: isListening ? [Color.blue.opacity(0.3), Color.blue.opacity(0.5)] :
-                                isThinking ? [Color.orange.opacity(0.3), Color.orange.opacity(0.5)] :
-                                isSpeaking ? [Color.green.opacity(0.3), Color.green.opacity(0.5)] :
-                                [Color.purple.opacity(0.3), Color.purple.opacity(0.5)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .fill(
+                                    LinearGradient(
+                                        colors: isListening ? [Color.blue.opacity(0.4), Color.cyan.opacity(0.4)] :
+                                                isThinking ? [Color.orange.opacity(0.4), Color.yellow.opacity(0.4)] :
+                                                isSpeaking ? [Color.green.opacity(0.4), Color.mint.opacity(0.4)] :
+                                                [Color.purple.opacity(0.4), Color.pink.opacity(0.4)],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(.white.opacity(0.3), lineWidth: 1)
+                        )
                 )
-                .cornerRadius(12)
+                .shadow(color: .black.opacity(0.1), radius: 12, x: 0, y: 6)
                 .padding(.horizontal)
             }
 
@@ -403,7 +459,7 @@ struct ScanView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(height: 100)
-                        .cornerRadius(8)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     Spacer()
                     Button(action: { selectedImage = nil }) {
                         Image(systemName: "xmark.circle.fill")
@@ -412,8 +468,15 @@ struct ScanView: View {
                     }
                 }
                 .padding()
-                .background(Color.white.opacity(0.06))
-                .cornerRadius(12)
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(.white.opacity(0.2), lineWidth: 1)
+                        )
+                )
+                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
                 .padding(.horizontal)
             }
             
@@ -425,21 +488,22 @@ struct ScanView: View {
                                 .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                 .scaleEffect(0.8)
                             Text("Generating audio...")
-                                .font(.subheadline)
+                                .font(.subheadline.weight(.medium))
                                 .foregroundColor(.white)
                             Spacer()
                         } else {
                             Image(systemName: "speaker.wave.2.fill")
                                 .foregroundColor(.white)
+                                .font(.system(size: 18))
                                 .symbolEffect(.variableColor.iterative, isActive: ttsAudioPlayer?.isPlaying == true)
                             
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(ttsAudioPlayer?.isPlaying == true ? "Playing" : "Paused")
-                                    .font(.subheadline)
+                                    .font(.subheadline.weight(.medium))
                                     .foregroundColor(.white)
                                 Text("\(formatTime(audioCurrentTime)) / \(formatTime(audioDuration))")
                                     .font(.caption)
-                                    .foregroundColor(.white.opacity(0.7))
+                                    .foregroundColor(.white.opacity(0.8))
                             }
                             
                             Spacer()
@@ -451,6 +515,7 @@ struct ScanView: View {
                             }) {
                                 Image(systemName: "arrow.clockwise")
                                     .foregroundColor(.white)
+                                    .font(.system(size: 16))
                             }
                             
                             Button(action: {
@@ -462,37 +527,67 @@ struct ScanView: View {
                             }) {
                                 Image(systemName: ttsAudioPlayer?.isPlaying == true ? "pause.fill" : "play.fill")
                                     .foregroundColor(.white)
+                                    .font(.system(size: 16))
                             }
                             
                             Button(action: stopTTS) {
                                 Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(.white.opacity(0.7))
+                                    .foregroundColor(.white.opacity(0.8))
+                                    .font(.system(size: 20))
                             }
                         }
                     }
                     .padding()
                     .background(
-                        LinearGradient(
-                            colors: [Color.purple.opacity(0.3), Color.purple.opacity(0.5)],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(.ultraThinMaterial)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [Color.purple.opacity(0.4), Color.pink.opacity(0.4)],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .stroke(.white.opacity(0.3), lineWidth: 1)
+                            )
                     )
-                    .cornerRadius(12)
+                    .shadow(color: .black.opacity(0.1), radius: 12, x: 0, y: 6)
                     .padding(.horizontal)
                     .padding(.bottom, 8)
                 }
             }
             
-            HStack(spacing: 8) {
+            HStack(spacing: 12) {
                 Button(action: toggleVoiceMode) {
                     Image(systemName: isVoiceModeActive ? "waveform" : "mic.fill")
-                        .foregroundColor(.white)
-                        .padding(10)
-                        .background(isVoiceModeActive ? Color.blue : Color.purple)
-                        .clipShape(Circle())
-                        .symbolEffect(.pulse, isActive: isVoiceModeActive)
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 48, height: 48)
+                        .background(
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                                .overlay(
+                                    Circle()
+                                        .stroke(
+                                            LinearGradient(
+                                                colors: isVoiceModeActive ? [.blue, .cyan] : [.purple, .pink],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            ),
+                                            lineWidth: 2
+                                        )
+                                )
+                                .shadow(color: (isVoiceModeActive ? Color.blue : Color.purple).opacity(0.5), radius: 12, x: 0, y: 4)
+                        )
                 }
+                .scaleEffect(isVoiceModeActive ? 1.1 : 1.0)
+                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isVoiceModeActive)
+                .symbolEffect(.pulse, isActive: isVoiceModeActive)
                 
                 Button(action: {
                     if UIImagePickerController.isSourceTypeAvailable(.camera) {
@@ -501,34 +596,81 @@ struct ScanView: View {
                     showImageSourceAlert = true
                 }) {
                     Image(systemName: "photo.on.rectangle.angled")
-                        .foregroundColor(.white)
-                        .padding(10)
-                        .background(Color.purple.opacity(0.8))
-                        .clipShape(Circle())
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 48, height: 48)
+                        .background(
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                                .overlay(
+                                    Circle()
+                                        .stroke(
+                                            LinearGradient(
+                                                colors: [.purple.opacity(0.8), .pink.opacity(0.8)],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            ),
+                                            lineWidth: 2
+                                        )
+                                )
+                                .shadow(color: .purple.opacity(0.3), radius: 8, x: 0, y: 4)
+                        )
                 }
                 .disabled(isVoiceModeActive)
+                .opacity(isVoiceModeActive ? 0.5 : 1.0)
                 
                 TextField("Type your message…", text: $userInput, axis: .vertical)
-                    .padding(12)
-                    .background(Color.white.opacity(0.1))
-                    .cornerRadius(20)
+                    .padding(14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 24, style: .continuous)
+                            .fill(.ultraThinMaterial)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                    .stroke(.white.opacity(0.2), lineWidth: 1)
+                            )
+                    )
                     .foregroundColor(.white)
                     .lineLimit(1...4)
                     .disabled(isVoiceModeActive)
                 
                 Button(action: sendMessage) {
                     Image(systemName: "paperplane.fill")
-                        .foregroundColor(.white)
-                        .padding(10)
-                        .background((userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedImage == nil) ? Color.gray : Color.purple)
-                        .clipShape(Circle())
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 48, height: 48)
+                        .background(
+                            Circle()
+                                .fill(
+                                    (userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedImage == nil) ? 
+                                    LinearGradient(colors: [.gray.opacity(0.6)], startPoint: .top, endPoint: .bottom) :
+                                    LinearGradient(
+                                        colors: [.purple, .blue],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .shadow(
+                                    color: (userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedImage == nil) ? .clear : .purple.opacity(0.5),
+                                    radius: 12,
+                                    x: 0,
+                                    y: 4
+                                )
+                        )
                 }
                 .disabled((userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedImage == nil) || isVoiceModeActive)
             }
             .padding(.all, 12)
-            .background(Color.white.opacity(0.06))
-            .cornerRadius(25)
+            .background(
+                RoundedRectangle(cornerRadius: 30, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 30, style: .continuous)
+                            .stroke(.white.opacity(0.2), lineWidth: 1)
+                    )
+            )
+            .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
             .padding(.horizontal)
+            }
         }
         .alert("Delete Chat", isPresented: $showClearChatAlert) {
             Button("Delete", role: .destructive) {
@@ -590,7 +732,6 @@ struct ScanView: View {
                 sendMessage()
             }
         }
-        .korahGradientBackground()
         .accentColor(.purple)
         .preferredColorScheme(.dark)
         .onAppear {
@@ -623,14 +764,28 @@ struct ScanView: View {
                 ForEach(suggestions, id: \.self) { s in
                     Button(action: { onTap(s) }) {
                         Text(s)
-                            .font(.subheadline)
+                            .font(.subheadline.weight(.medium))
                             .foregroundColor(.white)
                             .multilineTextAlignment(.leading)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.vertical, 10)
-                            .padding(.horizontal, 12)
-                            .background(Color.white.opacity(0.08))
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .padding(.vertical, 12)
+                            .padding(.horizontal, 14)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .fill(.ultraThinMaterial)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                            .stroke(
+                                                LinearGradient(
+                                                    colors: [.white.opacity(0.3), .white.opacity(0.1)],
+                                                    startPoint: .top,
+                                                    endPoint: .bottom
+                                                ),
+                                                lineWidth: 1
+                                            )
+                                    )
+                            )
+                            .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
                     }
                     .buttonStyle(.plain)
                 }
@@ -669,8 +824,15 @@ struct ScanView: View {
                                     .fixedSize(horizontal: false, vertical: true)
                                     .monospaced(false)
                                     .padding(16)
-                                    .background(Color.white.opacity(0.06))
-                                    .cornerRadius(12)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                            .fill(.ultraThinMaterial)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                                    .stroke(.white.opacity(0.2), lineWidth: 1)
+                                            )
+                                    )
+                                    .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
                             .frame(maxWidth: .infinity, maxHeight: .none, alignment: .topLeading)
@@ -688,9 +850,22 @@ struct ScanView: View {
                             if !message.content.isEmpty {
                                 Text(message.content)
                                     .foregroundColor(.white)
-                                    .padding(12)
-                                    .background(Color.blue)
-                                    .cornerRadius(12)
+                                    .padding(14)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                            .fill(
+                                                LinearGradient(
+                                                    colors: [.purple.opacity(0.8), .blue.opacity(0.8)],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                )
+                                            )
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                                    .stroke(.white.opacity(0.3), lineWidth: 1)
+                                            )
+                                    )
+                                    .shadow(color: .purple.opacity(0.3), radius: 12, x: 0, y: 4)
                             }
                         }
                         .frame(maxWidth: min(UIScreen.main.bounds.width - 48, 360), alignment: .trailing)
@@ -824,8 +999,15 @@ struct ScanView: View {
                     .foregroundColor(.white.opacity(0.4))
             }
             .padding(18)
-            .background(Color.white.opacity(0.06))
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(.white.opacity(0.2), lineWidth: 1)
+                    )
+            )
+            .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
         }
     }
 
@@ -1875,11 +2057,26 @@ struct QuickTipButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.subheadline)
+                .font(.subheadline.weight(.medium))
                 .foregroundColor(.white)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Color.purple.opacity(0.8), in: Capsule())
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(
+                    Capsule()
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            Capsule()
+                                .stroke(
+                                    LinearGradient(
+                                        colors: [.purple, .blue],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    ),
+                                    lineWidth: 1.5
+                                )
+                        )
+                )
+                .shadow(color: .purple.opacity(0.3), radius: 8, x: 0, y: 4)
         }
         .buttonStyle(.plain)
     }
