@@ -425,6 +425,9 @@ struct StudyHomeView: View {
         }
         .tint(.purple)
         .onAppear(perform: loadRecentStudy)
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            loadRecentStudy()
+        }
     }
 
     private func openedText(_ date: Date?) -> String {

@@ -43,6 +43,9 @@ struct FlashcardsView: View {
                 selectedSet = sets.first(where: { $0.id == targetID })
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            loadSets()
+        }
         .sheet(isPresented: $showingAddSet) { addSetSheet }
         .sheet(item: $setToEdit) { editable in
             FlashcardSetDetailView(set: editable, onSave: { updated in
@@ -376,46 +379,20 @@ struct FlashcardSetStudyView: View {
             
             // Loading overlay for AI generation
             if isGeneratingTest {
-                ZStack {
-                    Color.black.opacity(0.5).ignoresSafeArea()
-                    VStack(spacing: 16) {
-                        ProgressView()
-                            .progressViewStyle(.circular)
-                            .tint(.white)
-                            .scaleEffect(1.5)
-                        Text("Generating practice test...")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                        Text("This may take a few seconds")
-                            .font(.subheadline)
-                            .foregroundColor(.white.opacity(0.8))
-                    }
-                    .padding(24)
-                    .background(Color.white.opacity(0.1))
-                    .cornerRadius(16)
-                }
+                ModernLoadingOverlay(
+                    message: "Generating Practice Test",
+                    subtitle: "Creating questions from your flashcards",
+                    accentColor: .purple
+                )
             }
             
             // Loading overlay for study guide generation
             if isGeneratingGuide {
-                ZStack {
-                    Color.black.opacity(0.5).ignoresSafeArea()
-                    VStack(spacing: 16) {
-                        ProgressView()
-                            .progressViewStyle(.circular)
-                            .tint(.white)
-                            .scaleEffect(1.5)
-                        Text("Generating study guide...")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                        Text("This may take a few seconds")
-                            .font(.subheadline)
-                            .foregroundColor(.white.opacity(0.8))
-                    }
-                    .padding(24)
-                    .background(Color.white.opacity(0.1))
-                    .cornerRadius(16)
-                }
+                ModernLoadingOverlay(
+                    message: "Generating Study Guide",
+                    subtitle: "Powered by AI • This may take a few moments",
+                    accentColor: .purple
+                )
             }
         }
         .sheet(isPresented: $showTestOptions) {

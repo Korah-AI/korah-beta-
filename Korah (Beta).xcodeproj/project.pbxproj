@@ -51,16 +51,6 @@
 		2C98C8DA2EFE4F0A00BF141B /* Korah (Beta)UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Korah (Beta)UITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		2C6056EB2F120ED8009E17B8 /* Exceptions for "Korah (Beta)" folder in "Korah (Beta)" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				"Korah--Beta--Info.plist",
-			);
-			target = 2C98C8C22EFE4F0800BF141B /* Korah (Beta) */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		2C6056D22F1203A6009E17B8 /* FocusTimerWidget */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
@@ -69,9 +59,6 @@
 		};
 		2C98C8C52EFE4F0800BF141B /* Korah (Beta) */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				2C6056EB2F120ED8009E17B8 /* Exceptions for "Korah (Beta)" folder in "Korah (Beta)" target */,
-			);
 			path = "Korah (Beta)";
 			sourceTree = "<group>";
 		};

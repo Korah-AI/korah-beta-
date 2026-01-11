@@ -118,24 +118,11 @@ struct AIGenerateFlashcardsFromGuideView: View {
             
             // Loading overlay
             if isGenerating {
-                ZStack {
-                    Color.black.opacity(0.5).ignoresSafeArea()
-                    VStack(spacing: 16) {
-                        ProgressView()
-                            .progressViewStyle(.circular)
-                            .tint(.white)
-                            .scaleEffect(1.5)
-                        Text("Generating flashcards...")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                        Text("This may take a few seconds")
-                            .font(.subheadline)
-                            .foregroundColor(.white.opacity(0.8))
-                    }
-                    .padding(24)
-                    .background(Color.white.opacity(0.1))
-                    .cornerRadius(16)
-                }
+                ModernLoadingOverlay(
+                    message: "Generating Flashcards",
+                    subtitle: "Creating from your study guide",
+                    accentColor: .purple
+                )
             }
         }
         .toolbar {
