@@ -20,7 +20,7 @@ struct CompactStudyTimerView: View {
 
             if isExpanded {
                 VStack(spacing: 0) {
-                    PomodoroTimerView()
+                    FocusTimerView()
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .animation(.spring(), value: isExpanded)

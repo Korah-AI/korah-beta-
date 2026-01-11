@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct FloatingTimerIndicator: View {
-    @ObservedObject private var timerManager = PomodoroTimerManager.shared
+    @ObservedObject private var timerManager = FocusTimerManager.shared
     @State private var showTimer = false
     
     var body: some View {
@@ -35,19 +35,19 @@ struct FloatingTimerIndicator: View {
                 .shadow(color: .black.opacity(0.5), radius: 10, x: 0, y: 5)
             }
             .sheet(isPresented: $showTimer) {
-                PomodoroTimerSheetView(isPresented: $showTimer)
+                FocusTimerSheetView(isPresented: $showTimer)
             }
             .transition(.scale.combined(with: .opacity))
         }
     }
 }
 
-struct PomodoroTimerSheetView: View {
+struct FocusTimerSheetView: View {
     @Binding var isPresented: Bool
     
     var body: some View {
         NavigationStack {
-            PomodoroTimerView(onDismiss: {
+            FocusTimerView(onDismiss: {
                 isPresented = false
             })
         }

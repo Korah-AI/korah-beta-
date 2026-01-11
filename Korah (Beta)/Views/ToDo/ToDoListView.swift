@@ -8,8 +8,8 @@ struct ToDoListView: View {
     @State private var showDeleteConfirmation = false
     @State private var taskToComplete: Task? = nil
     @State private var showCompleteConfirmation = false
-    @State private var showTimerSheet: Bool = false
-    @ObservedObject private var timerManager = PomodoroTimerManager.shared
+    @ObservedObject private var timerManager = FocusTimerManager.shared
+    @State private var showTimerDropdown = false
     @State private var searchText: String = ""
     @State private var selectedDifficulty: TaskDifficulty? = nil
     @State private var showCompletionCelebration = false
@@ -115,9 +115,131 @@ struct ToDoListView: View {
     }
     
     private var studyTimerButton: some View {
+        VStack(spacing: 0) {
+            Button(action: {
+                withAnimation(.spring(response: 0.3)) {
+                    showTimerDropdown.toggle()
+                }
+            }) {
+                timerButtonContent
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal)
+            
+            if showTimerDropdown {
+                compactTimerDropdown
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+    }
+    
+    private var compactTimerDropdown: some View {
+        VStack(spacing: 12) {
+            Text("Quick Start Focus Session")
+                .font(.headline)
+                .foregroundColor(.white)
+                .padding(.top, 16)
+            
+            // Duration options
+            HStack(spacing: 12) {
+                timerDurationButton(minutes: 5, icon: "5.circle")
+                timerDurationButton(minutes: 15, icon: "15.circle")
+                timerDurationButton(minutes: 25, icon: "25.circle")
+            }
+            .padding(.horizontal)
+            
+            // Active timer controls
+            if timerManager.isTimerRunning || timerManager.timeRemaining < timerManager.totalTime {
+                VStack(spacing: 8) {
+                    Divider()
+                        .background(Color.white.opacity(0.2))
+                        .padding(.horizontal)
+                    
+                    HStack(spacing: 12) {
+                        if timerManager.isTimerRunning {
+                            Button(action: {
+                                timerManager.stopTimer()
+                            }) {
+                                Label("Pause", systemImage: "pause.circle.fill")
+                                    .font(.subheadline)
+                                    .foregroundColor(.orange)
+                            }
+                        } else {
+                            Button(action: {
+                                timerManager.startTimer()
+                            }) {
+                                Label("Resume", systemImage: "play.circle.fill")
+                                    .font(.subheadline)
+                                    .foregroundColor(.green)
+                            }
+                        }
+                        
+                        Button(action: {
+                            timerManager.resetTimer()
+                        }) {
+                            Label("Reset", systemImage: "arrow.counterclockwise")
+                                .font(.subheadline)
+                                .foregroundColor(.red.opacity(0.8))
+                        }
+                    }
+                }
+            }
+            
+            Button(action: {
+                withAnimation(.spring(response: 0.3)) {
+                    showTimerDropdown = false
+                }
+            }) {
+                Text("Close")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .padding(.vertical, 8)
+            }
+        }
+        .padding(.bottom, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.white.opacity(0.1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .strokeBorder(Color.purple.opacity(0.3), lineWidth: 1)
+                )
+        )
+        .padding(.horizontal)
+        .padding(.top, 4)
+    }
+    
+    private func timerDurationButton(minutes: Int, icon: String) -> some View {
         Button(action: {
-            showTimerSheet = true
+            timerManager.setDuration(minutes * 60)
+            timerManager.startTimer()
+            withAnimation(.spring(response: 0.3)) {
+                showTimerDropdown = false
+            }
         }) {
+            VStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 32))
+                    .foregroundColor(.purple)
+                Text("\(minutes) min")
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.8))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.purple.opacity(0.2))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .strokeBorder(Color.purple.opacity(0.4), lineWidth: 1)
+                    )
+            )
+        }
+    }
+    
+    private var timerButtonContent: some View {
+        Group {
             HStack(spacing: 16) {
                 // Timer icon with progress ring
                 ZStack {
@@ -208,8 +330,6 @@ struct ToDoListView: View {
                 y: 6
             )
         }
-        .buttonStyle(.plain)
-        .padding(.horizontal)
     }
     
     private func timeString(from seconds: Int) -> String {
@@ -776,13 +896,6 @@ struct ToDoListView: View {
             Button("Awesome!") { }
         } message: {
             Text("You completed \"\(completedTaskTitle)\". Keep up the great work!")
-        }
-        .sheet(isPresented: $showTimerSheet) {
-            NavigationStack {
-                PomodoroTimerView(onDismiss: {
-                    showTimerSheet = false
-                })
-            }
         }
         .sheet(isPresented: $showMoodPicker) {
             NavigationStack {

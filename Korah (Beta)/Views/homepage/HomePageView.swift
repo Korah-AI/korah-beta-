@@ -10,7 +10,7 @@ struct HomePageView: View {
     @AppStorage("UserMood") private var userMood: String = ""
 
     @ObservedObject private var dataManager = HomeDataManager.shared
-    @ObservedObject private var timerManager = PomodoroTimerManager.shared
+    @ObservedObject private var timerManager = FocusTimerManager.shared
     
     private var recommendedTasks: [Task] {
         if userMood.isEmpty {
@@ -76,8 +76,8 @@ struct HomePageView: View {
                                 QuickActionButton(icon: "message.fill", title: "Chat", color: .green) {
                                     selectedTab = 3
                                 }
-                                QuickActionButton(icon: "timer", title: "Study Timer", color: .orange) {
-                                    selectedTab = 1
+                                QuickActionButton(icon: "timer", title: "Focus Timer", color: .orange) {
+                                    selectedTab = 3
                                 }
                             }
                             .padding(.horizontal)
@@ -398,11 +398,20 @@ struct HomePageView: View {
                 }
                 .tag(2)
 
+            NavigationStack {
+                FocusTimerView()
+                    .navigationBarTitleDisplayMode(.inline)
+            }
+                .tabItem {
+                    Label("Focus", systemImage: "timer")
+                }
+                .tag(3)
+
             StudyHomeView()
                 .tabItem {
                     Label("Study", systemImage: "book.closed")
                 }
-                .tag(3)
+                .tag(4)
         }
         
         VStack {

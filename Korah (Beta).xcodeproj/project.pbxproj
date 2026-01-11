@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		2C4A04062EFF535D00862664 /* README.txt in Resources */ = {isa = PBXBuildFile; fileRef = 2C4A03D82EFF535D00862664 /* README.txt */; };
+		2C6056C62F11FDF4009E17B8 /* ActivityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2C6056C52F11FDF4009E17B8 /* ActivityKit.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -27,16 +28,50 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		2C6056E52F1203A8009E17B8 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		2C4A03D82EFF535D00862664 /* README.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = README.txt; sourceTree = "<group>"; };
-		2C98C8C32EFE4F0800BF141B /* Korah (Beta).app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = "Korah (Beta).app"; path = Korah.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2C6056C52F11FDF4009E17B8 /* ActivityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ActivityKit.framework; path = System/Library/Frameworks/ActivityKit.framework; sourceTree = SDKROOT; };
+		2C6056CE2F1203A6009E17B8 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		2C6056D02F1203A6009E17B8 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		2C98C8C32EFE4F0800BF141B /* Korah.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Korah.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2C98C8D02EFE4F0A00BF141B /* Korah (Beta)Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Korah (Beta)Tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2C98C8DA2EFE4F0A00BF141B /* Korah (Beta)UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Korah (Beta)UITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		2C6056EB2F120ED8009E17B8 /* Exceptions for "Korah (Beta)" folder in "Korah (Beta)" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"Korah--Beta--Info.plist",
+			);
+			target = 2C98C8C22EFE4F0800BF141B /* Korah (Beta) */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		2C6056D22F1203A6009E17B8 /* FocusTimerWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = FocusTimerWidget;
+			sourceTree = "<group>";
+		};
 		2C98C8C52EFE4F0800BF141B /* Korah (Beta) */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				2C6056EB2F120ED8009E17B8 /* Exceptions for "Korah (Beta)" folder in "Korah (Beta)" target */,
+			);
 			path = "Korah (Beta)";
 			sourceTree = "<group>";
 		};
@@ -57,6 +92,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2C6056C62F11FDF4009E17B8 /* ActivityKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -77,21 +113,33 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		2C6056C42F11FDF4009E17B8 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				2C6056C52F11FDF4009E17B8 /* ActivityKit.framework */,
+				2C6056CE2F1203A6009E17B8 /* WidgetKit.framework */,
+				2C6056D02F1203A6009E17B8 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		2C98C8BA2EFE4F0800BF141B = {
 			isa = PBXGroup;
 			children = (
 				2C98C8C52EFE4F0800BF141B /* Korah (Beta) */,
 				2C98C8D32EFE4F0A00BF141B /* Korah (Beta)Tests */,
 				2C98C8DD2EFE4F0A00BF141B /* Korah (Beta)UITests */,
+				2C6056D22F1203A6009E17B8 /* FocusTimerWidget */,
 				2C98C8C42EFE4F0800BF141B /* Products */,
 				2C4A03D82EFF535D00862664 /* README.txt */,
+				2C6056C42F11FDF4009E17B8 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
 		2C98C8C42EFE4F0800BF141B /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				2C98C8C32EFE4F0800BF141B /* Korah (Beta).app */,
+				2C98C8C32EFE4F0800BF141B /* Korah.app */,
 				2C98C8D02EFE4F0A00BF141B /* Korah (Beta)Tests.xctest */,
 				2C98C8DA2EFE4F0A00BF141B /* Korah (Beta)UITests.xctest */,
 			);
@@ -108,6 +156,7 @@
 				2C98C8BF2EFE4F0800BF141B /* Sources */,
 				2C98C8C02EFE4F0800BF141B /* Frameworks */,
 				2C98C8C12EFE4F0800BF141B /* Resources */,
+				2C6056E52F1203A8009E17B8 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
@@ -120,7 +169,7 @@
 			packageProductDependencies = (
 			);
 			productName = "Korah (Beta)";
-			productReference = 2C98C8C32EFE4F0800BF141B /* Korah (Beta).app */;
+			productReference = 2C98C8C32EFE4F0800BF141B /* Korah.app */;
 			productType = "com.apple.product-type.application";
 		};
 		2C98C8CF2EFE4F0A00BF141B /* Korah (Beta)Tests */ = {
@@ -176,7 +225,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2600;
+				LastSwiftUpdateCheck = 2620;
 				LastUpgradeCheck = 2600;
 				TargetAttributes = {
 					2C98C8C22EFE4F0800BF141B = {
@@ -409,6 +458,7 @@
 				DEVELOPMENT_TEAM = 34JPJ689V8;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Korah--Beta--Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Korah;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
@@ -416,6 +466,7 @@
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Korah uses your microphone for AI voice tutoring conversations";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Korah uses your photo library to access select study materials and documents";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Korah uses speech recognition to transcribe your voice questions to the AI tutor";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -452,6 +503,7 @@
 				DEVELOPMENT_TEAM = 34JPJ689V8;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Korah--Beta--Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Korah;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
@@ -459,6 +511,7 @@
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Korah uses your microphone for AI voice tutoring conversations";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Korah uses your photo library to access select study materials and documents";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Korah uses speech recognition to transcribe your voice questions to the AI tutor";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

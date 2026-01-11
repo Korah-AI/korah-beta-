@@ -2,10 +2,24 @@ import SwiftUI
 
 struct MoodCheckInView: View {
     @AppStorage("UserMood") private var userMood: String = ""
+    @State private var opacity: Double = 0
     
     var body: some View {
         NavigationStack {
             VStack {
+                HStack {
+                    Spacer()
+                    Button(action: skipMoodCheckIn) {
+                        Text("Skip")
+                            .font(.subheadline)
+                            .foregroundColor(.white.opacity(0.6))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                    }
+                }
+                .padding(.top, 16)
+                .padding(.trailing, 16)
+                
                 Spacer()
                 
                 VStack(spacing: 32) {
@@ -41,11 +55,22 @@ struct MoodCheckInView: View {
                 Spacer()
             }
             .korahGradientBackground()
+            .opacity(opacity)
+            .onAppear {
+                withAnimation(.easeIn(duration: 0.5)) {
+                    opacity = 1
+                }
+            }
         }
     }
     
     private func selectMood(_ mood: String) {
         userMood = mood
+        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: "LastMoodCheckInDate")
+    }
+    
+    private func skipMoodCheckIn() {
+        // Mark as checked in without setting mood
         UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: "LastMoodCheckInDate")
     }
     

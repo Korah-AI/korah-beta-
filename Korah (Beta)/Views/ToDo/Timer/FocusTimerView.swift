@@ -10,8 +10,10 @@ import Combine
 typealias UserTask = Task
 typealias AsyncTask = _Concurrency.Task
 
-class PomodoroTimerManager: ObservableObject {
-    static let shared = PomodoroTimerManager()
+// TODO: BETA VERSION - Add screen time tracking integration here
+// Screen time features will track app usage during focus sessions
+class FocusTimerManager: ObservableObject {
+    static let shared = FocusTimerManager()
     
     @Published var timeRemaining = 600 
     @Published var totalTime = 600
@@ -42,7 +44,9 @@ class PomodoroTimerManager: ObservableObject {
         guard !isTimerRunning else { return }
         isTimerRunning = true
         onStart?()
-        scheduleFocusReminderLoop()
+        
+        // Schedule halfway notification
+        scheduleHalfwayNotification()
         
         // Schedule completion notification for when timer finishes
         scheduleCompletionNotification()
@@ -57,7 +61,12 @@ class PomodoroTimerManager: ObservableObject {
             guard let self = self else { return }
             if self.timeRemaining > 0 {
                 self.timeRemaining -= 1
+                
+                if self.timeRemaining == 0 {
+                    self.timerCompleted()
+                }
             } else {
+                // Ensure timer is stopped if somehow timeRemaining is 0 or less
                 self.timerCompleted()
             }
         }
@@ -67,7 +76,7 @@ class PomodoroTimerManager: ObservableObject {
         isTimerRunning = false
         timer?.invalidate()
         timer = nil
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["focus-minute-reminder", "timer-completion"])
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["focus-halfway-reminder", "timer-completion"])
         
         // COMMENTED OUT FOR TESTFLIGHT - AWAITING FAMILY SHARING CAPABILITY APPROVAL
         // Unblock apps
@@ -91,11 +100,16 @@ class PomodoroTimerManager: ObservableObject {
     }
     
     private func timerCompleted() {
-        stopTimer()
+        // Stop timer but DON'T reset showingCompletionAlert
+        isTimerRunning = false
+        timer?.invalidate()
+        timer = nil
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["focus-halfway-reminder", "timer-completion"])
         
         let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
         impactFeedback.impactOccurred()
         
+        // Set completion alert flag to true and keep it true until user dismisses
         DispatchQueue.main.async {
             self.showingCompletionAlert = true
         }
@@ -124,15 +138,29 @@ class PomodoroTimerManager: ObservableObject {
         }
     }
     
-    func scheduleFocusReminderLoop() {
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["focus-minute-reminder"])
+    private func scheduleHalfwayNotification() {
+        // Remove any existing halfway notification
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["focus-halfway-reminder"])
+        
+        // Only schedule if timer is longer than 2 minutes
+        guard timeRemaining > 120 else { return }
+        
+        let halfwayTime = TimeInterval(timeRemaining / 2)
+        
         let content = UNMutableNotificationContent()
-        content.title = "⏱️ Stay Focused"
-        content.body = "Remember your focus session!"
+        content.title = "🔥 Halfway Done!"
+        content.body = "You're halfway through your focus session. Keep going!"
         content.sound = .default
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 60, repeats: true)
-        let request = UNNotificationRequest(identifier: "focus-minute-reminder", content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request)
+        content.interruptionLevel = .timeSensitive
+        
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: halfwayTime, repeats: false)
+        let request = UNNotificationRequest(identifier: "focus-halfway-reminder", content: content, trigger: trigger)
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("Error scheduling halfway notification: \(error)")
+            }
+        }
     }
     
     var progress: Double {
@@ -195,8 +223,8 @@ class PomodoroTimerManager: ObservableObject {
     }
 }
 
-struct PomodoroTimerView: View {
-    @ObservedObject private var timerManager = PomodoroTimerManager.shared
+struct FocusTimerView: View {
+    @ObservedObject private var timerManager = FocusTimerManager.shared
     @Environment(\.dismiss) private var dismiss
     
     var onDismiss: (() -> Void)? = nil
@@ -205,7 +233,6 @@ struct PomodoroTimerView: View {
     @State private var showCustomTimePicker = false
     @State private var customMinutes = 10
     @State private var allTasks: [UserTask] = []
-    @State private var goHome = false
     // COMMENTED OUT FOR TESTFLIGHT - AWAITING FAMILY SHARING CAPABILITY APPROVAL
     // @State private var showBlockedAppsPicker = false
     // @State private var screenTimeAuthorized = false
@@ -213,28 +240,6 @@ struct PomodoroTimerView: View {
 
     var navigationBar: some View {
         HStack {
-            Button(action: {
-                goHome = true
-            }) {
-                HStack(spacing: 6) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 16, weight: .semibold))
-                    Text("Home")
-                        .font(.system(size: 16, weight: .medium))
-                }
-                .foregroundColor(.white)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.white.opacity(0.1))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
-                        )
-                )
-            }
-            
             Spacer()
             
             // Timer status badge
@@ -674,7 +679,10 @@ struct PomodoroTimerView: View {
         }
         .alert("Amazing Work! 🎉", isPresented: $timerManager.showingCompletionAlert) {
             Button("Great!") {
-                timerManager.resetTimer()
+                // Explicitly dismiss the alert first
+                timerManager.showingCompletionAlert = false
+                // Then reset the timer
+                timerManager.timeRemaining = timerManager.totalTime
             }
         } message: {
             Text(timerManager.selectedTasks.isEmpty 
@@ -682,7 +690,7 @@ struct PomodoroTimerView: View {
                 : "You focused on \(timerManager.selectedTasks.count) task\(timerManager.selectedTasks.count == 1 ? "" : "s"). Great job!")
         }
         .sheet(isPresented: $showTaskPicker) {
-            TaskPickerSheet(selectedTasks: $timerManager.selectedTasks, allTasks: allTasks)
+            ImprovedTaskPickerSheet(selectedTasks: $timerManager.selectedTasks, allTasks: allTasks)
         }
         .sheet(isPresented: $showCustomTimePicker) {
             CustomTimePickerSheet(customMinutes: $customMinutes, onSet: {
@@ -705,9 +713,6 @@ struct PomodoroTimerView: View {
             Text("To use Lock-In Mode, Korah needs permission to manage Screen Time settings. This allows the app to block selected apps during your focus sessions.")
         }
         */
-        .fullScreenCover(isPresented: $goHome) {
-            HomePageView()
-        }
     }
 
     func toggleTimer() {
@@ -838,6 +843,175 @@ struct TaskPickerSheet: View {
     }
 }
 
+struct ImprovedTaskPickerSheet: View {
+    @Binding var selectedTasks: [UserTask]
+    let allTasks: [UserTask]
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.korahBackgroundStart.ignoresSafeArea()
+                
+                if allTasks.isEmpty {
+                    VStack(spacing: 20) {
+                        Image(systemName: "checklist.unchecked")
+                            .font(.system(size: 70))
+                            .foregroundColor(.purple.opacity(0.6))
+                        
+                        Text("No Tasks Yet")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                        
+                        Text("Create tasks in the Tasks tab to select them for your focus sessions")
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 40)
+                    }
+                } else {
+                    ScrollView {
+                        VStack(spacing: 16) {
+                            // Selected count header
+                            if !selectedTasks.isEmpty {
+                                HStack {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.green)
+                                    Text("\(selectedTasks.count) task\(selectedTasks.count == 1 ? "" : "s") selected")
+                                        .font(.subheadline)
+                                        .foregroundColor(.white)
+                                    Spacer()
+                                    Button("Clear All") {
+                                        withAnimation {
+                                            selectedTasks.removeAll()
+                                        }
+                                    }
+                                    .font(.caption)
+                                    .foregroundColor(.red.opacity(0.8))
+                                }
+                                .padding()
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color.white.opacity(0.08))
+                                )
+                                .padding(.horizontal)
+                                .padding(.top)
+                            }
+                            
+                            // Task list
+                            ForEach(allTasks) { task in
+                                TaskSelectionRow(
+                                    task: task,
+                                    isSelected: selectedTasks.contains(where: { $0.id == task.id })
+                                ) {
+                                    withAnimation(.spring(response: 0.3)) {
+                                        if selectedTasks.contains(where: { $0.id == task.id }) {
+                                            selectedTasks.removeAll { $0.id == task.id }
+                                        } else {
+                                            selectedTasks.append(task)
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(.horizontal)
+                        }
+                        .padding(.bottom, 100)
+                    }
+                }
+            }
+            .navigationTitle("Select Tasks to Focus On")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .font(.headline)
+                    .foregroundColor(.purple)
+                }
+                
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                    .foregroundColor(.secondary)
+                }
+            }
+        }
+    }
+}
+
+struct TaskSelectionRow: View {
+    let task: UserTask
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 16) {
+                // Checkbox
+                ZStack {
+                    Circle()
+                        .strokeBorder(isSelected ? Color.purple : Color.white.opacity(0.3), lineWidth: 2)
+                        .frame(width: 28, height: 28)
+                    
+                    if isSelected {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.purple)
+                    }
+                }
+                
+                // Task icon
+                Text(task.difficulty.emoji)
+                    .font(.title2)
+                
+                // Task info
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(task.title)
+                        .font(.body)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .lineLimit(2)
+                    
+                    HStack(spacing: 8) {
+                        Text(task.difficulty.rawValue)
+                            .font(.caption)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Color.purple.opacity(0.2))
+                            .foregroundColor(.purple)
+                            .cornerRadius(6)
+                        
+                        if !task.description.isEmpty {
+                            Text(task.description)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
+                }
+                
+                Spacer()
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(isSelected ? Color.purple.opacity(0.15) : Color.white.opacity(0.06))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .strokeBorder(
+                                isSelected ? Color.purple.opacity(0.5) : Color.white.opacity(0.1),
+                                lineWidth: isSelected ? 2 : 1
+                            )
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 struct CustomTimePickerSheet: View {
     @Binding var customMinutes: Int
     let onSet: () -> Void
@@ -891,8 +1065,8 @@ struct CustomTimePickerSheet: View {
     }
 }
 
-struct PomodoroTimerView_Previews: PreviewProvider {
+struct FocusTimerView_Previews: PreviewProvider {
     static var previews: some View {
-        PomodoroTimerView()
+        FocusTimerView()
     }
 }

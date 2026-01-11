@@ -26,6 +26,12 @@ struct OnboardingView: View {
             color: .orange
         ),
         OnboardingPage(
+            imageName: "timer",
+            title: "Focus Timer",
+            description: "Stay productive with deep focus sessions. Track your work time and maintain concentration. Screen time tracking features coming soon in the full beta!",
+            color: .pink
+        ),
+        OnboardingPage(
             imageName: "message.fill",
             title: "Chat",
             description: "Get instant help with your studies. Ask questions and get answers powered by AI.",
