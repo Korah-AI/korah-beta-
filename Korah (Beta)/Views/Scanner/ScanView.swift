@@ -84,13 +84,7 @@ struct ScanTypingIndicator: View {
             HStack(spacing: 6) {
                 ForEach(0..<3) { index in
                     Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [.purple, .blue],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        .fill(.purple)
                         .frame(width: 8, height: 8)
                         .scaleEffect(scales[index])
                         .animation(
@@ -125,7 +119,6 @@ struct ScanView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var navigateToHome = false
-    @State private var animateGradient = false
     
     @State private var selectedFlashcardSetID: UUID? = nil
     @State private var navigateToGuideID: UUID? = nil
@@ -222,24 +215,7 @@ struct ScanView: View {
     }
 
     var body: some View {
-        ZStack {
-            // Animated gradient background
-            LinearGradient(
-                colors: animateGradient ? 
-                    [.purple.opacity(0.3), .blue.opacity(0.2), .purple.opacity(0.3)] :
-                    [.blue.opacity(0.3), .purple.opacity(0.2), .blue.opacity(0.3)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-            .blur(radius: 60)
-            .onAppear {
-                withAnimation(.easeInOut(duration: 5).repeatForever(autoreverses: true)) {
-                    animateGradient.toggle()
-                }
-            }
-            
-            VStack(spacing: 0) {
+        VStack(spacing: 0) {
                 NavigationLink(isActive: $navigateToHome) {
                     HomePageView()
                 } label: {
@@ -434,14 +410,10 @@ struct ScanView: View {
                         .overlay(
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
                                 .fill(
-                                    LinearGradient(
-                                        colors: isListening ? [Color.blue.opacity(0.4), Color.cyan.opacity(0.4)] :
-                                                isThinking ? [Color.orange.opacity(0.4), Color.yellow.opacity(0.4)] :
-                                                isSpeaking ? [Color.green.opacity(0.4), Color.mint.opacity(0.4)] :
-                                                [Color.purple.opacity(0.4), Color.pink.opacity(0.4)],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
+                                    (isListening ? Color.blue :
+                                     isThinking ? Color.orange :
+                                     isSpeaking ? Color.green :
+                                     Color.purple).opacity(0.4)
                                 )
                         )
                         .overlay(
@@ -543,13 +515,7 @@ struct ScanView: View {
                             .fill(.ultraThinMaterial)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [Color.purple.opacity(0.4), Color.pink.opacity(0.4)],
-                                            startPoint: .leading,
-                                            endPoint: .trailing
-                                        )
-                                    )
+                                    .fill(Color.purple.opacity(0.4))
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -574,11 +540,7 @@ struct ScanView: View {
                                 .overlay(
                                     Circle()
                                         .stroke(
-                                            LinearGradient(
-                                                colors: isVoiceModeActive ? [.blue, .cyan] : [.purple, .pink],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            ),
+                                            isVoiceModeActive ? Color.blue : Color.purple,
                                             lineWidth: 2
                                         )
                                 )
@@ -605,11 +567,7 @@ struct ScanView: View {
                                 .overlay(
                                     Circle()
                                         .stroke(
-                                            LinearGradient(
-                                                colors: [.purple.opacity(0.8), .pink.opacity(0.8)],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            ),
+                                            Color.purple,
                                             lineWidth: 2
                                         )
                                 )
@@ -642,12 +600,7 @@ struct ScanView: View {
                             Circle()
                                 .fill(
                                     (userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedImage == nil) ? 
-                                    LinearGradient(colors: [.gray.opacity(0.6)], startPoint: .top, endPoint: .bottom) :
-                                    LinearGradient(
-                                        colors: [.purple, .blue],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
+                                    Color.gray.opacity(0.6) : Color.purple
                                 )
                                 .shadow(
                                     color: (userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedImage == nil) ? .clear : .purple.opacity(0.5),
@@ -670,8 +623,8 @@ struct ScanView: View {
             )
             .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
             .padding(.horizontal)
-            }
         }
+        .korahGradientBackground()
         .alert("Delete Chat", isPresented: $showClearChatAlert) {
             Button("Delete", role: .destructive) {
                 withAnimation { 
@@ -775,14 +728,7 @@ struct ScanView: View {
                                     .fill(.ultraThinMaterial)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                            .stroke(
-                                                LinearGradient(
-                                                    colors: [.white.opacity(0.3), .white.opacity(0.1)],
-                                                    startPoint: .top,
-                                                    endPoint: .bottom
-                                                ),
-                                                lineWidth: 1
-                                            )
+                                            .stroke(.white.opacity(0.2), lineWidth: 1)
                                     )
                             )
                             .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
@@ -853,13 +799,7 @@ struct ScanView: View {
                                     .padding(14)
                                     .background(
                                         RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                            .fill(
-                                                LinearGradient(
-                                                    colors: [.purple.opacity(0.8), .blue.opacity(0.8)],
-                                                    startPoint: .topLeading,
-                                                    endPoint: .bottomTrailing
-                                                )
-                                            )
+                                            .fill(.purple)
                                             .overlay(
                                                 RoundedRectangle(cornerRadius: 20, style: .continuous)
                                                     .stroke(.white.opacity(0.3), lineWidth: 1)
@@ -2066,14 +2006,7 @@ struct QuickTipButton: View {
                         .fill(.ultraThinMaterial)
                         .overlay(
                             Capsule()
-                                .stroke(
-                                    LinearGradient(
-                                        colors: [.purple, .blue],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    ),
-                                    lineWidth: 1.5
-                                )
+                                .stroke(.purple, lineWidth: 1.5)
                         )
                 )
                 .shadow(color: .purple.opacity(0.3), radius: 8, x: 0, y: 4)
