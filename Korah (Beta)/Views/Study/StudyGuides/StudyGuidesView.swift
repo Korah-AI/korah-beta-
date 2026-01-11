@@ -460,6 +460,10 @@ Rules:
                 .padding(.vertical, 16)
             }
             .background(Color.clear)
+            .refreshable {
+                loadGuides()
+                loadFlashcardSets()
+            }
             .korahGradientBackground()
             .overlay {
                 loadingOverlay

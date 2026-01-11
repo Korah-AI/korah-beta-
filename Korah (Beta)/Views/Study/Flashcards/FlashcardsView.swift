@@ -86,7 +86,8 @@ struct FlashcardsView: View {
                 onDelete: { set in
                     selectedSetForDeletion = set
                     showDeleteConfirm = true
-                }
+                },
+                onRefresh: { loadSets() }
             )
         }
     }
@@ -156,6 +157,7 @@ struct FlashcardsView: View {
         let onSelect: (FlashcardSet) -> Void
         let onEdit: (FlashcardSet) -> Void
         let onDelete: (FlashcardSet) -> Void
+        let onRefresh: () -> Void
 
         var body: some View {
             ScrollView {
@@ -171,6 +173,9 @@ struct FlashcardsView: View {
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 12)
+            }
+            .refreshable {
+                onRefresh()
             }
         }
     }

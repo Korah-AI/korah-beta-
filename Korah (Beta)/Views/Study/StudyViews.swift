@@ -300,6 +300,9 @@ struct StudyHomeView: View {
                     .padding(.vertical)
                 }
                 .background(Color.clear)
+                .refreshable {
+                    loadRecentStudy()
+                }
 
                 Spacer(minLength: 0)
             }

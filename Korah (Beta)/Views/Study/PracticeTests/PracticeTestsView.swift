@@ -153,6 +153,11 @@ struct PracticeTestsView: View {
                 .listStyle(.insetGrouped)
                 .scrollContentBackground(.hidden)
                 .background(Color.clear)
+                .refreshable {
+                    store.practiceTests = StudyDataManager.shared.loadPracticeTests()
+                    loadFlashcardSets()
+                    loadStudyGuides()
+                }
                 .navigationTitle("Practice Tests")
                 .toolbar {
                     ToolbarItem(placement: .navigationBarLeading) {
