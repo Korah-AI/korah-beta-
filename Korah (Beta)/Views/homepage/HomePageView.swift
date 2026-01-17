@@ -6,6 +6,7 @@ struct HomePageView: View {
     @State private var showMoodSettings: Bool = false
     @State private var showTimerCelebration = false
     @State private var editingTask: Task? = nil
+    @State private var showFeedback = false
 
     @AppStorage("UserMood") private var userMood: String = ""
 
@@ -75,7 +76,7 @@ struct HomePageView: View {
                                     selectedTab = 2
                                 }
                                 QuickActionButton(icon: "message.fill", title: "Chat", color: .green) {
-                                    selectedTab = 3
+                                    selectedTab = 2
                                 }
                                 QuickActionButton(icon: "timer", title: "Focus Timer", color: .orange) {
                                     selectedTab = 3
@@ -290,7 +291,7 @@ struct HomePageView: View {
                         }
 
                         Button(action: {
-                            selectedTab = 3 
+                            selectedTab = 2
                         }) {
                             Text("Chat Now")
                                 .font(.headline)
@@ -307,6 +308,24 @@ struct HomePageView: View {
                     .shadow(color: .purple.opacity(0.2), radius: 8, x: 0, y: 4)
                     .padding(.horizontal)
                     
+                    // Feedback Button
+                    Button(action: {
+                        showFeedback = true
+                    }) {
+                        HStack {
+                            Image(systemName: "envelope.fill")
+                                .font(.headline)
+                            Text("Send Feedback")
+                                .font(.headline)
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.purple)
+                        .cornerRadius(12)
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom, 20)
 
                     Spacer()
                     }
@@ -446,6 +465,9 @@ struct HomePageView: View {
         }
         .sheet(isPresented: $showMoodSettings) {
             MoodSettingsView()
+        }
+        .sheet(isPresented: $showFeedback) {
+            FeedbackView()
         }
     }
     

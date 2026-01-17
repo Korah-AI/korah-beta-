@@ -160,6 +160,10 @@ struct AddTaskView: View {
         let newTask = Task(title: title, description: description, dueDate: dueDate, difficulty: difficulty)
         tasks.append(newTask)
         HomeDataManager.shared.saveTasks()
+        
+        // Schedule notifications for the new task
+        NotificationManager.shared.scheduleTaskNotifications(for: newTask)
+        
         dismiss()
     }
 }

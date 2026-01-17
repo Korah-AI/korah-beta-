@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import SwiftUI
 
 class StreakManager: ObservableObject {
@@ -135,3 +136,4 @@ class StreakManager: ObservableObject {
         return Date().timeIntervalSince(lastOpen) / 3600
     }
 }
+

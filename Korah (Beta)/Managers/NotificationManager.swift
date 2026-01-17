@@ -1,8 +1,11 @@
 import Foundation
+import Combine
 import UserNotifications
 import SwiftUI
 
 class NotificationManager: ObservableObject {
+    var objectWillChange = ObservableObjectPublisher()
+
     static let shared = NotificationManager()
     
     @Published var notificationPermissionGranted = false
@@ -238,6 +241,87 @@ class NotificationManager: ObservableObject {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["streak_reminder"])
     }
     
+    // MARK: - Task Notification Methods
+    
+    /// Schedule notifications for a task (1 day before and 1 hour before)
+    func scheduleTaskNotifications(for task: Task) {
+        // Cancel existing notifications for this task
+        cancelTaskNotifications(for: task.id)
+        
+        let now = Date()
+        let taskDueDate = task.dueDate
+        
+        // Schedule 1 day before notification
+        let oneDayBefore = Calendar.current.date(byAdding: .day, value: -1, to: taskDueDate)
+        if let oneDayBefore = oneDayBefore, oneDayBefore > now {
+            scheduleTaskNotification(
+                taskId: task.id,
+                title: "Task Due Tomorrow! 📅",
+                body: "\(task.title) is due tomorrow. Time to wrap it up!",
+                date: oneDayBefore,
+                identifier: "task_\(task.id.uuidString)_1day"
+            )
+        }
+        
+        // Schedule 1 hour before notification
+        let oneHourBefore = Calendar.current.date(byAdding: .hour, value: -1, to: taskDueDate)
+        if let oneHourBefore = oneHourBefore, oneHourBefore > now {
+            scheduleTaskNotification(
+                taskId: task.id,
+                title: "Task Due Soon! ⏰",
+                body: "\(task.title) is due in 1 hour. Last chance!",
+                date: oneHourBefore,
+                identifier: "task_\(task.id.uuidString)_1hour"
+            )
+        }
+    }
+    
+    /// Schedule a single task notification
+    private func scheduleTaskNotification(taskId: UUID, title: String, body: String, date: Date, identifier: String) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        content.badge = 1
+        content.userInfo = ["taskId": taskId.uuidString]
+        
+        let triggerDate = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+        let trigger = UNCalendarNotificationTrigger(dateMatching: triggerDate, repeats: false)
+        
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("Error scheduling task notification: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    /// Cancel all notifications for a specific task
+    func cancelTaskNotifications(for taskId: UUID) {
+        let identifiers = [
+            "task_\(taskId.uuidString)_1day",
+            "task_\(taskId.uuidString)_1hour"
+        ]
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiers)
+    }
+    
+    /// Reschedule notifications for all tasks
+    func rescheduleAllTaskNotifications(tasks: [Task]) {
+        // Cancel all existing task notifications
+        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+            let taskNotificationIds = requests
+                .map { $0.identifier }
+                .filter { $0.hasPrefix("task_") }
+            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: taskNotificationIds)
+            
+            // Schedule notifications for all tasks
+            for task in tasks {
+                self.scheduleTaskNotifications(for: task)
+            }
+        }
+    }
+    
     // Get count of pending notifications (for debugging)
     func getPendingNotificationCount(completion: @escaping (Int) -> Void) {
         UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
@@ -254,3 +338,4 @@ struct NotificationContent {
     let hour: Int
     let minute: Int
 }
+

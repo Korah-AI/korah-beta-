@@ -86,11 +86,18 @@ struct EditTaskView: View {
             tasks[index].dueDate = dueDate
             tasks[index].difficulty = difficulty
             HomeDataManager.shared.saveTasks()
+            
+            // Reschedule notifications with updated task info
+            let updatedTask = tasks[index]
+            NotificationManager.shared.scheduleTaskNotifications(for: updatedTask)
         }
     }
     
     func completeTask() {
         if let index = tasks.firstIndex(where: { $0.id == task.id }) {
+            // Cancel notifications before removing task
+            NotificationManager.shared.cancelTaskNotifications(for: task.id)
+            
             tasks.remove(at: index)
             HomeDataManager.shared.saveTasks()
         }

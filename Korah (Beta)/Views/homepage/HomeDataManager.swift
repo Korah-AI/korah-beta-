@@ -60,6 +60,9 @@ class HomeDataManager: ObservableObject {
     }
     
     func deleteTask(_ task: Task) {
+        // Cancel notifications for the deleted task
+        NotificationManager.shared.cancelTaskNotifications(for: task.id)
+        
         tasks.removeAll { $0.id == task.id }
         saveTasks()
     }
