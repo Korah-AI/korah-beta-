@@ -12,7 +12,7 @@ export default async function handler(req, res) {
     
     // Estimate input tokens from messages
     const messages = req.body.messages || [];
-    const inputText = messages.map(m => m.content).join(' ');
+    const inputText = messages.map(m => typeof m.content === 'string' ? m.content : '').join(' ');
     const estimatedInputTokens = estimateTokens(inputText);
     
     // Check rate limit before making API call
@@ -49,6 +49,9 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'API key not configured' });
     }
 
+    // Check if client requested streaming
+    const isStreaming = req.body.stream === true;
+
     // Forward the request to OpenAI API
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -59,6 +62,63 @@ export default async function handler(req, res) {
       body: JSON.stringify(req.body),
     });
 
+    // Handle streaming response
+    if (isStreaming) {
+      // Set SSE headers
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no');
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        return res.status(response.status).json(errorData);
+      }
+
+      // Track output for rate limiting
+      let outputContent = '';
+      
+      // Stream the response
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          const chunk = decoder.decode(value, { stream: true });
+          
+          // Extract content for rate limiting (optional)
+          const lines = chunk.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+              try {
+                const json = JSON.parse(line.slice(6));
+                const content = json.choices?.[0]?.delta?.content || '';
+                outputContent += content;
+              } catch (e) {
+                // Ignore parse errors for partial chunks
+              }
+            }
+          }
+          
+          // Forward chunk to client
+          res.write(chunk);
+        }
+      } finally {
+        reader.releaseLock();
+      }
+      
+      // Update rate limit with estimated tokens after streaming completes
+      const estimatedOutputTokens = estimateTokens(outputContent);
+      await checkRateLimit(userId, estimatedInputTokens + estimatedOutputTokens);
+      
+      res.end();
+      return;
+    }
+
+    // Non-streaming response (original behavior)
     const data = await response.json();
     
     // Update rate limit with actual token usage (if available)

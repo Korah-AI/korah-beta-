@@ -1,13 +1,14 @@
 import Foundation
-import Combine
 import Network
 
 /// Monitors network connectivity status
-final class NetworkMonitor: ObservableObject {
+@MainActor
+@Observable
+final class NetworkMonitor {
     static let shared = NetworkMonitor()
     
-    @Published private(set) var isConnected: Bool = true
-    @Published private(set) var connectionType: ConnectionType = .unknown
+    private(set) var isConnected: Bool = true
+    private(set) var connectionType: ConnectionType = .unknown
     
     enum ConnectionType {
         case wifi
@@ -23,9 +24,9 @@ final class NetworkMonitor: ObservableObject {
         startMonitoring()
     }
     
-    func startMonitoring() {
+    nonisolated func startMonitoring() {
         monitor.pathUpdateHandler = { [weak self] path in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 self?.isConnected = path.status == .satisfied
                 self?.updateConnectionType(path)
             }

@@ -1,33 +1,36 @@
 import SwiftUI
-import Foundation
 
-public func applyKorahAppearance() {
-    let appearance = UINavigationBarAppearance()
-    appearance.configureWithTransparentBackground()
-    appearance.titleTextAttributes = [.foregroundColor: UIColor.white]
-    appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
-    appearance.backgroundColor = UIColor(Color.korahBackgroundStart)
-    UINavigationBar.appearance().standardAppearance = appearance
-    UINavigationBar.appearance().scrollEdgeAppearance = appearance
-    UINavigationBar.appearance().compactAppearance = appearance
-    
-    UITableView.appearance().backgroundColor = .clear
-    UITableViewCell.appearance().backgroundColor = .clear
-    UIScrollView.appearance().backgroundColor = .clear
-}
+// MARK: - Legacy Color Compatibility
+// These colors bridge to the new design system in DesignSystem/AppColors.swift
+// Prefer using Color.adaptive() and Color.Light/Dark tokens for new code
 
 extension Color {
+    /// Legacy accent color - prefer `Color.adaptive(light: .Light.accent, dark: .Dark.accent)`
     static var korahPurple: Color {
-        .purple
+        adaptive(light: .Light.accent, dark: .Dark.accent)
     }
+    
+    /// Legacy card background - prefer `Color.adaptive(light: .Light.surface, dark: .Dark.surface)`
     static var korahCardBackground: Color {
-        Color.white.opacity(0.06)
+        adaptive(light: .Light.surface, dark: .Dark.surface)
     }
-    static var korahBackgroundStart: Color { Color(red: 0.10, green: 0.10, blue: 0.12) }
-    static var korahBackgroundEnd: Color { Color(red: 0.16, green: 0.16, blue: 0.18) }
+    
+    /// Legacy gradient start
+    static var korahBackgroundStart: Color {
+        adaptive(light: .Light.background, dark: Color(red: 0.10, green: 0.10, blue: 0.12))
+    }
+    
+    /// Legacy gradient end
+    static var korahBackgroundEnd: Color {
+        adaptive(light: .Light.backgroundSecondary, dark: Color(red: 0.16, green: 0.16, blue: 0.18))
+    }
 }
 
+// MARK: - View Modifiers
+
 extension View {
+    /// Applies the Korah gradient background
+    /// - Note: For new views, prefer `.kBackground()` from AppTheme.swift
     func korahGradientBackground() -> some View {
         self
             .background(
@@ -40,18 +43,22 @@ extension View {
             )
     }
     
+    /// Applies the Korah card style
+    /// - Note: For new views, prefer `.kCard()` from AppTheme.swift
     func korahCard() -> some View {
         self
+            .padding(Spacing.md)
             .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
                     .fill(Color.korahCardBackground)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
+                    .stroke(Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
             )
     }
     
+    /// Applies list styling consistent with Korah design
     func korahListStyle() -> some View {
         self
             .listStyle(.insetGrouped)
@@ -60,14 +67,23 @@ extension View {
     }
 }
 
-struct KorahText {
+// MARK: - Text Helpers
+
+enum KorahText {
     static func primary(_ text: Text) -> some View {
-        text.foregroundColor(.white)
+        text.foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
     }
+    
     static func secondary(_ text: Text) -> some View {
-        text.foregroundColor(.secondary)
+        text.foregroundStyle(Color.adaptive(light: .Light.textSecondary, dark: .Dark.textSecondary))
+    }
+    
+    static func tertiary(_ text: Text) -> some View {
+        text.foregroundStyle(Color.adaptive(light: .Light.textTertiary, dark: .Dark.textTertiary))
     }
 }
+
+// MARK: - Utilities
 
 func openedAgo(_ date: Date?) -> String {
     guard let date else { return "Never opened" }
@@ -76,6 +92,8 @@ func openedAgo(_ date: Date?) -> String {
     let relative = formatter.localizedString(for: date, relativeTo: Date())
     return "Opened \(relative)"
 }
+
+// MARK: - Segmented Header
 
 struct SegmentedHeader: View {
     @Binding var selection: Int
@@ -88,15 +106,11 @@ struct SegmentedHeader: View {
                     Text(segments[index]).tag(index)
                 }
             }
-            .pickerStyle(SegmentedPickerStyle())
+            .pickerStyle(.segmented)
             .tint(.korahPurple)
-            .padding()
+            .padding(Spacing.md)
             .background(
-                LinearGradient(
-                    gradient: Gradient(colors: [.korahBackgroundStart, .korahBackgroundEnd]),
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
+                Color.adaptive(light: .Light.background, dark: .Dark.background)
             )
         }
     }

@@ -1,9 +1,12 @@
 import SwiftUI
-import Combine
 
-class AppStateManager: ObservableObject {
+@MainActor
+@Observable
+final class AppStateManager {
+    @ObservationIgnored
     @AppStorage("hasCompletedOnboarding") var hasCompletedOnboarding: Bool = false
-    @Published var shouldShowLaunchAnimation: Bool = false
+    
+    var shouldShowLaunchAnimation: Bool = false
     
     init() {
         // Show launch animation only on fresh app launch (not from background)

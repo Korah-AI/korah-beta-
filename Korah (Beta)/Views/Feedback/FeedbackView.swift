@@ -2,13 +2,10 @@ import SwiftUI
 
 struct FeedbackView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
     
     @State private var selectedCategory: FeedbackCategory = .general
-    @State private var feedbackMessage: String = ""
-    @State private var isSubmitting = false
-    @State private var showSuccessAlert = false
-    @State private var showErrorAlert = false
-    @State private var errorMessage = ""
+    @State private var showMailErrorAlert = false
     
     enum FeedbackCategory: String, CaseIterable {
         case bug = "Bug Report"
@@ -82,79 +79,21 @@ struct FeedbackView: View {
                                         category: category,
                                         isSelected: selectedCategory == category
                                     ) {
-                                        withAnimation(.spring(response: 0.3)) {
-                                            selectedCategory = category
-                                        }
+                                        selectedCategory = category
+                                        openMailApp()
                                     }
                                 }
                             }
                             .padding(.horizontal)
                         }
                         
-                        // Message Input
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Your Message")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                                .padding(.horizontal)
-                            
-                            ZStack(alignment: .topLeading) {
-                                if feedbackMessage.isEmpty {
-                                    Text(selectedCategory.placeholder)
-                                        .foregroundColor(.secondary)
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 12)
-                                }
-                                
-                                TextEditor(text: $feedbackMessage)
-                                    .foregroundColor(.white)
-                                    .scrollContentBackground(.hidden)
-                                    .frame(minHeight: 150)
-                                    .padding(4)
-                            }
-                            .background(Color.white.opacity(0.1))
-                            .cornerRadius(12)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(selectedCategory.color.opacity(0.3), lineWidth: 1)
-                            )
+                        // Info Text
+                        Text("Select a category below to compose an email with your feedback.")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
                             .padding(.horizontal)
-                        }
-                        
-                        // Character Count
-                        HStack {
-                            Spacer()
-                            Text("\(feedbackMessage.count) / 1000")
-                                .font(.caption)
-                                .foregroundColor(feedbackMessage.count > 1000 ? .red : .secondary)
-                        }
-                        .padding(.horizontal, 24)
-                        
-                        // Submit Button
-                        Button(action: submitFeedback) {
-                            HStack {
-                                if isSubmitting {
-                                    ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                } else {
-                                    Image(systemName: "paperplane.fill")
-                                    Text("Submit Feedback")
-                                }
-                            }
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(
-                                feedbackMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || feedbackMessage.count > 1000 || isSubmitting
-                                    ? Color.gray
-                                    : selectedCategory.color
-                            )
-                            .cornerRadius(12)
-                        }
-                        .disabled(feedbackMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || feedbackMessage.count > 1000 || isSubmitting)
-                        .padding(.horizontal)
-                        .padding(.top, 8)
+                            .padding(.bottom, 8)
                         
                         Spacer()
                     }
@@ -169,67 +108,41 @@ struct FeedbackView: View {
                     .foregroundColor(.purple)
                 }
             }
-            .alert("Thank You!", isPresented: $showSuccessAlert) {
-                Button("Done") {
-                    dismiss()
-                }
-            } message: {
-                Text("Your feedback has been submitted successfully. We appreciate your help in making Korah better!")
-            }
-            .alert("Submission Failed", isPresented: $showErrorAlert) {
+            .alert("Cannot Open Mail", isPresented: $showMailErrorAlert) {
                 Button("OK") { }
             } message: {
-                Text(errorMessage)
+                Text("Please make sure you have the Mail app configured on your device, or email feedback directly to oscareucedaf1@gmail.com")
             }
         }
     }
     
-    private func submitFeedback() {
-        guard !feedbackMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              feedbackMessage.count <= 1000 else {
+    private func openMailApp() {
+        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
+        let deviceId = DeviceIDManager.shared.deviceID
+        
+        let subject = "[Korah Beta] \(selectedCategory.rawValue)"
+        let body = """
+        
+        
+        ---
+        Category: \(selectedCategory.rawValue)
+        Device ID: \(deviceId)
+        App Version: \(appVersion)
+        """
+        
+        // URL encode the subject and body
+        guard let subjectEncoded = subject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let bodyEncoded = body.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let mailURL = URL(string: "mailto:oscareucedaf1@gmail.com?subject=\(subjectEncoded)&body=\(bodyEncoded)") else {
+            showMailErrorAlert = true
             return
         }
         
-        isSubmitting = true
-        
-        let url = URL(string: "\(OpenAIConfig.proxyBaseURL)/api/feedback")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        let body: [String: Any] = [
-            "category": selectedCategory.rawValue,
-            "message": feedbackMessage,
-            "deviceId": DeviceIDManager.shared.deviceID,
-            "appVersion": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
-        ]
-        
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-        
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            DispatchQueue.main.async {
-                isSubmitting = false
-                
-                if let error = error {
-                    errorMessage = "Network error: \(error.localizedDescription)"
-                    showErrorAlert = true
-                    return
-                }
-                
-                guard let httpResponse = response as? HTTPURLResponse else {
-                    errorMessage = "Invalid response from server"
-                    showErrorAlert = true
-                    return
-                }
-                
-                if httpResponse.statusCode == 200 {
-                    showSuccessAlert = true
-                } else {
-                    errorMessage = "Server returned error: \(httpResponse.statusCode)"
-                    showErrorAlert = true
-                }
+        openURL(mailURL) { accepted in
+            if !accepted {
+                showMailErrorAlert = true
             }
-        }.resume()
+        }
     }
 }
 

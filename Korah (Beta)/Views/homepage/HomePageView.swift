@@ -5,16 +5,16 @@ struct HomePageView: View {
     @State private var showMoodPicker: Bool = false
     @State private var showMoodSettings: Bool = false
     @State private var showTimerCelebration = false
-    @State private var editingTask: Task? = nil
+    @State private var editingTask: StudyTask? = nil
     @State private var showFeedback = false
 
     @AppStorage("UserMood") private var userMood: String = ""
 
-    @ObservedObject private var dataManager = HomeDataManager.shared
-    @ObservedObject private var timerManager = FocusTimerManager.shared
-    @ObservedObject private var streakManager = StreakManager.shared
+    @State private var dataManager = HomeDataManager.shared
+    @State private var timerManager = FocusTimerManager.shared
+    @State private var streakManager = StreakManager.shared
     
-    private var recommendedTasks: [Task] {
+    private var recommendedTasks: [StudyTask] {
         if userMood.isEmpty {
             // If no mood is set, show upcoming tasks sorted by date
             return dataManager.tasks.sorted { $0.dueDate < $1.dueDate }
@@ -454,7 +454,7 @@ struct HomePageView: View {
                 ? "You've completed your focus session. Time for a break!"
                 : "You focused on \(timerManager.selectedTasks.count) task\(timerManager.selectedTasks.count == 1 ? "" : "s"). Great job!")
         }
-        .onChange(of: timerManager.showingCompletionAlert) { isShowing in
+        .onChange(of: timerManager.showingCompletionAlert) { oldValue, isShowing in
             if isShowing {
                 showTimerCelebration = true
             }

@@ -23,8 +23,6 @@ struct MainAppView: View {
     }
 }
 
-struct MainAppView_Previews: PreviewProvider {
-    static var previews: some View {
-        MainAppView(username: "Oscar")
-    }
+#Preview {
+    MainAppView(username: "Oscar")
 }

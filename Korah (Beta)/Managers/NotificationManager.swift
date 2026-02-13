@@ -1,14 +1,13 @@
 import Foundation
-import Combine
 import UserNotifications
 import SwiftUI
 
-class NotificationManager: ObservableObject {
-    var objectWillChange = ObservableObjectPublisher()
-
+@MainActor
+@Observable
+final class NotificationManager {
     static let shared = NotificationManager()
     
-    @Published var notificationPermissionGranted = false
+    var notificationPermissionGranted = false
     
     private init() {}
     
@@ -244,7 +243,7 @@ class NotificationManager: ObservableObject {
     // MARK: - Task Notification Methods
     
     /// Schedule notifications for a task (1 day before and 1 hour before)
-    func scheduleTaskNotifications(for task: Task) {
+    func scheduleTaskNotifications(for task: StudyTask) {
         // Cancel existing notifications for this task
         cancelTaskNotifications(for: task.id)
         
@@ -307,7 +306,7 @@ class NotificationManager: ObservableObject {
     }
     
     /// Reschedule notifications for all tasks
-    func rescheduleAllTaskNotifications(tasks: [Task]) {
+    func rescheduleAllTaskNotifications(tasks: [StudyTask]) {
         // Cancel all existing task notifications
         UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
             let taskNotificationIds = requests

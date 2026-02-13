@@ -1,12 +1,13 @@
 import Foundation
-import Combine
 import SwiftUI
 
-class StreakManager: ObservableObject {
+@MainActor
+@Observable
+final class StreakManager {
     static let shared = StreakManager()
     
-    @Published var currentStreak: Int = 0
-    @Published var lastAppOpenDate: Date?
+    var currentStreak: Int = 0
+    var lastAppOpenDate: Date?
     
     private let lastAppOpenKey = "LastAppOpenDate"
     private let currentStreakKey = "CurrentStreak"

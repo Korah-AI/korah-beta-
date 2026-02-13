@@ -409,10 +409,8 @@ struct AIPracticeTestGeneratorView: View {
     }
 }
 
-struct AIPracticeTestGeneratorView_Previews: PreviewProvider {
-    static var previews: some View {
-        AIPracticeTestGeneratorView()
-            .preferredColorScheme(.dark)
-            .accentColor(.purple)
-    }
+#Preview {
+    AIPracticeTestGeneratorView()
+        .preferredColorScheme(.dark)
+        .accentColor(.purple)
 }

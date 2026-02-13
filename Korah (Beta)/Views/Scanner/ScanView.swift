@@ -5,11 +5,19 @@ import Foundation
 
 
 struct ScanMessage: Identifiable {
-    let id = UUID()
+    let id: UUID
     let role: String 
-    let content: String
+    var content: String
     let timestamp: Date
-    let image: UIImage? 
+    let image: UIImage?
+    
+    init(id: UUID = UUID(), role: String, content: String, timestamp: Date, image: UIImage?) {
+        self.id = id
+        self.role = role
+        self.content = content
+        self.timestamp = timestamp
+        self.image = image
+    }
 }
 
 struct ScanOpenAIResponse: Decodable {
@@ -76,15 +84,15 @@ struct ScanTypingIndicator: View {
     @State private var scales: [CGFloat] = [1.0, 1.0, 1.0]
     
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.sm) {
             Text("Korah is thinking")
-                .foregroundColor(.white.opacity(0.9))
-                .font(.subheadline.weight(.medium))
+                .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary).opacity(0.9))
+                .font(.kSubheadline)
             
             HStack(spacing: 6) {
                 ForEach(0..<3) { index in
                     Circle()
-                        .fill(.purple)
+                        .fill(Color.adaptive(light: .Light.accent, dark: .Dark.accent))
                         .frame(width: 8, height: 8)
                         .scaleEffect(scales[index])
                         .animation(
@@ -96,13 +104,13 @@ struct ScanTypingIndicator: View {
                 }
             }
         }
-        .padding(16)
+        .padding(Spacing.md)
         .background(
             Capsule()
-                .fill(.ultraThinMaterial)
+                .fill(Color.adaptive(light: .Light.surface, dark: .Dark.surface))
                 .overlay(
                     Capsule()
-                        .stroke(.white.opacity(0.2), lineWidth: 1)
+                        .stroke(Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
                 )
         )
         .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
@@ -135,6 +143,13 @@ struct ScanView: View {
     @State private var showConversationHistory = false
     @State private var showNewChatAlert = false
     @State private var currentConversation: Conversation?
+    
+    // Streaming state
+    @State private var isStreaming = false
+    @State private var streamingMessageIndex: Int?
+    @State private var streamTask: Task<Void, Never>?
+    private let updateThrottle: TimeInterval = 0.05
+    @State private var lastUpdateTime: Date = Date()
     
     @State private var showTTSControls = false
     @State private var isTTSLoading = false
@@ -214,14 +229,16 @@ struct ScanView: View {
         }
     }
 
-    var body: some View {
-        VStack(spacing: 0) {
-                NavigationLink(isActive: $navigateToHome) {
-                    HomePageView()
-                } label: {
-                    EmptyView()
-                }
-                .hidden()
+    // MARK: - Extracted Views
+    
+    private var navigationLinks: some View {
+        Group {
+            NavigationLink(isActive: $navigateToHome) {
+                HomePageView()
+            } label: {
+                EmptyView()
+            }
+            .hidden()
             
             NavigationLink(isActive: Binding(get: { selectedFlashcardSetID != nil }, set: { if !$0 { selectedFlashcardSetID = nil } })) {
                 if let id = selectedFlashcardSetID {
@@ -247,384 +264,291 @@ struct ScanView: View {
                 EmptyView()
             }
             .hidden()
-            
-            HStack {
-                Button(action: { hideKeyboard(); navigateToHome = true }) {
-                    Image(systemName: "chevron.left")
-                        .font(.headline)
-                        .foregroundStyle(.white)
-                }
-                Text("Scan")
+        }
+    }
+    
+    private var headerBar: some View {
+        HStack {
+            Button(action: { hideKeyboard(); navigateToHome = true }) {
+                Image(systemName: "chevron.left")
                     .font(.headline)
-                    .foregroundStyle(.white)
-                Spacer()
-                Button {
-                    if !messages.isEmpty {
-                        showNewChatAlert = true
-                    }
-                } label: {
-                    Image(systemName: "square.and.pencil")
-                        .foregroundStyle(.white)
-                }
-                Button {
-                    showConversationHistory = true
-                } label: {
-                    Image(systemName: "clock.arrow.circlepath")
-                        .foregroundStyle(.white)
-                }
-                Button(role: .destructive) {
-                    showClearChatAlert = true
-                } label: {
-                    Image(systemName: "trash")
-                        .foregroundStyle(.red.opacity(0.9))
-                }
-                .disabled(messages.isEmpty)
+                    .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
             }
-            .padding()
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(.white.opacity(0.2), lineWidth: 1)
-                    )
-            )
-            .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 2)
+            Text("Scan")
+                .font(.kHeadline)
+                .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+            Spacer()
+            Button {
+                if !messages.isEmpty {
+                    showNewChatAlert = true
+                }
+            } label: {
+                Image(systemName: "square.and.pencil")
+                    .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+            }
+            Button {
+                showConversationHistory = true
+            } label: {
+                Image(systemName: "clock.arrow.circlepath")
+                    .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+            }
+            Button(role: .destructive) {
+                showClearChatAlert = true
+            } label: {
+                Image(systemName: "trash")
+                    .foregroundStyle(Color.adaptive(light: .Light.error, dark: .Dark.error).opacity(0.9))
+            }
+            .disabled(messages.isEmpty)
+        }
+        .padding(Spacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
+                .fill(Color.adaptive(light: .Light.surface, dark: .Dark.surface))
+                .overlay(
+                    RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
+                        .stroke(Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
+                )
+        )
+        .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 2)
+        .padding(.horizontal)
+    }
+    
+    private var emptyStateView: some View {
+        VStack(spacing: Spacing.lg) {
+            Spacer()
+            Text("Scan An Image,")
+                .font(.kLargeTitle)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary).opacity(0.95))
+                .padding(.horizontal)
+            Text("or Just Ask A Question!")
+                .font(.kTitle2)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(Color.adaptive(light: .Light.textSecondary, dark: .Dark.textSecondary))
+                .padding(.horizontal)
+            SuggestionChips(suggestions: starterSuggestions) { suggestion in
+                sendSuggestion(suggestion)
+            }
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal)
+    }
+    
+    private var quickTipsBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                QuickTipButton(title: "Explain Deeper") {
+                    if hasAssistantResponse && !isLoading && !showTypingIndicator {
+                        followUp("Explain deeper")
+                    }
+                }
+                QuickTipButton(title: "Give Example") {
+                    if hasAssistantResponse && !isLoading && !showTypingIndicator {
+                        followUp("Give a concrete example")
+                    }
+                }
+                QuickTipButton(title: "Flashcard Set") {
+                    if hasAssistantResponse && !isLoading && !showTypingIndicator {
+                        requestFlashcardSetFromConversation()
+                    }
+                }
+                QuickTipButton(title: "Study Guide") {
+                    if hasAssistantResponse && !isLoading && !showTypingIndicator {
+                        requestStudyGuideFromConversation()
+                    }
+                }
+            }
             .padding(.horizontal)
-            
-            if messages.isEmpty {
-                VStack(spacing: 20) {
-                    Spacer()
-                    Text("Scan An Image,")
-                        .font(.largeTitle).bold()
-                        .multilineTextAlignment(.center)
-                        .foregroundColor(.white.opacity(0.95))
-                        .padding(.horizontal)
-                    Text("or Just Ask A Question!")
-                        .font(.title2).bold()
-                        .multilineTextAlignment(.center)
-                        .foregroundColor(.white.opacity(0.8))
-                        .padding(.horizontal)
-                    SuggestionChips(suggestions: starterSuggestions) { suggestion in
-                        sendSuggestion(suggestion)
+            .opacity((!hasAssistantResponse || isLoading || showTypingIndicator) ? 0.5 : 1)
+            .disabled(!hasAssistantResponse || isLoading || showTypingIndicator)
+        }
+        .padding(.vertical, 6)
+        .accessibilityLabel("Quick action tips")
+    }
+    
+    private var messagesListView: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 12) {
+                    ForEach(messages) { message in
+                        ScanChatBubble(
+                            message: message,
+                            onCopy: { content in copyToClipboard(content) },
+                            onListen: { content, id in speakText(content, messageId: id) },
+                            onRetry: { retryLastMessage() }
+                        )
+                        .id(message.id)
+                        .padding(.horizontal, 16)
                     }
-                    Spacer()
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal)
-            }
-            
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    QuickTipButton(title: "Explain Deeper") {
-                        if hasAssistantResponse && !isLoading && !showTypingIndicator {
-                            followUp("Explain deeper")
-                        }
-                    }
-                    QuickTipButton(title: "Give Example") {
-                        if hasAssistantResponse && !isLoading && !showTypingIndicator {
-                            followUp("Give a concrete example")
-                        }
-                    }
-                    QuickTipButton(title: "Flashcard Set") {
-                        if hasAssistantResponse && !isLoading && !showTypingIndicator {
-                            requestFlashcardSetFromConversation()
-                        }
-                    }
-                    QuickTipButton(title: "Study Guide") {
-                        if hasAssistantResponse && !isLoading && !showTypingIndicator {
-                            requestStudyGuideFromConversation()
-                        }
-                    }
-                }
-                .padding(.horizontal)
-                .opacity((!hasAssistantResponse || isLoading || showTypingIndicator) ? 0.5 : 1)
-                .disabled(!hasAssistantResponse || isLoading || showTypingIndicator)
-            }
-            .padding(.vertical, 6)
-            .accessibilityLabel("Quick action tips")
-            
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 12) {
-                        ForEach(messages) { message in
-                            ScanChatBubble(
-                                message: message,
-                                onCopy: { content in copyToClipboard(content) },
-                                onListen: { content, id in speakText(content, messageId: id) },
-                                onRetry: { retryLastMessage() }
-                            )
-                            .id(message.id)
-                            .padding(.horizontal, 16)
-                        }
-                        
-                        if showTypingIndicator {
-                            ScanTypingIndicator()
-                                .padding(.horizontal)
-                        }
-                        
-                        if !messages.isEmpty, !showTypingIndicator, !contextSuggestions.isEmpty {
-                            SuggestionChips(suggestions: contextSuggestions) { suggestion in
-                                sendSuggestion(suggestion)
-                            }
-                            .padding(.horizontal)
-                        }
-                    }
-                    .padding(.vertical)
-                }
-                .onTapGesture { hideKeyboard() }
-                .onChange(of: messages.count) { _ in
-                    withAnimation { proxy.scrollTo(messages.last?.id, anchor: .bottom) }
-                }
-                .onChange(of: showTypingIndicator) { _ in
+                    
                     if showTypingIndicator {
-                        withAnimation { proxy.scrollTo("typing-indicator", anchor: .bottom) }
+                        ScanTypingIndicator()
+                            .padding(.horizontal)
                     }
-                }
-            }
-            .padding(.horizontal, 12)
-            
-            if isVoiceModeActive {
-                HStack(spacing: 12) {
-                    Image(systemName: isListening ? "waveform" : isThinking ? "brain" : isSpeaking ? "speaker.wave.2.fill" : "mic.fill")
-                        .foregroundColor(.white)
-                        .font(.system(size: 18, weight: .semibold))
-                        .symbolEffect(.variableColor.iterative, isActive: isListening || isThinking || isSpeaking)
                     
-                    Text(isListening ? "Listening..." : isThinking ? "Thinking..." : isSpeaking ? "Speaking..." : "Voice mode active")
-                        .foregroundColor(.white)
-                        .font(.subheadline.weight(.medium))
-                    
-                    Spacer()
-                    
-                    Button(action: stopVoiceMode) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.white.opacity(0.8))
-                            .font(.system(size: 20))
-                    }
-                }
-                .padding()
-                .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(
-                                    (isListening ? Color.blue :
-                                     isThinking ? Color.orange :
-                                     isSpeaking ? Color.green :
-                                     Color.purple).opacity(0.4)
-                                )
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(.white.opacity(0.3), lineWidth: 1)
-                        )
-                )
-                .shadow(color: .black.opacity(0.1), radius: 12, x: 0, y: 6)
-                .padding(.horizontal)
-            }
-
-            if let image = selectedImage {
-                HStack {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(height: 100)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    Spacer()
-                    Button(action: { selectedImage = nil }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.white)
-                            .font(.title2)
-                    }
-                }
-                .padding()
-                .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(.white.opacity(0.2), lineWidth: 1)
-                        )
-                )
-                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
-                .padding(.horizontal)
-            }
-            
-            if showTTSControls || isTTSLoading {
-                VStack(spacing: 0) {
-                    HStack(spacing: 12) {
-                        if isTTSLoading {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                .scaleEffect(0.8)
-                            Text("Generating audio...")
-                                .font(.subheadline.weight(.medium))
-                                .foregroundColor(.white)
-                            Spacer()
-                        } else {
-                            Image(systemName: "speaker.wave.2.fill")
-                                .foregroundColor(.white)
-                                .font(.system(size: 18))
-                                .symbolEffect(.variableColor.iterative, isActive: ttsAudioPlayer?.isPlaying == true)
-                            
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(ttsAudioPlayer?.isPlaying == true ? "Playing" : "Paused")
-                                    .font(.subheadline.weight(.medium))
-                                    .foregroundColor(.white)
-                                Text("\(formatTime(audioCurrentTime)) / \(formatTime(audioDuration))")
-                                    .font(.caption)
-                                    .foregroundColor(.white.opacity(0.8))
-                            }
-                            
-                            Spacer()
-                            
-                            Button(action: {
-                                ttsAudioPlayer?.currentTime = 0
-                                audioCurrentTime = 0
-                                ttsAudioPlayer?.play()
-                            }) {
-                                Image(systemName: "arrow.clockwise")
-                                    .foregroundColor(.white)
-                                    .font(.system(size: 16))
-                            }
-                            
-                            Button(action: {
-                                if ttsAudioPlayer?.isPlaying == true {
-                                    ttsAudioPlayer?.pause()
-                                } else {
-                                    ttsAudioPlayer?.play()
-                                }
-                            }) {
-                                Image(systemName: ttsAudioPlayer?.isPlaying == true ? "pause.fill" : "play.fill")
-                                    .foregroundColor(.white)
-                                    .font(.system(size: 16))
-                            }
-                            
-                            Button(action: stopTTS) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(.white.opacity(0.8))
-                                    .font(.system(size: 20))
-                            }
+                    if !messages.isEmpty, !showTypingIndicator, !contextSuggestions.isEmpty {
+                        SuggestionChips(suggestions: contextSuggestions) { suggestion in
+                            sendSuggestion(suggestion)
                         }
+                        .padding(.horizontal)
                     }
-                    .padding()
-                    .background(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(.ultraThinMaterial)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .fill(Color.purple.opacity(0.4))
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .stroke(.white.opacity(0.3), lineWidth: 1)
-                            )
-                    )
-                    .shadow(color: .black.opacity(0.1), radius: 12, x: 0, y: 6)
-                    .padding(.horizontal)
-                    .padding(.bottom, 8)
+                }
+                .padding(.vertical)
+            }
+            .onTapGesture { hideKeyboard() }
+            .onChange(of: messages.count) { _ in
+                withAnimation { proxy.scrollTo(messages.last?.id, anchor: .bottom) }
+            }
+            .onChange(of: showTypingIndicator) { _ in
+                if showTypingIndicator {
+                    withAnimation { proxy.scrollTo("typing-indicator", anchor: .bottom) }
                 }
             }
+        }
+        .padding(.horizontal, 12)
+    }
+    
+    private var voiceModeIndicator: some View {
+        HStack(spacing: Spacing.sm) {
+            Image(systemName: isListening ? "waveform" : isThinking ? "brain" : isSpeaking ? "speaker.wave.2.fill" : "mic.fill")
+                .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                .font(.system(size: 18, weight: .semibold))
+                .symbolEffect(.variableColor.iterative, isActive: isListening || isThinking || isSpeaking)
             
-            HStack(spacing: 12) {
-                Button(action: toggleVoiceMode) {
-                    Image(systemName: isVoiceModeActive ? "waveform" : "mic.fill")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 48, height: 48)
-                        .background(
-                            Circle()
-                                .fill(.ultraThinMaterial)
-                                .overlay(
-                                    Circle()
-                                        .stroke(
-                                            isVoiceModeActive ? Color.blue : Color.purple,
-                                            lineWidth: 2
-                                        )
-                                )
-                                .shadow(color: (isVoiceModeActive ? Color.blue : Color.purple).opacity(0.5), radius: 12, x: 0, y: 4)
-                        )
-                }
-                .scaleEffect(isVoiceModeActive ? 1.1 : 1.0)
-                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isVoiceModeActive)
-                .symbolEffect(.pulse, isActive: isVoiceModeActive)
-                
-                Button(action: {
-                    if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                        imageSourceType = .camera
-                    }
-                    showImageSourceAlert = true
-                }) {
-                    Image(systemName: "photo.on.rectangle.angled")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 48, height: 48)
-                        .background(
-                            Circle()
-                                .fill(.ultraThinMaterial)
-                                .overlay(
-                                    Circle()
-                                        .stroke(
-                                            Color.purple,
-                                            lineWidth: 2
-                                        )
-                                )
-                                .shadow(color: .purple.opacity(0.3), radius: 8, x: 0, y: 4)
-                        )
-                }
-                .disabled(isVoiceModeActive)
-                .opacity(isVoiceModeActive ? 0.5 : 1.0)
-                
-                TextField("Type your message…", text: $userInput, axis: .vertical)
-                    .padding(14)
-                    .background(
-                        RoundedRectangle(cornerRadius: 24, style: .continuous)
-                            .fill(.ultraThinMaterial)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                                    .stroke(.white.opacity(0.2), lineWidth: 1)
-                            )
-                    )
-                    .foregroundColor(.white)
-                    .lineLimit(1...4)
-                    .disabled(isVoiceModeActive)
-                
-                Button(action: sendMessage) {
-                    Image(systemName: "paperplane.fill")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 48, height: 48)
-                        .background(
-                            Circle()
-                                .fill(
-                                    (userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedImage == nil) ? 
-                                    Color.gray.opacity(0.6) : Color.purple
-                                )
-                                .shadow(
-                                    color: (userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedImage == nil) ? .clear : .purple.opacity(0.5),
-                                    radius: 12,
-                                    x: 0,
-                                    y: 4
-                                )
-                        )
-                }
-                .disabled((userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedImage == nil) || isVoiceModeActive)
+            Text(isListening ? "Listening..." : isThinking ? "Thinking..." : isSpeaking ? "Speaking..." : "Voice mode active")
+                .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                .font(.kSubheadline)
+            
+            Spacer()
+            
+            Button(action: stopVoiceMode) {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(Color.adaptive(light: .Light.textSecondary, dark: .Dark.textSecondary))
+                    .font(.system(size: 20))
             }
-            .padding(.all, 12)
+        }
+        .padding(Spacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
+                .fill(Color.adaptive(light: .Light.surface, dark: .Dark.surface))
+                .overlay(
+                    RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
+                        .fill(voiceModeColor.opacity(0.2))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
+                        .stroke(Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
+                )
+        )
+        .shadow(color: .black.opacity(0.1), radius: 12, x: 0, y: 6)
+        .padding(.horizontal)
+    }
+    
+    private var voiceModeColor: Color {
+        if isListening { return Color.adaptive(light: .Light.info, dark: .Dark.info) }
+        if isThinking { return Color.adaptive(light: .Light.warning, dark: .Dark.warning) }
+        if isSpeaking { return Color.adaptive(light: .Light.success, dark: .Dark.success) }
+        return Color.adaptive(light: .Light.accent, dark: .Dark.accent)
+    }
+    
+    @ViewBuilder
+    private var imagePreviewView: some View {
+        if let image = selectedImage {
+            HStack {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 100)
+                    .clipShape(.rect(cornerRadius: CornerRadius.sm))
+                Spacer()
+                Button(action: { selectedImage = nil }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                        .font(.title2)
+                }
+            }
+            .padding(Spacing.md)
             .background(
-                RoundedRectangle(cornerRadius: 30, style: .continuous)
-                    .fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
+                    .fill(Color.adaptive(light: .Light.surface, dark: .Dark.surface))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 30, style: .continuous)
-                            .stroke(.white.opacity(0.2), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
+                            .stroke(Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
                     )
             )
-            .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
+            .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
             .padding(.horizontal)
         }
-        .korahGradientBackground()
+    }
+    
+    @ViewBuilder
+    private var ttsControlsView: some View {
+        if showTTSControls || isTTSLoading {
+            ScanTTSControls(
+                isTTSLoading: isTTSLoading,
+                isPlaying: ttsAudioPlayer?.isPlaying == true,
+                currentTime: audioCurrentTime,
+                duration: audioDuration,
+                onRestart: {
+                    ttsAudioPlayer?.currentTime = 0
+                    audioCurrentTime = 0
+                    ttsAudioPlayer?.play()
+                },
+                onPlayPause: {
+                    if ttsAudioPlayer?.isPlaying == true {
+                        ttsAudioPlayer?.pause()
+                    } else {
+                        ttsAudioPlayer?.play()
+                    }
+                },
+                onStop: stopTTS,
+                formatTime: formatTime
+            )
+        }
+    }
+    
+    private var composerBar: some View {
+        ScanComposerBar(
+            userInput: $userInput,
+            isVoiceModeActive: isVoiceModeActive,
+            selectedImage: selectedImage,
+            onToggleVoiceMode: toggleVoiceMode,
+            onAttachment: {
+                Haptics.selection()
+                if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                    imageSourceType = .camera
+                }
+                showImageSourceAlert = true
+            },
+            onSend: {
+                Haptics.light()
+                sendMessage()
+            }
+        )
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            navigationLinks
+            headerBar
+            
+            if messages.isEmpty {
+                emptyStateView
+            }
+            
+            quickTipsBar
+            messagesListView
+            
+            if isVoiceModeActive {
+                voiceModeIndicator
+            }
+            
+            imagePreviewView
+            ttsControlsView
+            composerBar
+        }
+        .kBackground()
         .alert("Delete Chat", isPresented: $showClearChatAlert) {
             Button("Delete", role: .destructive) {
                 withAnimation { 
@@ -685,8 +609,7 @@ struct ScanView: View {
                 sendMessage()
             }
         }
-        .accentColor(.purple)
-        .preferredColorScheme(.dark)
+        .tint(Color.adaptive(light: .Light.accent, dark: .Dark.accent))
         .onAppear {
             requestCameraAccessIfNeeded { granted in
                 if granted {
@@ -712,31 +635,34 @@ struct ScanView: View {
         let suggestions: [String]
         let onTap: (String) -> Void
         var body: some View {
-            let columns = [GridItem(.adaptive(minimum: 140), spacing: 8)]
-            LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
+            let columns = [GridItem(.adaptive(minimum: 140), spacing: Spacing.sm)]
+            LazyVGrid(columns: columns, alignment: .leading, spacing: Spacing.sm) {
                 ForEach(suggestions, id: \.self) { s in
-                    Button(action: { onTap(s) }) {
+                    Button(action: {
+                        Haptics.selection()
+                        onTap(s)
+                    }) {
                         Text(s)
-                            .font(.subheadline.weight(.medium))
-                            .foregroundColor(.white)
+                            .font(.kSubheadline)
+                            .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
                             .multilineTextAlignment(.leading)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.vertical, 12)
-                            .padding(.horizontal, 14)
+                            .padding(.vertical, Spacing.sm)
+                            .padding(.horizontal, Spacing.md)
                             .background(
-                                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .fill(.ultraThinMaterial)
+                                RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
+                                    .fill(Color.adaptive(light: .Light.surface, dark: .Dark.surface))
                                     .overlay(
-                                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                            .stroke(.white.opacity(0.2), lineWidth: 1)
+                                        RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
+                                            .stroke(Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
                                     )
                             )
-                            .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                            .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, Spacing.xs)
         }
     }
     
@@ -754,7 +680,7 @@ struct ScanView: View {
         let onRetry: () -> Void
 
         var body: some View {
-            VStack(alignment: message.role == "assistant" ? .leading : .trailing, spacing: 4) {
+            VStack(alignment: message.role == "assistant" ? .leading : .trailing, spacing: Spacing.xs) {
                 HStack(alignment: .bottom) {
                     Spacer().frame(width: 0)
                     if message.role == "assistant" {
@@ -764,18 +690,18 @@ struct ScanView: View {
                         } else {
                             ScrollView {
                                 Text(scanFormattedResponse(message.content))
-                                    .font(.body)
-                                    .foregroundColor(.white)
+                                    .font(.kBody)
+                                    .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
                                     .textSelection(.enabled)
                                     .fixedSize(horizontal: false, vertical: true)
                                     .monospaced(false)
-                                    .padding(16)
+                                    .padding(Spacing.md)
                                     .background(
-                                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                            .fill(.ultraThinMaterial)
+                                        RoundedRectangle(cornerRadius: CornerRadius.bubble, style: .continuous)
+                                            .fill(Color.adaptive(light: .Light.surface, dark: .Dark.surface))
                                             .overlay(
-                                                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                                    .stroke(.white.opacity(0.2), lineWidth: 1)
+                                                RoundedRectangle(cornerRadius: CornerRadius.bubble, style: .continuous)
+                                                    .stroke(Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
                                             )
                                     )
                                     .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
@@ -785,55 +711,65 @@ struct ScanView: View {
                         }
                     } else {
                         Spacer()
-                        VStack(alignment: .trailing, spacing: 8) {
+                        VStack(alignment: .trailing, spacing: Spacing.sm) {
                             if let image = message.image {
                                 Image(uiImage: image)
                                     .resizable()
                                     .scaledToFit()
                                     .frame(maxWidth: 200)
-                                    .cornerRadius(8)
+                                    .clipShape(.rect(cornerRadius: CornerRadius.sm))
                             }
                             if !message.content.isEmpty {
                                 Text(message.content)
-                                    .foregroundColor(.white)
-                                    .padding(14)
+                                    .font(.kBody)
+                                    .foregroundStyle(.white)
+                                    .padding(Spacing.md)
                                     .background(
-                                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                            .fill(.purple)
+                                        RoundedRectangle(cornerRadius: CornerRadius.bubble, style: .continuous)
+                                            .fill(Color.adaptive(light: .Light.accent, dark: .Dark.accent))
                                             .overlay(
-                                                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                                    .stroke(.white.opacity(0.3), lineWidth: 1)
+                                                RoundedRectangle(cornerRadius: CornerRadius.bubble, style: .continuous)
+                                                    .stroke(Color.white.opacity(0.3), lineWidth: 0.5)
                                             )
                                     )
-                                    .shadow(color: .purple.opacity(0.3), radius: 12, x: 0, y: 4)
+                                    .shadow(color: Color.adaptive(light: .Light.accent, dark: .Dark.accent).opacity(0.3), radius: 12, x: 0, y: 4)
                             }
                         }
-                        .frame(maxWidth: min(UIScreen.main.bounds.width - 48, 360), alignment: .trailing)
+                        .frame(maxWidth: 320, alignment: .trailing)
                     }
                 }
                 
                 if message.role == "assistant" {
-                    HStack(spacing: 16) {
-                        Button(action: { onCopy(message.content) }) {
+                    HStack(spacing: Spacing.md) {
+                        Button(action: {
+                            Haptics.selection()
+                            onCopy(message.content)
+                        }) {
                             Image(systemName: "doc.on.doc")
                                 .font(.system(size: 14))
-                                .foregroundColor(.purple)
+                                .foregroundStyle(Color.adaptive(light: .Light.accent, dark: .Dark.accent))
                         }
                         
-                        Button(action: { onListen(message.content, message.id) }) {
+                        Button(action: {
+                            Haptics.selection()
+                            onListen(message.content, message.id)
+                        }) {
                             Image(systemName: isSpeaking ? "speaker.wave.2.fill" : "speaker.wave.2")
                                 .font(.system(size: 14))
-                                .foregroundColor(.purple)
+                                .foregroundStyle(Color.adaptive(light: .Light.accent, dark: .Dark.accent))
                                 .symbolEffect(.variableColor.iterative, isActive: isSpeaking)
                         }
                         
-                        Button(action: onRetry) {
+                        Button(action: {
+                            Haptics.selection()
+                            onRetry()
+                        }) {
                             Image(systemName: "arrow.clockwise")
                                 .font(.system(size: 14))
-                                .foregroundColor(.purple)
+                                .foregroundStyle(Color.adaptive(light: .Light.accent, dark: .Dark.accent))
                         }
                     }
-                    .padding(.leading, 4)
+                    .padding(.leading, Spacing.xs)
                 }
             }
         }
@@ -846,54 +782,57 @@ struct ScanView: View {
 
         private func badge(_ index: Int) -> some View {
             Text("\(index)")
-                .font(.subheadline.weight(.semibold))
-                .foregroundColor(.white)
+                .font(.kSubheadline)
+                .bold()
+                .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
                 .frame(width: 26, height: 26)
-                .background(Color.white.opacity(0.12))
-                .clipShape(Circle())
+                .background(Color.adaptive(light: .Light.accent.opacity(0.15), dark: .Dark.accent.opacity(0.2)))
+                .clipShape(.circle)
         }
 
         var body: some View {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                HStack(spacing: Spacing.sm) {
                     Image(systemName: "list.bullet.rectangle")
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color.adaptive(light: .Light.accent, dark: .Dark.accent))
                     Text("Answer")
-                        .font(.headline)
-                        .foregroundStyle(.white)
+                        .font(.kHeadline)
+                        .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
                     Spacer()
                 }
 
                 if let title = formatted.title, !title.isEmpty {
                     Text(title)
-                        .font(.title3.bold())
-                        .foregroundStyle(.white)
+                        .font(.kTitle3)
+                        .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
                 if let summary = formatted.summary, !summary.isEmpty {
                     Text(summary)
-                        .foregroundStyle(.white)
+                        .font(.kBody)
+                        .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
                         .lineSpacing(4)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
                 if let steps = formatted.steps, !steps.isEmpty {
-                    VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: Spacing.lg) {
                         ForEach(Array(steps.enumerated()), id: \.offset) { idx, step in
-                            HStack(alignment: .top, spacing: 12) {
+                            HStack(alignment: .top, spacing: Spacing.sm) {
                                 badge(idx + 1)
                                     .padding(.top, 2)
                                 VStack(alignment: .leading, spacing: 6) {
                                     let parts = step.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
                                     if let first = parts.first, !first.isEmpty {
                                         Text(String(first))
-                                            .font(.headline)
-                                            .foregroundStyle(.white)
+                                            .font(.kHeadline)
+                                            .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
                                     }
                                     if parts.count > 1 {
                                         Text(String(parts[1]))
-                                            .foregroundStyle(.white)
+                                            .font(.kBody)
+                                            .foregroundStyle(Color.adaptive(light: .Light.textSecondary, dark: .Dark.textSecondary))
                                             .lineSpacing(4)
                                     }
                                 }
@@ -903,48 +842,52 @@ struct ScanView: View {
                 }
 
                 if let hints = formatted.hints, !hints.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: Spacing.sm) {
                         Text("Tips")
-                            .font(.subheadline.bold())
-                            .foregroundStyle(.white)
+                            .font(.kSubheadline)
+                            .bold()
+                            .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
                         ForEach(hints, id: \.self) { h in
-                            HStack(alignment: .top, spacing: 8) {
+                            HStack(alignment: .top, spacing: Spacing.sm) {
                                 Image(systemName: "lightbulb")
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(Color.adaptive(light: .Light.warning, dark: .Dark.warning))
                                 Text(h)
-                                    .foregroundStyle(.white)
+                                    .font(.kBody)
+                                    .foregroundStyle(Color.adaptive(light: .Light.textSecondary, dark: .Dark.textSecondary))
                             }
                         }
                     }
                 }
 
                 if let qs = formatted.questions, !qs.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: Spacing.sm) {
                         Text("Try these questions")
-                            .font(.subheadline.bold())
-                            .foregroundStyle(.white)
+                            .font(.kSubheadline)
+                            .bold()
+                            .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
                         ForEach(qs, id: \.self) { q in
-                            HStack(alignment: .top, spacing: 8) {
+                            HStack(alignment: .top, spacing: Spacing.sm) {
                                 Image(systemName: "questionmark.circle")
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(Color.adaptive(light: .Light.accent, dark: .Dark.accent))
                                 Text(q)
-                                    .foregroundStyle(.white)
+                                    .font(.kBody)
+                                    .foregroundStyle(Color.adaptive(light: .Light.textSecondary, dark: .Dark.textSecondary))
                             }
                         }
                     }
                 }
 
                 Text(timestamp, style: .time)
-                    .font(.footnote)
-                    .foregroundColor(.white.opacity(0.4))
+                    .font(.kCaption)
+                    .foregroundStyle(Color.adaptive(light: .Light.textTertiary, dark: .Dark.textTertiary))
             }
-            .padding(18)
+            .padding(Spacing.lg)
             .background(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: CornerRadius.bubble, style: .continuous)
+                    .fill(Color.adaptive(light: .Light.surface, dark: .Dark.surface))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .stroke(.white.opacity(0.2), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: CornerRadius.bubble, style: .continuous)
+                            .stroke(Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
                     )
             )
             .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
@@ -1549,7 +1492,13 @@ private func scanFormattedResponse(_ text: String) -> String {
 
 extension ScanView {
     func fetchChatResponse(image: UIImage? = nil) {
-        let url = URL(string: OpenAIConfig.chatCompletionsURL)!
+        guard let url = URL(string: OpenAIConfig.chatCompletionsURL) else {
+            showTypingIndicator = false
+            isLoading = false
+            messages.append(ScanMessage(role: "assistant", content: "Invalid API URL.", timestamp: Date(), image: nil))
+            return
+        }
+        
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -1593,127 +1542,354 @@ extension ScanView {
             }
         }
 
-        let modelToUse = "gpt-4o"
-        
-        var body: [String: Any] = [
-            "model": modelToUse,
+        // Enable real SSE streaming
+        let body: [String: Any] = [
+            "model": "gpt-4o",
             "messages": apiMessages,
             "temperature": 0.3,
             "max_tokens": 1000,
+            "stream": true,
+            "response_format": ["type": "json_object"]
         ]
-        body["response_format"] = ["type": "json_object"]
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            DispatchQueue.main.async { self.isLoading = false }
-
-            if let error = error {
-                print("Request error: \(error.localizedDescription)")
-                DispatchQueue.main.async {
-                    self.messages.append(ScanMessage(role: "assistant", content: "Hmm, I'm having trouble connecting. Please check your internet connection and try again.", timestamp: Date(), image: nil))
-                    self.showTypingIndicator = false
+        
+        // Create placeholder assistant message for streaming
+        let messageId = UUID()
+        let placeholderMessage = ScanMessage(id: messageId, role: "assistant", content: "", timestamp: Date(), image: nil)
+        messages.append(placeholderMessage)
+        let messageIndex = messages.count - 1
+        streamingMessageIndex = messageIndex
+        isStreaming = true
+        showTypingIndicator = false
+        
+        streamTask = Task {
+            do {
+                let (bytes, response) = try await URLSession.shared.bytes(for: request)
+                
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    await handleStreamError("Invalid response", at: messageIndex)
+                    return
                 }
-                return
+                
+                if httpResponse.statusCode != 200 {
+                    // Try to read error body
+                    var errorBody = ""
+                    for try await line in bytes.lines {
+                        errorBody += line
+                    }
+                    await handleHTTPStreamError(statusCode: httpResponse.statusCode, at: messageIndex, responseData: errorBody.data(using: .utf8))
+                    return
+                }
+                
+                // Real SSE streaming - accumulate content as it arrives
+                var fullContent = ""
+                
+                for try await line in bytes.lines {
+                    if Task.isCancelled { break }
+                    
+                    // Parse SSE data lines
+                    guard line.hasPrefix("data: ") else { continue }
+                    let data = String(line.dropFirst(6))
+                    
+                    // Check for stream completion
+                    if data == "[DONE]" { break }
+                    
+                    // Parse JSON chunk
+                    guard let jsonData = data.data(using: .utf8),
+                          let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+                          let choices = json["choices"] as? [[String: Any]],
+                          let delta = choices.first?["delta"] as? [String: Any],
+                          let content = delta["content"] as? String else { continue }
+                    
+                    fullContent += content
+                    
+                    // Update UI with raw streaming content
+                    // Show partial JSON as it builds (will display as text until valid JSON)
+                    await MainActor.run {
+                        if messageIndex < messages.count {
+                            messages[messageIndex].content = fullContent
+                        }
+                    }
+                }
+                
+                // Final update - format the complete response
+                await MainActor.run {
+                    let trimmed = fullContent.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let finalContent: String
+                    
+                    if trimmed.decodeScanKorahFormatted() != nil {
+                        finalContent = trimmed
+                    } else if !trimmed.isEmpty {
+                        let safeSummary = trimmed.replacingOccurrences(of: "\n", with: " ")
+                        let fallback: [String: Any] = [
+                            "kind": "tutor",
+                            "title": "Here's some guidance",
+                            "summary": safeSummary,
+                            "steps": [] as [String],
+                            "hints": [] as [String],
+                            "questions": ["What part would you like to try next?"],
+                            "footer": "If you need a structured plan, ask me to list steps."
+                        ]
+                        if let jsonData = try? JSONSerialization.data(withJSONObject: fallback),
+                           let jsonString = String(data: jsonData, encoding: .utf8) {
+                            finalContent = jsonString
+                        } else {
+                            finalContent = trimmed
+                        }
+                    } else {
+                        finalContent = "I didn't understand that. Could you try asking in a different way?"
+                    }
+                    
+                    if messageIndex < messages.count {
+                        messages[messageIndex].content = finalContent
+                    }
+                    
+                    finishStreaming()
+                    saveCurrentConversation()
+                }
+                
+            } catch {
+                if !Task.isCancelled {
+                    await handleStreamError(error.localizedDescription, at: messageIndex)
+                }
             }
-
-            guard let data = data else {
-                DispatchQueue.main.async {
-                    self.messages.append(ScanMessage(role: "assistant", content: "I didn't get a response. Please try again in a moment.", timestamp: Date(), image: nil))
-                    self.showTypingIndicator = false
+        }
+    }
+    
+    /// Simulates streaming for formatted JSON responses by revealing title → summary → steps → hints → questions
+    private func simulateFormattedStreaming(formatted: ScanKorahFormatted, fullJson: String, at index: Int) async {
+        // Collect all text segments in order
+        var segments: [(field: String, text: String)] = []
+        
+        if let title = formatted.title, !title.isEmpty {
+            segments.append(("title", title))
+        }
+        if let summary = formatted.summary, !summary.isEmpty {
+            segments.append(("summary", summary))
+        }
+        if let steps = formatted.steps {
+            for (i, step) in steps.enumerated() {
+                segments.append(("step_\(i)", step))
+            }
+        }
+        if let hints = formatted.hints {
+            for (i, hint) in hints.enumerated() {
+                segments.append(("hint_\(i)", hint))
+            }
+        }
+        if let questions = formatted.questions {
+            for (i, question) in questions.enumerated() {
+                segments.append(("question_\(i)", question))
+            }
+        }
+        
+        // Calculate total characters and consistent streaming speed
+        let totalChars = segments.reduce(0) { $0 + $1.text.count }
+        guard totalChars > 0 else {
+            await MainActor.run {
+                if index < messages.count {
+                    messages[index].content = fullJson
                 }
-                return
+                finishStreaming()
+                saveCurrentConversation()
+            }
+            return
+        }
+        
+        let targetDuration: Double = min(3.0, max(1.0, Double(totalChars) * 0.012))
+        let updateInterval: UInt64 = 30_000_000 // 30ms
+        let totalUpdates = Int(targetDuration / 0.030)
+        let charsPerUpdate = max(1, totalChars / totalUpdates)
+        
+        // Track streaming progress
+        var streamedTitle: String = ""
+        var streamedSummary: String = ""
+        var streamedSteps: [String] = []
+        var streamedHints: [String] = []
+        var streamedQuestions: [String] = []
+        
+        var globalCharIndex = 0
+        
+        for segment in segments {
+            if Task.isCancelled { break }
+            
+            let chars = Array(segment.text)
+            var localIndex = 0
+            
+            while localIndex < chars.count {
+                if Task.isCancelled { break }
+                
+                let charsToAdd = min(charsPerUpdate, chars.count - localIndex)
+                localIndex += charsToAdd
+                globalCharIndex += charsToAdd
+                
+                let partialText = String(chars.prefix(localIndex))
+                
+                // Update the appropriate field
+                switch segment.field {
+                case "title":
+                    streamedTitle = partialText
+                case "summary":
+                    streamedSummary = partialText
+                case let field where field.hasPrefix("step_"):
+                    let stepIndex = Int(field.replacingOccurrences(of: "step_", with: "")) ?? 0
+                    while streamedSteps.count <= stepIndex { streamedSteps.append("") }
+                    streamedSteps[stepIndex] = partialText
+                case let field where field.hasPrefix("hint_"):
+                    let hintIndex = Int(field.replacingOccurrences(of: "hint_", with: "")) ?? 0
+                    while streamedHints.count <= hintIndex { streamedHints.append("") }
+                    streamedHints[hintIndex] = partialText
+                case let field where field.hasPrefix("question_"):
+                    let qIndex = Int(field.replacingOccurrences(of: "question_", with: "")) ?? 0
+                    while streamedQuestions.count <= qIndex { streamedQuestions.append("") }
+                    streamedQuestions[qIndex] = partialText
+                default:
+                    break
+                }
+                
+                // Build partial JSON
+                let partialJson = buildPartialJson(
+                    kind: formatted.kind,
+                    title: streamedTitle.isEmpty ? nil : streamedTitle,
+                    summary: streamedSummary.isEmpty ? nil : streamedSummary,
+                    steps: streamedSteps.isEmpty ? nil : streamedSteps,
+                    hints: streamedHints.isEmpty ? nil : streamedHints,
+                    questions: streamedQuestions.isEmpty ? nil : streamedQuestions,
+                    footer: nil
+                )
+                
+                await MainActor.run {
+                    if index < messages.count {
+                        messages[index].content = partialJson
+                    }
+                }
+                
+                if localIndex < chars.count {
+                    try? await Task.sleep(nanoseconds: updateInterval)
+                }
+            }
+        }
+        
+        // Final update with complete JSON
+        await MainActor.run {
+            if index < messages.count {
+                messages[index].content = fullJson
+            }
+            finishStreaming()
+            saveCurrentConversation()
+        }
+    }
+    
+    /// Builds a partial JSON string for streaming display
+    private func buildPartialJson(
+        kind: String?,
+        title: String?,
+        summary: String?,
+        steps: [String]?,
+        hints: [String]?,
+        questions: [String]?,
+        footer: String?
+    ) -> String {
+        var dict: [String: Any] = [:]
+        if let kind = kind { dict["kind"] = kind }
+        if let title = title { dict["title"] = title }
+        if let summary = summary { dict["summary"] = summary }
+        if let steps = steps, !steps.isEmpty { dict["steps"] = steps }
+        if let hints = hints, !hints.isEmpty { dict["hints"] = hints }
+        if let questions = questions, !questions.isEmpty { dict["questions"] = questions }
+        if let footer = footer { dict["footer"] = footer }
+        
+        if let jsonData = try? JSONSerialization.data(withJSONObject: dict),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            return jsonString
+        }
+        return "{}"
+    }
+    
+    /// Fallback: simulates streaming for plain text
+    private func simulateStreaming(text: String, at index: Int) async {
+        let characters = Array(text)
+        let totalChars = characters.count
+        var currentIndex = 0
+        
+        let targetDuration: Double = min(2.5, Double(totalChars) * 0.015)
+        let updateInterval: UInt64 = 25_000_000
+        let charsPerUpdate = max(1, totalChars / Int(targetDuration / 0.025))
+        
+        while currentIndex < totalChars {
+            if Task.isCancelled { break }
+            
+            let endIndex = min(currentIndex + charsPerUpdate, totalChars)
+            let partialText = String(characters[0..<endIndex])
+            
+            await MainActor.run {
+                if index < messages.count {
+                    messages[index].content = partialText
+                }
             }
             
-            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
-                var friendlyMessage = "Oops! Something went wrong. "
-                
-                if httpResponse.statusCode == 401 {
-                    friendlyMessage += "There's an issue with the app's authentication. Please contact support."
-                } else if httpResponse.statusCode == 429 {
-                    friendlyMessage += "I'm getting too many requests right now. Please wait a moment and try again."
-                } else if httpResponse.statusCode >= 500 {
-                    friendlyMessage += "The service is having trouble right now. Please try again in a few minutes."
-                } else {
-                    friendlyMessage += "Please try again."
-                }
-                
-                DispatchQueue.main.async {
-                    self.messages.append(ScanMessage(role: "assistant", content: friendlyMessage, timestamp: Date(), image: nil))
-                    self.showTypingIndicator = false
-                }
-                return
+            currentIndex = endIndex
+            
+            if currentIndex < totalChars {
+                try? await Task.sleep(nanoseconds: updateInterval)
             }
-
-            do {
-                let decoded = try JSONDecoder().decode(ScanOpenAIResponse.self, from: data)
-                if let content = decoded.choices.first?.message.content, !content.isEmpty {
-                    DispatchQueue.main.async {
-                        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if trimmed.decodeScanKorahFormatted() != nil {
-                            self.messages.append(ScanMessage(role: "assistant",
-                                                             content: trimmed,
-                                                             timestamp: Date(),
-                                                             image: nil))
-                        } else {
-                            let safeSummary = trimmed.replacingOccurrences(of: "\n", with: " ")
-                            let fallback: [String: Any] = [
-                                "kind": "tutor",
-                                "title": "Here’s some guidance",
-                                "summary": safeSummary,
-                                "steps": [],
-                                "hints": [],
-                                "questions": ["What part would you like to try next?"],
-                                "footer": "If you need a structured plan, ask me to list steps."
-                            ]
-                            if let jsonData = try? JSONSerialization.data(withJSONObject: fallback),
-                               let jsonString = String(data: jsonData, encoding: .utf8) {
-                                self.messages.append(ScanMessage(role: "assistant",
-                                                                 content: jsonString,
-                                                                 timestamp: Date(),
-                                                                 image: nil))
-                            } else {
-                                self.messages.append(ScanMessage(role: "assistant",
-                                                                 content: trimmed,
-                                                                 timestamp: Date(),
-                                                                 image: nil))
-                            }
-                        }
-                        self.showTypingIndicator = false
-                        self.saveCurrentConversation()
-                    }
-                } else {
-                    DispatchQueue.main.async {
-                        self.messages.append(ScanMessage(role: "assistant", content: "I didn't understand that. Could you try asking in a different way?", timestamp: Date(), image: nil))
-                        self.showTypingIndicator = false
-                        self.saveCurrentConversation()
-                    }
-                }
-            } catch {
-                let responseString = String(data: data, encoding: .utf8) ?? "Unable to read response"
-                print("Decoding error: \(error)")
-                print("Raw response: \(responseString)")
-                DispatchQueue.main.async {
-                    let safeSummary = responseString.replacingOccurrences(of: "\n", with: " ")
-                    let fallback: [String: Any] = [
-                        "kind": "tutor",
-                        "title": "I had trouble reading that",
-                        "summary": safeSummary,
-                        "steps": [],
-                        "hints": ["Try asking again in a shorter message.", "If you included an image, add a brief description too."],
-                        "questions": ["What is the main goal of your question?"],
-                        "footer": "I’ll keep responses in pure JSON."
-                    ]
-                    if let jsonData = try? JSONSerialization.data(withJSONObject: fallback),
-                       let jsonString = String(data: jsonData, encoding: .utf8) {
-                        self.messages.append(ScanMessage(role: "assistant", content: jsonString, timestamp: Date(), image: nil))
-                    } else {
-                        self.messages.append(ScanMessage(role: "assistant", content: "I had trouble parsing the response.", timestamp: Date(), image: nil))
-                    }
-                    self.showTypingIndicator = false
-                }
+        }
+        
+        await MainActor.run {
+            if index < messages.count {
+                messages[index].content = text
             }
-        }.resume()
+            finishStreaming()
+            saveCurrentConversation()
+        }
+    }
+    
+    private func finishStreaming() {
+        isLoading = false
+        isStreaming = false
+        showTypingIndicator = false
+        streamingMessageIndex = nil
+    }
+    
+    private func handleStreamError(_ message: String, at index: Int) async {
+        await MainActor.run {
+            if index < messages.count {
+                messages[index].content = "Hmm, I'm having trouble connecting. Please check your internet connection and try again."
+            }
+            finishStreaming()
+        }
+    }
+    
+    private func handleHTTPStreamError(statusCode: Int, at index: Int, responseData: Data?) async {
+        let friendlyMessage: String
+        switch statusCode {
+        case 401:
+            friendlyMessage = "Oops! There's an issue with the app's authentication. Please contact support."
+        case 429:
+            friendlyMessage = "Oops! I'm getting too many requests right now. Please wait a moment and try again."
+        case 500...599:
+            friendlyMessage = "Oops! The service is having trouble right now. Please try again in a few minutes."
+        default:
+            friendlyMessage = "Oops! Something went wrong. Please try again."
+        }
+        
+        await MainActor.run {
+            if index < messages.count {
+                messages[index].content = friendlyMessage
+            }
+            finishStreaming()
+        }
+    }
+    
+    func stopStreaming() {
+        streamTask?.cancel()
+        streamTask = nil
+        isStreaming = false
+        isLoading = false
+        showTypingIndicator = false
+        streamingMessageIndex = nil
+        Haptics.medium()
     }
     
     private func requestCameraAccessIfNeeded(completion: @escaping (Bool) -> Void) {
@@ -1991,25 +2167,234 @@ extension ScanView {
 }
 
 
+// MARK: - TTS Controls
+
+struct ScanTTSControls: View {
+    let isTTSLoading: Bool
+    let isPlaying: Bool
+    let currentTime: TimeInterval
+    let duration: TimeInterval
+    let onRestart: () -> Void
+    let onPlayPause: () -> Void
+    let onStop: () -> Void
+    let formatTime: (TimeInterval) -> String
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: Spacing.sm) {
+                if isTTSLoading {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: Color.adaptive(light: .Light.accent, dark: .Dark.accent)))
+                        .scaleEffect(0.8)
+                    Text("Generating audio...")
+                        .font(.kSubheadline)
+                        .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                    Spacer()
+                } else {
+                    Image(systemName: "speaker.wave.2.fill")
+                        .foregroundStyle(Color.adaptive(light: .Light.accent, dark: .Dark.accent))
+                        .font(.system(size: 18))
+                        .symbolEffect(.variableColor.iterative, isActive: isPlaying)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(isPlaying ? "Playing" : "Paused")
+                            .font(.kSubheadline)
+                            .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                        Text("\(formatTime(currentTime)) / \(formatTime(duration))")
+                            .font(.kCaption)
+                            .foregroundStyle(Color.adaptive(light: .Light.textSecondary, dark: .Dark.textSecondary))
+                    }
+                    
+                    Spacer()
+                    
+                    Button(action: onRestart) {
+                        Image(systemName: "arrow.clockwise")
+                            .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                            .font(.system(size: 16))
+                    }
+                    
+                    Button(action: onPlayPause) {
+                        Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                            .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                            .font(.system(size: 16))
+                    }
+                    
+                    Button(action: onStop) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(Color.adaptive(light: .Light.textSecondary, dark: .Dark.textSecondary))
+                            .font(.system(size: 20))
+                    }
+                }
+            }
+            .padding(Spacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
+                    .fill(Color.adaptive(light: .Light.surface, dark: .Dark.surface))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
+                            .fill(Color.adaptive(light: .Light.accent, dark: .Dark.accent).opacity(0.1))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
+                            .stroke(Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
+                    )
+            )
+            .shadow(color: .black.opacity(0.1), radius: 12, x: 0, y: 6)
+            .padding(.horizontal)
+            .padding(.bottom, Spacing.sm)
+        }
+    }
+}
+
+// MARK: - Composer Bar
+
+struct ScanComposerBar: View {
+    @Binding var userInput: String
+    let isVoiceModeActive: Bool
+    let selectedImage: UIImage?
+    let onToggleVoiceMode: () -> Void
+    let onAttachment: () -> Void
+    let onSend: () -> Void
+    
+    private var canSend: Bool {
+        !userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selectedImage != nil
+    }
+    
+    var body: some View {
+        HStack(spacing: Spacing.sm) {
+            voiceButton
+            attachmentButton
+            textField
+            sendButton
+        }
+        .padding(Spacing.sm)
+        .background(
+            RoundedRectangle(cornerRadius: CornerRadius.pill, style: .continuous)
+                .fill(Color.adaptive(light: .Light.background, dark: .Dark.background))
+                .overlay(
+                    RoundedRectangle(cornerRadius: CornerRadius.pill, style: .continuous)
+                        .stroke(Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
+                )
+        )
+        .shadow(color: .black.opacity(0.08), radius: 16, x: 0, y: 8)
+        .padding(.horizontal)
+    }
+    
+    private var voiceButton: some View {
+        Button {
+            onToggleVoiceMode()
+        } label: {
+            Image(systemName: isVoiceModeActive ? "waveform" : "mic.fill")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                .frame(width: ComponentSize.buttonHeight, height: ComponentSize.buttonHeight)
+                .background(
+                    Circle()
+                        .fill(Color.adaptive(light: .Light.surface, dark: .Dark.surface))
+                        .overlay(
+                            Circle()
+                                .stroke(
+                                    isVoiceModeActive ? Color.adaptive(light: .Light.info, dark: .Dark.info) : Color.adaptive(light: .Light.accent, dark: .Dark.accent),
+                                    lineWidth: 2
+                                )
+                        )
+                        .shadow(color: (isVoiceModeActive ? Color.adaptive(light: .Light.info, dark: .Dark.info) : Color.adaptive(light: .Light.accent, dark: .Dark.accent)).opacity(0.3), radius: 8, x: 0, y: 4)
+                )
+        }
+        .scaleEffect(isVoiceModeActive ? 1.1 : 1.0)
+        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isVoiceModeActive)
+        .symbolEffect(.pulse, isActive: isVoiceModeActive)
+    }
+    
+    private var attachmentButton: some View {
+        Button {
+            onAttachment()
+        } label: {
+            Image(systemName: "photo.on.rectangle.angled")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                .frame(width: ComponentSize.buttonHeight, height: ComponentSize.buttonHeight)
+                .background(
+                    Circle()
+                        .fill(Color.adaptive(light: .Light.surface, dark: .Dark.surface))
+                        .overlay(
+                            Circle()
+                                .stroke(
+                                    Color.adaptive(light: .Light.accent, dark: .Dark.accent),
+                                    lineWidth: 2
+                                )
+                        )
+                        .shadow(color: Color.adaptive(light: .Light.accent, dark: .Dark.accent).opacity(0.2), radius: 8, x: 0, y: 4)
+                )
+        }
+        .disabled(isVoiceModeActive)
+        .opacity(isVoiceModeActive ? 0.5 : 1.0)
+    }
+    
+    private var textField: some View {
+        TextField("Type your message…", text: $userInput, axis: .vertical)
+            .font(.kBody)
+            .padding(Spacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: CornerRadius.pill, style: .continuous)
+                    .fill(Color.adaptive(light: .Light.surface, dark: .Dark.surface))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: CornerRadius.pill, style: .continuous)
+                            .stroke(Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
+                    )
+            )
+            .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+            .lineLimit(1...4)
+            .disabled(isVoiceModeActive)
+    }
+    
+    private var sendButton: some View {
+        Button {
+            onSend()
+        } label: {
+            Image(systemName: "paperplane.fill")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: ComponentSize.buttonHeight, height: ComponentSize.buttonHeight)
+                .background(
+                    Circle()
+                        .fill(canSend ? Color.adaptive(light: .Light.accent, dark: .Dark.accent) : Color.adaptive(light: .Light.textTertiary, dark: .Dark.textTertiary))
+                        .shadow(
+                            color: canSend ? Color.adaptive(light: .Light.accent, dark: .Dark.accent).opacity(0.4) : .clear,
+                            radius: 12,
+                            x: 0,
+                            y: 4
+                        )
+                )
+        }
+        .disabled(!canSend || isVoiceModeActive)
+    }
+}
+
+// MARK: - Quick Tip Button
+
 struct QuickTipButton: View {
     let title: String
     let action: () -> Void
     var body: some View {
-        Button(action: action) {
+        Button(action: {
+            Haptics.selection()
+            action()
+        }) {
             Text(title)
-                .font(.subheadline.weight(.medium))
-                .foregroundColor(.white)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
+                .font(.kSubheadline)
+                .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                .padding(.horizontal, Spacing.md)
+                .padding(.vertical, Spacing.sm)
                 .background(
                     Capsule()
-                        .fill(.ultraThinMaterial)
+                        .fill(Color.adaptive(light: .Light.surface, dark: .Dark.surface))
                         .overlay(
                             Capsule()
-                                .stroke(.purple, lineWidth: 1.5)
+                                .stroke(Color.adaptive(light: .Light.accent, dark: .Dark.accent), lineWidth: 1.5)
                         )
                 )
-                .shadow(color: .purple.opacity(0.3), radius: 8, x: 0, y: 4)
+                .shadow(color: Color.adaptive(light: .Light.accent, dark: .Dark.accent).opacity(0.2), radius: 6, x: 0, y: 3)
         }
         .buttonStyle(.plain)
     }

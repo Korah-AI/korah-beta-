@@ -104,19 +104,19 @@ struct FlashcardsView: View {
                 // Icon and heading
                 VStack(spacing: 20) {
                     Image(systemName: "rectangle.stack")
-                        .font(.system(size: 70))
-                        .foregroundColor(.purple)
+                        .font(.largeTitle)
+                        .foregroundStyle(.purple)
                         .shadow(color: .purple.opacity(0.3), radius: 10)
                     
                     Text("Start Learning with Flashcards")
                         .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
+                        .bold()
+                        .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
                     
                     Text("Create your first flashcard set to begin studying efficiently")
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
                 }
@@ -134,7 +134,7 @@ struct FlashcardsView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Quick Tips")
                             .font(.headline)
-                            .foregroundColor(.white)
+                            .foregroundStyle(.white)
                             .padding(.horizontal, 20)
                         
                         QuickTipRow(icon: "lightbulb.fill", text: "Add 5-10 cards for effective studying")
@@ -144,7 +144,7 @@ struct FlashcardsView: View {
                     .padding(.vertical, 16)
                     .padding(.horizontal, 20)
                     .background(Color.white.opacity(0.05))
-                    .cornerRadius(16)
+                    .clipShape(.rect(cornerRadius: 16))
                     .padding(.horizontal, 20)
                 }
                 
@@ -277,8 +277,8 @@ struct FlashcardSetStudyView: View {
         HStack {
             Button(action: onBack) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(.white)
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(.white)
                     .frame(width: 40, height: 40)
                     .background(Circle().fill(Color.white.opacity(0.1)))
             }
@@ -291,8 +291,8 @@ struct FlashcardSetStudyView: View {
                 }
             } label: {
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 18))
-                    .foregroundColor(.white)
+                    .font(.headline)
+                    .foregroundStyle(.white)
                     .frame(width: 40, height: 40)
                     .background(Circle().fill(Color.white.opacity(0.1)))
             }
@@ -340,7 +340,7 @@ struct FlashcardSetStudyView: View {
         } else {
             VStack {
                 Text("No cards in this set")
-                    .foregroundColor(.gray)
+                    .foregroundStyle(.gray)
             }
             .frame(maxWidth: .infinity, minHeight: 300)
         }
@@ -814,36 +814,6 @@ Rules:
     }
 }
 
-struct StudyModeButton: View {
-    let icon: String
-    let title: String
-    let color: Color
-    var isDisabled: Bool = false
-    
-    var body: some View {
-        HStack(spacing: 16) {
-            Image(systemName: icon)
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundColor(.white)
-                .frame(width: 40, height: 40)
-                .background(color)
-                .cornerRadius(10)
-                .opacity(isDisabled ? 0.5 : 1)
-            
-            Text(title)
-                .font(.headline)
-                .foregroundColor(.white)
-                .opacity(isDisabled ? 0.5 : 1)
-            
-            Spacer()
-        }
-        .padding(14)
-        .background(Color.white.opacity(0.05))
-        .cornerRadius(12)
-        .opacity(isDisabled ? 0.6 : 1)
-    }
-}
-
 struct FlashcardSetDetailView: View {
     @State var set: FlashcardSet
     var onSave: (FlashcardSet) -> Void
@@ -869,7 +839,7 @@ struct FlashcardSetDetailView: View {
         Section(header: Text("Preview")) {
             if set.cards.isEmpty {
                 Text("No cards yet. Add one!")
-                    .foregroundColor(.gray)
+                    .foregroundStyle(.gray)
             } else {
                 FlipCardView(
                     frontText: set.cards.first?.front ?? "",
@@ -944,17 +914,17 @@ struct FlashcardSetDetailView: View {
                 }
                 if set.cards.isEmpty {
                     Text("No cards yet. Add one!")
-                        .foregroundColor(.gray)
+                        .foregroundStyle(.gray)
                         .listRowBackground(Color.clear)
                 } else {
                     ForEach(set.cards) { card in
                         VStack(alignment: .leading, spacing: 6) {
                             Text(card.front)
                                 .font(.headline)
-                                .foregroundColor(.white)
+                                .foregroundStyle(.white)
                             Text(card.back)
                                 .font(.subheadline)
-                                .foregroundColor(.secondary)
+                                .foregroundStyle(.secondary)
                         }
                         .listRowBackground(Color.clear)
                     }
@@ -967,7 +937,7 @@ struct FlashcardSetDetailView: View {
             ToolbarItem(placement: .principal) {
                 Text(set.title)
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundStyle(.white)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
                     .minimumScaleFactor(0.7)
@@ -1026,11 +996,11 @@ struct FlashcardSetDetailView: View {
                         .tint(.purple)
                     Text("This may take a few seconds")
                         .font(.footnote)
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                 }
                 .padding(20)
                 .background(Color.white.opacity(0.08))
-                .cornerRadius(12)
+                .clipShape(.rect(cornerRadius: 12))
             }
         }
     }
@@ -1289,513 +1259,6 @@ Rules:
             }
         }
         task.resume()
-    }
-}
-
-struct StudySessionView: View {
-    let set: FlashcardSet
-    @State private var index: Int = 0
-    @State private var showBack: Bool = false
-    @State private var dragOffset: CGFloat = 0
-    @State private var studiedCardIndices: Set<Int> = []
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        VStack(spacing: 20) {
-            if set.cards.isEmpty {
-                Text("No cards to study.")
-                    .foregroundColor(.gray)
-            } else {
-                VStack(spacing: 8) {
-                    Text("Card \(index + 1) of \(set.cards.count)")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                    
-                    HStack(spacing: 8) {
-                        Text("\(studiedCardIndices.count) studied")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        Circle()
-                            .fill(Color.secondary)
-                            .frame(width: 3, height: 3)
-                        
-                        Text("\(set.cards.count - studiedCardIndices.count) remaining")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    ProgressView(value: Double(studiedCardIndices.count), total: Double(set.cards.count))
-                        .progressViewStyle(.linear)
-                        .tint(.purple)
-                        .frame(maxWidth: 200)
-                }
-
-                FlipCardView(
-                    frontText: set.cards[index].front,
-                    backText: set.cards[index].back,
-                    showBack: $showBack
-                )
-                .padding(.horizontal)
-                .offset(x: dragOffset)
-                .gesture(
-                    DragGesture()
-                        .onChanged { value in
-                            dragOffset = value.translation.width
-                        }
-                        .onEnded { value in
-                            let threshold: CGFloat = 80
-                            if value.translation.width <= -threshold {
-                                next()
-                            } else if value.translation.width >= threshold {
-                                prev()
-                            }
-                            withAnimation(.spring()) { dragOffset = 0 }
-                        }
-                )
-                .animation(.spring(), value: dragOffset)
-
-                HStack(spacing: 24) {
-                    Button(action: { markAsStudied() }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: studiedCardIndices.contains(index) ? "checkmark.circle.fill" : "checkmark.circle")
-                            Text(studiedCardIndices.contains(index) ? "Studied" : "Mark Studied")
-                                .font(.subheadline)
-                        }
-                        .foregroundColor(studiedCardIndices.contains(index) ? .green : .white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(studiedCardIndices.contains(index) ? Color.green.opacity(0.2) : Color.white.opacity(0.1))
-                        .cornerRadius(20)
-                    }
-                }
-                .padding(.top, 8)
-                
-                Text("Tap to flip. Swipe left/right to navigate.")
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-                    .padding(.top, 4)
-            }
-            
-            if studiedCardIndices.count == set.cards.count && !set.cards.isEmpty {
-                VStack(spacing: 16) {
-                    Image(systemName: "trophy.fill")
-                        .font(.system(size: 50))
-                        .foregroundColor(.yellow)
-                    
-                    Text("All Cards Studied!")
-                        .font(.title2)
-                        .bold()
-                        .foregroundColor(.white)
-                    
-                    Text("Great job! You've reviewed all \(set.cards.count) cards.")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                    
-                    Button(action: { studiedCardIndices.removeAll() }) {
-                        Text("Study Again")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 24)
-                            .padding(.vertical, 12)
-                            .background(Color.purple)
-                            .cornerRadius(12)
-                    }
-                }
-                .padding()
-            }
-            
-            Spacer()
-        }
-        .background(Color.clear)
-        .korahGradientBackground()
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text("Study")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-                    .minimumScaleFactor(0.7)
-            }
-        }
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private func next() {
-        guard !set.cards.isEmpty else { return }
-        if index < set.cards.count - 1 {
-            index += 1
-            showBack = false
-        }
-    }
-
-    private func prev() {
-        guard !set.cards.isEmpty else { return }
-        if index > 0 {
-            index -= 1
-            showBack = false
-        }
-    }
-    
-    private func markAsStudied() {
-        if studiedCardIndices.contains(index) {
-            studiedCardIndices.remove(index)
-        } else {
-            studiedCardIndices.insert(index)
-        }
-    }
-}
-
-struct FlipCardView: View {
-    let frontText: String
-    let backText: String
-    @Binding var showBack: Bool
-
-    var body: some View {
-        let rotation = showBack ? 180.0 : 0.0
-
-        ZStack {
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.korahCardBackground)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
-                )
-
-            ZStack {
-                VStack(spacing: 12) {
-                    Text(frontText)
-                        .font(.title2)
-                        .multilineTextAlignment(.center)
-                        .foregroundColor(.white)
-                        .padding()
-                    Text("Front")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                }
-                .opacity(showBack ? 0 : 1)
-
-                VStack(spacing: 12) {
-                    Text(backText)
-                        .font(.title2)
-                        .multilineTextAlignment(.center)
-                        .foregroundColor(.white)
-                        .padding()
-                    Text("Back")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                }
-                .opacity(showBack ? 1 : 0)
-                .rotation3DEffect(.degrees(180), axis: (x: 0, y: 1, z: 0))
-            }
-            .padding()
-        }
-        .frame(maxWidth: .infinity, minHeight: 220)
-        .rotation3DEffect(.degrees(rotation), axis: (x: 0, y: 1, z: 0), perspective: 0.6)
-        .animation(.spring(response: 0.45, dampingFraction: 0.8), value: showBack)
-        .onTapGesture { withAnimation { showBack.toggle() } }
-    }
-}
-
-struct LargeFlipCard: View {
-    let front: String
-    let back: String
-    let showBack: Bool
-
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white.opacity(0.08))
-
-            ZStack {
-                VStack(spacing: 20) {
-                    Spacer()
-                    Text(front)
-                        .font(.system(size: 32, weight: .semibold))
-                        .foregroundColor(.white)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 24)
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        Image(systemName: "rectangle.2.swap")
-                            .font(.system(size: 18))
-                            .foregroundColor(.white.opacity(0.6))
-                    }
-                    .padding(12)
-                }
-                .opacity(showBack ? 0 : 1)
-
-                VStack(spacing: 20) {
-                    Spacer()
-                    Text(back)
-                        .font(.system(size: 32, weight: .semibold))
-                        .foregroundColor(.white)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 24)
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        Image(systemName: "rectangle.2.swap")
-                            .font(.system(size: 18))
-                            .foregroundColor(.white.opacity(0.6))
-                    }
-                    .padding(12)
-                }
-                .opacity(showBack ? 1 : 0)
-                .rotation3DEffect(.degrees(180), axis: (x: 0, y: 1, z: 0))
-            }
-            .padding()
-        }
-    }
-}
-
-struct TestOptionsSheet: View {
-    let set: FlashcardSet
-    @Binding var isGenerating: Bool
-    let onMultipleChoice: () -> Void
-    let onAIGenerated: () -> Void
-    @Environment(\.dismiss) var dismiss
-    
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 16) {
-                Text("Choose Test Type")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .padding(.top)
-                
-                Button(action: {
-                    onMultipleChoice()
-                    dismiss()
-                }) {
-                    HStack {
-                        Image(systemName: "checkmark.circle")
-                            .font(.system(size: 20))
-                        Text("Multiple Choice")
-                            .font(.headline)
-                        Spacer()
-                    }
-                    .foregroundColor(.white)
-                    .padding()
-                    .background(Color.purple.opacity(0.3))
-                    .cornerRadius(10)
-                }
-                
-                Button(action: {
-                    onAIGenerated()
-                    dismiss()
-                }) {
-                    HStack {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 20))
-                        Text("AI Generated")
-                            .font(.headline)
-                        Spacer()
-                    }
-                    .foregroundColor(.white)
-                    .padding()
-                    .background(Color.purple.opacity(0.3))
-                    .cornerRadius(10)
-                }
-                
-                Spacer()
-            }
-            .padding()
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-            }
-        }
-        .korahGradientBackground()
-    }
-}
-
-struct ErrorAlertView: View {
-    @Binding var isPresented: Bool
-    let message: String
-    
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 16) {
-                Image(systemName: "exclamationmark.circle")
-                    .font(.system(size: 40))
-                    .foregroundColor(.red)
-                
-                Text("Error")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                
-                Text(message)
-                    .font(.body)
-                    .foregroundColor(.white)
-                    .multilineTextAlignment(.center)
-                
-                Button(action: { isPresented = false }) {
-                    Text("OK")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(Color.purple)
-                        .cornerRadius(10)
-                }
-                
-                Spacer()
-            }
-            .padding()
-        }
-        .korahGradientBackground()
-    }
-}
-
-// MARK: - Card Components
-
-private struct FlashcardSetCard: View {
-    let set: FlashcardSet
-    let onSelect: () -> Void
-    let onEdit: () -> Void
-    let onDelete: () -> Void
-    
-    var body: some View {
-        Button(action: onSelect) {
-            HStack(spacing: 16) {
-                // Icon
-                Image(systemName: "rectangle.stack.fill")
-                    .font(.system(size: 28))
-                    .foregroundColor(.purple)
-                    .frame(width: 56, height: 56)
-                    .background(Color.purple.opacity(0.15))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                
-                // Content
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(set.title)
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                    
-                    HStack(spacing: 6) {
-                        Image(systemName: "square.on.square")
-                            .font(.system(size: 11))
-                        Text("\(set.cards.count) card\(set.cards.count == 1 ? "" : "s")")
-                            .font(.subheadline)
-                    }
-                    .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
-                // Actions
-                HStack(spacing: 8) {
-                    Menu {
-                        Button {
-                            onEdit()
-                        } label: {
-                            Label("Edit", systemImage: "pencil")
-                        }
-                        Button(role: .destructive) {
-                            onDelete()
-                        } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.7))
-                            .frame(width: 32, height: 32)
-                            .background(Color.white.opacity(0.08))
-                            .clipShape(Circle())
-                    }
-                    
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.purple.opacity(0.7))
-                }
-            }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.white.opacity(0.08))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color.purple.opacity(0.2), lineWidth: 1)
-            )
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-// MARK: - Empty State Components
-
-private struct EmptyStateActionCard: View {
-    let icon: String
-    let title: String
-    let description: String
-    let color: Color
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 16) {
-                Image(systemName: icon)
-                    .font(.system(size: 32, weight: .semibold))
-                    .foregroundColor(color)
-                    .frame(width: 60, height: 60)
-                    .background(color.opacity(0.15))
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(title)
-                        .font(.headline)
-                        .foregroundColor(.white)
-                    
-                    Text(description)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                
-                Spacer()
-                
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(color.opacity(0.7))
-            }
-            .padding(20)
-            .background(Color.white.opacity(0.08))
-            .cornerRadius(16)
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(color.opacity(0.3), lineWidth: 1.5)
-            )
-        }
-        .padding(.horizontal, 20)
-    }
-}
-
-private struct QuickTipRow: View {
-    let icon: String
-    let text: String
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 16))
-                .foregroundColor(.purple)
-                .frame(width: 24, height: 24)
-            
-            Text(text)
-                .font(.subheadline)
-                .foregroundColor(.white.opacity(0.9))
-            
-            Spacer()
-        }
     }
 }
 

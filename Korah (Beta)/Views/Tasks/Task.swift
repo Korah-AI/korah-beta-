@@ -22,7 +22,7 @@ enum TaskDifficulty: String, CaseIterable, Codable {
     }
 }
 
-struct Task: Identifiable, Codable {
+struct StudyTask: Identifiable, Codable {
     let id: UUID
     var title: String
     var description: String

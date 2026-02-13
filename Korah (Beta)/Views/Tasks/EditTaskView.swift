@@ -1,8 +1,8 @@
 import SwiftUI
 
 struct EditTaskView: View {
-    var task: Task
-    @Binding var tasks: [Task]
+    var task: StudyTask
+    @Binding var tasks: [StudyTask]
     @Environment(\.dismiss) var dismiss
     
     @State private var title: String
@@ -11,7 +11,7 @@ struct EditTaskView: View {
     @State private var difficulty: TaskDifficulty
     @State private var showCelebration = false
     
-    init(task: Task, tasks: Binding<[Task]>) {
+    init(task: StudyTask, tasks: Binding<[StudyTask]>) {
         self.task = task
         self._tasks = tasks
         self._title = State(initialValue: task.title)

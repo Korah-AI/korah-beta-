@@ -123,7 +123,7 @@ struct StudyGuidesView: View {
     @State private var generatedMarkdown: String = ""
     @State private var isLoading: Bool = false
     @State private var errorMessage: String? = nil
-    @ObservedObject private var networkMonitor = NetworkMonitor.shared
+    @State private var networkMonitor = NetworkMonitor.shared
 
     @State private var savedGuides: [StudyGuide] = []
     private let saveKey = "StudyGuides"
