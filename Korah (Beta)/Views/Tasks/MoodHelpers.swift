@@ -7,9 +7,9 @@ struct FocusExercise: Identifiable {
     let icon: String
 }
 
-class MoodHelpers {
+enum MoodHelpers {
     /// Check if a task is recommended based on current mood
-    static func isTaskRecommended(task: Task, for mood: String) -> Bool {
+    static func isTaskRecommended(task: StudyTask, for mood: String) -> Bool {
         switch mood {
         case "🟢": // Very focused
             // All tasks are good, but harder tasks are better
@@ -26,7 +26,7 @@ class MoodHelpers {
     }
     
     /// Get tasks sorted with recommended tasks first based on current mood
-    static func getSortedTasks(for mood: String, tasks: [Task]) -> [Task] {
+    static func getSortedTasks(for mood: String, tasks: [StudyTask]) -> [StudyTask] {
         if mood.isEmpty {
             return tasks.sorted { $0.dueDate < $1.dueDate }
         }
@@ -36,7 +36,7 @@ class MoodHelpers {
         let others = tasks.filter { !isTaskRecommended(task: $0, for: mood) }
         
         // Sort each group
-        let sortedRecommended: [Task]
+        let sortedRecommended: [StudyTask]
         switch mood {
         case "🟢": // Very focused - prioritize harder tasks
             sortedRecommended = recommended.sorted { 

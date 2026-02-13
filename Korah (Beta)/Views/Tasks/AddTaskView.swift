@@ -2,7 +2,7 @@ import SwiftUI
 
 struct AddTaskView: View {
     @Environment(\.dismiss) var dismiss
-    @Binding var tasks: [Task]
+    @Binding var tasks: [StudyTask]
     
     @State private var title: String = ""
     @State private var description: String = ""
@@ -157,9 +157,13 @@ struct AddTaskView: View {
     }
     
     func addTask() {
-        let newTask = Task(title: title, description: description, dueDate: dueDate, difficulty: difficulty)
+        let newTask = StudyTask(title: title, description: description, dueDate: dueDate, difficulty: difficulty)
         tasks.append(newTask)
         HomeDataManager.shared.saveTasks()
+        
+        // Schedule notifications for the new task
+        NotificationManager.shared.scheduleTaskNotifications(for: newTask)
+        
         dismiss()
     }
 }

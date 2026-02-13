@@ -2,24 +2,22 @@ import SwiftUI
 import Foundation
 import UserNotifications
 import UIKit
-import Combine
 // COMMENTED OUT FOR TESTFLIGHT - AWAITING FAMILY SHARING CAPABILITY APPROVAL
 // import FamilyControls
 // import ManagedSettings
 
-typealias UserTask = Task
-typealias AsyncTask = _Concurrency.Task
-
 // TODO: BETA VERSION - Add screen time tracking integration here
 // Screen time features will track app usage during focus sessions
-class FocusTimerManager: ObservableObject {
+@MainActor
+@Observable
+final class FocusTimerManager {
     static let shared = FocusTimerManager()
     
-    @Published var timeRemaining = 600 
-    @Published var totalTime = 600
-    @Published var isTimerRunning = false
-    @Published var showingCompletionAlert = false
-    @Published var selectedTasks: [UserTask] = []
+    var timeRemaining = 600 
+    var totalTime = 600
+    var isTimerRunning = false
+    var showingCompletionAlert = false
+    var selectedTasks: [StudyTask] = []
     // COMMENTED OUT FOR TESTFLIGHT - AWAITING FAMILY SHARING CAPABILITY APPROVAL
     // @Published var lockInModeEnabled = false
     // @Published var blockedApps = FamilyActivitySelection()
@@ -224,7 +222,7 @@ class FocusTimerManager: ObservableObject {
 }
 
 struct FocusTimerView: View {
-    @ObservedObject private var timerManager = FocusTimerManager.shared
+    @State private var timerManager = FocusTimerManager.shared
     @Environment(\.dismiss) private var dismiss
     
     var onDismiss: (() -> Void)? = nil
@@ -232,7 +230,7 @@ struct FocusTimerView: View {
     @State private var showTaskPicker = false
     @State private var showCustomTimePicker = false
     @State private var customMinutes = 10
-    @State private var allTasks: [UserTask] = []
+    @State private var allTasks: [StudyTask] = []
     // COMMENTED OUT FOR TESTFLIGHT - AWAITING FAMILY SHARING CAPABILITY APPROVAL
     // @State private var showBlockedAppsPicker = false
     // @State private var screenTimeAuthorized = false
@@ -733,7 +731,7 @@ struct FocusTimerView: View {
     
     func loadTasks() {
         if let data = UserDefaults.standard.data(forKey: "SavedTasks"),
-           let decoded = try? JSONDecoder().decode([UserTask].self, from: data) {
+           let decoded = try? JSONDecoder().decode([StudyTask].self, from: data) {
             allTasks = decoded
         }
     }
@@ -776,8 +774,8 @@ struct FocusTimerView: View {
 }
 
 struct TaskPickerSheet: View {
-    @Binding var selectedTasks: [UserTask]
-    let allTasks: [UserTask]
+    @Binding var selectedTasks: [StudyTask]
+    let allTasks: [StudyTask]
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -844,8 +842,8 @@ struct TaskPickerSheet: View {
 }
 
 struct ImprovedTaskPickerSheet: View {
-    @Binding var selectedTasks: [UserTask]
-    let allTasks: [UserTask]
+    @Binding var selectedTasks: [StudyTask]
+    let allTasks: [StudyTask]
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -943,7 +941,7 @@ struct ImprovedTaskPickerSheet: View {
 }
 
 struct TaskSelectionRow: View {
-    let task: UserTask
+    let task: StudyTask
     let isSelected: Bool
     let action: () -> Void
     
@@ -1065,8 +1063,6 @@ struct CustomTimePickerSheet: View {
     }
 }
 
-struct FocusTimerView_Previews: PreviewProvider {
-    static var previews: some View {
-        FocusTimerView()
-    }
+#Preview {
+    FocusTimerView()
 }

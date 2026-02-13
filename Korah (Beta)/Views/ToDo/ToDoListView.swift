@@ -1,14 +1,14 @@
 import SwiftUI
 
 struct ToDoListView: View {
-    @ObservedObject private var dataManager = HomeDataManager.shared
+    @State private var dataManager = HomeDataManager.shared
     @State private var showingAddTask = false
-    @State private var editingTask: Task? = nil
-    @State private var taskToDelete: Task? = nil
+    @State private var editingTask: StudyTask? = nil
+    @State private var taskToDelete: StudyTask? = nil
     @State private var showDeleteConfirmation = false
-    @State private var taskToComplete: Task? = nil
+    @State private var taskToComplete: StudyTask? = nil
     @State private var showCompleteConfirmation = false
-    @ObservedObject private var timerManager = FocusTimerManager.shared
+    @State private var timerManager = FocusTimerManager.shared
     @State private var showTimerDropdown = false
     @State private var searchText: String = ""
     @State private var selectedDifficulty: TaskDifficulty? = nil
@@ -54,7 +54,7 @@ struct ToDoListView: View {
         return dataManager.tasks.filter { calendar.isDateInToday($0.dueDate) }.count
     }
     
-    private var filteredTasks: [Task] {
+    private var filteredTasks: [StudyTask] {
         var tasks = dataManager.tasks
         
         if !searchText.isEmpty {
@@ -78,11 +78,11 @@ struct ToDoListView: View {
         return tasks
     }
     
-    private var groupedTasks: [(String, [Task])] {
+    private var groupedTasks: [(String, [StudyTask])] {
         let calendar = Calendar.current
         let now = Date()
         
-        var groups: [String: [Task]] = [
+        var groups: [String: [StudyTask]] = [
             "Overdue": [],
             "Today": [],
             "Tomorrow": [],
@@ -389,7 +389,7 @@ struct ToDoListView: View {
         .padding(.top, 40)
     }
 
-    private func taskIconView(task: Task, isOverdue: Bool, showRecommendation: Bool, isRecommended: Bool) -> some View {
+    private func taskIconView(task: StudyTask, isOverdue: Bool, showRecommendation: Bool, isRecommended: Bool) -> some View {
         ZStack(alignment: .topTrailing) {
             Image(systemName: difficultyIcon(for: task.difficulty))
                 .font(.system(size: 28))
@@ -412,7 +412,7 @@ struct ToDoListView: View {
         }
     }
     
-    private func taskContentView(task: Task, isOverdue: Bool, showRecommendation: Bool, isRecommended: Bool) -> some View {
+    private func taskContentView(task: StudyTask, isOverdue: Bool, showRecommendation: Bool, isRecommended: Bool) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(task.title)
@@ -491,7 +491,7 @@ struct ToDoListView: View {
         }
     }
     
-    private func taskRow(for task: Task) -> some View {
+    private func taskRow(for task: StudyTask) -> some View {
         let isOverdue = task.dueDate < Date()
         let isRecommended = !userMood.isEmpty && MoodHelpers.isTaskRecommended(task: task, for: userMood)
         let showRecommendation = !userMood.isEmpty && searchText.isEmpty && selectedDifficulty == nil
@@ -555,7 +555,7 @@ struct ToDoListView: View {
         }
     }
     
-    private func completeTask(_ task: Task) {
+    private func completeTask(_ task: StudyTask) {
         completedTaskTitle = task.title
         dataManager.deleteTask(task)
         showCompletionCelebration = true
@@ -719,7 +719,7 @@ struct ToDoListView: View {
         .padding(.bottom, 80)
     }
     
-    private func taskSectionView(section: (String, [Task])) -> some View {
+    private func taskSectionView(section: (String, [StudyTask])) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             // Section Header
             Button(action: {

@@ -16,15 +16,15 @@ struct OpeningView: View {
                         .animation(.easeIn(duration: 1.0).delay(0.1), value: fadeIn)
                     
                     Text("Welcome to Korah")
-                        .font(.system(size: 36, weight: .semibold))
-                        .foregroundColor(.white)
+                        .font(.largeTitle.weight(.semibold))
+                        .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
                         .opacity(fadeIn ? 1 : 0)
                         .animation(.easeIn(duration: 1.0).delay(0.3), value: fadeIn)
                     
                     Text("Beta Version.")
-                        .font(.system(size: 20, weight: .regular))
-                        .foregroundColor(.secondary)
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .opacity(fadeIn ? 1 : 0)
                         .animation(.easeIn(duration: 1.0).delay(0.5), value: fadeIn)
@@ -35,12 +35,12 @@ struct OpeningView: View {
                         navigateToMoodCheckIn = true
                     }) {
                         Text("Get Started")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(.white)
+                            .font(.headline)
+                            .foregroundStyle(.white)
                             .padding()
                             .frame(maxWidth: .infinity)
                             .background(Color.purple)
-                            .cornerRadius(12)
+                            .clipShape(.rect(cornerRadius: 12))
                             .padding(.horizontal, 40)
                     }
                     .opacity(fadeIn ? 1 : 0)
@@ -57,16 +57,11 @@ struct OpeningView: View {
                 MoodCheckInView()
             }
         }
-        .task {
-            applyKorahAppearance()
-        }
         .preferredColorScheme(.dark)
         .accentColor(.purple)
     }
 }
 
-struct OpeningView_Previews: PreviewProvider {
-    static var previews: some View {
-        OpeningView()
-    }
+#Preview {
+    OpeningView()
 }

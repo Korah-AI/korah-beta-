@@ -43,8 +43,6 @@ struct LaunchAnimationView: View {
     }
 }
 
-struct LaunchAnimationView_Previews: PreviewProvider {
-    static var previews: some View {
-        LaunchAnimationView(onComplete: {})
-    }
+#Preview {
+    LaunchAnimationView(onComplete: {})
 }

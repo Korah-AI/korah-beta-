@@ -1,0 +1,121 @@
+```markdown
+# Prompt: Update the Swift UI/UX of my iOS Study App (Modern, Usable, Light/Dark, ChatView like Gemini)
+
+You are an expert iOS designer + senior SwiftUI engineer. Your job is to propose and implement a modern UI/UX refresh for my iOS study app using **SwiftUI** with a strong emphasis on **usability, clarity, and polish**. The most important screen is **ChatView** (the AI tutor/chatbot). The app should feel contemporary, minimal, and delightful—**clean, airy, and “high-end”**—with a chat experience that feels **as visually pleasing and frictionless as Gemini-style chat** (without copying proprietary UI).
+
+## Goals
+- Modernize the app’s aesthetics (typography, spacing, color, motion, iconography).
+- Improve usability: reduce cognitive load, simplify navigation, make primary actions obvious.
+- Add **Light Mode + Dark Mode** with a cohesive design system.
+- Make **ChatView** the flagship: beautiful layout, excellent readability, smooth streaming output.
+- Ensure accessibility: Dynamic Type, VoiceOver labels, contrast, hit targets.
+- Keep performance smooth (60fps), with careful handling of long conversations.
+
+## Constraints / Assumptions
+- SwiftUI-first; UIKit only if justified.
+- iOS 16+ (or specify if supporting earlier).
+- The AI response is streamed from the OpenAI API (token-by-token / chunk-by-chunk).
+- Provide production-quality SwiftUI patterns (state management, animation, view decomposition).
+- Avoid over-decoration; prioritize “quiet confidence” UI.
+
+---
+
+## 1) Deliverables
+Produce the following:
+
+### A) Design System
+Create a lightweight design system that includes:
+- **Color tokens** for light/dark (background, surface, elevated surface, text, secondary text, separators, accent, success/warn/error).
+- **Typography scale** (title, headline, body, caption) using iOS system fonts with weights.
+- **Spacing scale** (e.g., 4/8/12/16/24/32).
+- **Corner radius + shadow rules** (subtle, consistent).
+- **Haptics + animation guidelines** (sparingly used, purposeful).
+
+Implement these as Swift code (e.g., `Theme`, `AppColors`, `AppTypography`, `AppSpacing`) and show how views consume them.
+
+### B) App-Wide UX Refresh
+Propose improvements for:
+- Navigation structure (tab vs sidebar vs stack; explain tradeoffs).
+- Primary study flows (e.g., decks/notes/quizzes/sessions) with clear hierarchy.
+- Empty states and onboarding hints.
+- Loading states, error states, offline states.
+- Micro-interactions: pressed states, subtle transitions, safe animations.
+
+### C) ChatView Redesign (Highest Priority)
+Design and implement a flagship chat UI:
+- Message bubbles that feel modern: subtle elevation, soft corners, balanced padding.
+- Clear differentiation between user and assistant messages without harsh colors.
+- “Surface” layering (background → conversation surface → composer surface).
+- Highly readable code blocks / math / markdown (if supported).
+- Great ergonomics: thumb-friendly composer, obvious send button, attachment/menu options if relevant.
+- A gentle “streaming” experience: incremental text rendering, stable scrolling behavior, minimal jitter.
+- A polished typing indicator and streaming indicator.
+- Conversation actions (copy, regenerate, stop, share) via context menu or inline buttons.
+
+### D) Streaming Implementation Guidance
+Provide a robust SwiftUI-friendly approach for OpenAI streaming:
+- Model types for `Message`, `Role`, `ConversationState`.
+- A `ChatViewModel` that appends streaming deltas efficiently.
+- A strategy to avoid excessive re-renders (throttling/coalescing updates, `@MainActor`, batching).
+- Scroll management: auto-scroll while streaming **only if** user is at bottom; don’t yank the scroll if user scrolls up.
+- “Stop generating” control that cancels the stream cleanly.
+
+---
+
+## 2) Specific Visual Direction (Use This as the Target)
+Aim for a refined, modern look:
+- Background: subtle neutral (light: near-white; dark: near-black/charcoal).
+- Surfaces: slightly elevated cards for panels and message bubbles.
+- Accent color: a single strong accent (user-configurable or system tint).
+- Typography: SF Pro, generous line height, clear hierarchy.
+- Rounded corners: modern (e.g., 14–20) but not cartoonish.
+- Motion: quick, understated, consistent (spring where appropriate).
+- Avoid clutter: hide secondary actions behind context menus.
+
+Also propose:
+- A **theme toggle**: “System / Light / Dark”.
+- Optional: “True Black” dark mode for OLED (if appropriate).
+
+---
+
+## 3) Implementation Requirements (SwiftUI)
+When you output code:
+- Use best practices: small reusable views (`MessageBubbleView`, `ComposerView`, `TypingIndicatorView`).
+- Prefer `ScrollViewReader` + scroll anchoring patterns that behave with streaming text.
+- Use `@Observable` (if iOS 17+) or `ObservableObject` (iOS 16) clearly.
+- Avoid hardcoding colors in views; rely on theme tokens.
+- Include accessibility modifiers and sensible labels.
+- Include previews for key screens in both light/dark and Dynamic Type.
+
+If you introduce dependencies (Markdown rendering, syntax highlighting), justify them and provide a fallback.
+
+---
+
+## 4) Questions You Should Answer in Your Output
+1. What design system tokens are you introducing, and why?
+2. What are the top 5 UX improvements you recommend app-wide?
+3. What does the new ChatView layout look like (structure + rationale)?
+4. How does streaming work end-to-end (including cancel/stop)?
+5. How do you handle scrolling during streaming?
+6. How do you ensure accessibility and performance?
+
+---
+
+## 5) Provide a Concrete Starting Point
+Include:
+- A skeleton `ChatView` SwiftUI implementation (with placeholder messages).
+- A streaming-friendly `ChatViewModel` outline.
+- A `Theme` implementation with light/dark support and a user setting.
+
+---
+
+## 6) Success Criteria
+The result should:
+- Look modern and cohesive in both light and dark mode.
+- Make the ChatView feel premium and effortless to use.
+- Stream text smoothly without janky scroll or flicker.
+- Be accessible, performant, and maintainable.
+
+Now produce the UI/UX plan and the SwiftUI implementation snippets to get started.
+```
+

@@ -49,11 +49,10 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'API key not configured' });
     }
 
-    // Remove stream parameter if present (proxy doesn't support streaming)
-    const bodyToSend = { ...req.body };
-    delete bodyToSend.stream;
+    // Enable streaming
+    const bodyToSend = { ...req.body, stream: true };
 
-    // Forward the request to OpenAI API
+    // Forward the request to OpenAI API with streaming
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -63,21 +62,57 @@ export default async function handler(req, res) {
       body: JSON.stringify(bodyToSend),
     });
 
-    const data = await response.json();
-    
-    // Update rate limit with actual token usage (if available)
-    if (data.usage && data.usage.total_tokens) {
-      await checkRateLimit(userId, data.usage.total_tokens);
-    } else {
-      // Fall back to estimated tokens if usage not provided
-      const outputText = data.choices?.[0]?.message?.content || '';
-      const estimatedOutputTokens = estimateTokens(outputText);
-      await checkRateLimit(userId, estimatedInputTokens + estimatedOutputTokens);
+    if (!response.ok) {
+      const errorData = await response.json();
+      return res.status(response.status).json(errorData);
     }
-    
-    return res.status(response.status).json(data);
+
+    // Set headers for SSE
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+
+    // Track accumulated content for token counting
+    let accumulatedContent = '';
+
+    // Stream the response
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      
+      if (done) {
+        // Update rate limit with estimated output tokens when stream ends
+        const estimatedOutputTokens = estimateTokens(accumulatedContent);
+        await checkRateLimit(userId, estimatedInputTokens + estimatedOutputTokens);
+        break;
+      }
+
+      const chunk = decoder.decode(value, { stream: true });
+      
+      // Track content for rate limiting
+      const lines = chunk.split('\n');
+      for (const line of lines) {
+        if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+          try {
+            const json = JSON.parse(line.slice(6));
+            const delta = json.choices?.[0]?.delta?.content || '';
+            accumulatedContent += delta;
+          } catch {
+            // Ignore parse errors for partial chunks
+          }
+        }
+      }
+
+      // Pass through the chunk to the client
+      res.write(chunk);
+    }
+
+    res.end();
   } catch (error) {
-    console.error('Proxy error:', error);
+    console.error('Streaming proxy error:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 }

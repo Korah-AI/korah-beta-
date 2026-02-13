@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct FloatingTimerIndicator: View {
-    @ObservedObject private var timerManager = FocusTimerManager.shared
+    @State private var timerManager = FocusTimerManager.shared
     @State private var showTimer = false
     
     var body: some View {

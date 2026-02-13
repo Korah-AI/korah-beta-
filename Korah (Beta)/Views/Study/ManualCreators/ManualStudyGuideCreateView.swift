@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ManualStudyGuideCreateView: View {
     @Environment(\.dismiss) private var dismiss
-    @ObservedObject private var networkMonitor = NetworkMonitor.shared
+    @State private var networkMonitor = NetworkMonitor.shared
     
     @State private var title: String = ""
     @State private var content: String = ""

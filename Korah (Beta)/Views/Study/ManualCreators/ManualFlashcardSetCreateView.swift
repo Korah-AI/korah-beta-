@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ManualFlashcardSetCreateView: View {
     @Environment(\.dismiss) private var dismiss
-    @ObservedObject private var networkMonitor = NetworkMonitor.shared
+    @State private var networkMonitor = NetworkMonitor.shared
 
     @State private var subject: String = ""
     @State private var title: String = ""

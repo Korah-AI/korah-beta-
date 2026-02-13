@@ -31,7 +31,7 @@ struct PracticeTestsView: View {
     }
 
     @StateObject private var store = PracticeTestsStore()
-    @ObservedObject private var networkMonitor = NetworkMonitor.shared
+    @State private var networkMonitor = NetworkMonitor.shared
     @State private var newTestTitle = ""
     @State private var showingAdd = false
     @State private var showDeleteAlert = false

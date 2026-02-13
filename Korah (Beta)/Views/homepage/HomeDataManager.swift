@@ -1,12 +1,16 @@
 import Foundation
 import SwiftUI
-import Combine
 
-class HomeDataManager: ObservableObject {
+@MainActor
+@Observable
+final class HomeDataManager {
     static let shared = HomeDataManager()
     
-    @Published var tasks: [Task] = []
-    @Published var recentStudyItems: [RecentStudyItem] = []
+    var tasks: [StudyTask] = []
+    var recentStudyItems: [RecentStudyItem] = []
+    
+    @ObservationIgnored
+    private var notificationObserver: Any?
     
     private init() {
         loadTasks()
@@ -15,28 +19,27 @@ class HomeDataManager: ObservableObject {
     }
     
     private func setupObservers() {
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(userDefaultsDidChange),
-            name: UserDefaults.didChangeNotification,
-            object: nil
-        )
-    }
-    
-    @objc private func userDefaultsDidChange() {
-        DispatchQueue.main.async {
-            self.loadTasks()
-            self.loadRecentStudyItems()
+        notificationObserver = NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.loadTasks()
+                self?.loadRecentStudyItems()
+            }
         }
     }
     
     deinit {
-        NotificationCenter.default.removeObserver(self)
+        if let observer = notificationObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
     }
     
     func loadTasks() {
         if let data = UserDefaults.standard.data(forKey: "SavedTasks"),
-           let savedTasks = try? JSONDecoder().decode([Task].self, from: data) {
+           let savedTasks = try? JSONDecoder().decode([StudyTask].self, from: data) {
             tasks = savedTasks
         }
     }
@@ -47,19 +50,22 @@ class HomeDataManager: ObservableObject {
         }
     }
     
-    func addTask(_ task: Task) {
+    func addTask(_ task: StudyTask) {
         tasks.append(task)
         saveTasks()
     }
     
-    func updateTask(_ task: Task) {
+    func updateTask(_ task: StudyTask) {
         if let index = tasks.firstIndex(where: { $0.id == task.id }) {
             tasks[index] = task
             saveTasks()
         }
     }
     
-    func deleteTask(_ task: Task) {
+    func deleteTask(_ task: StudyTask) {
+        // Cancel notifications for the deleted task
+        NotificationManager.shared.cancelTaskNotifications(for: task.id)
+        
         tasks.removeAll { $0.id == task.id }
         saveTasks()
     }

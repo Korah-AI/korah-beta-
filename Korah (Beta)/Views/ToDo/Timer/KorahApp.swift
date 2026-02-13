@@ -5,7 +5,6 @@ import UserNotifications
 @main
 struct KorahApp: App {
     init() {
-        applyKorahAppearance()
         setupNotifications()
     }
     

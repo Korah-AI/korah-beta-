@@ -1,8 +1,8 @@
 import SwiftUI
 
 struct LauncherView: View {
-    @StateObject private var appState = AppStateManager()
-    @ObservedObject private var streakManager = StreakManager.shared
+    @State private var appState = AppStateManager()
+    @State private var streakManager = StreakManager.shared
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("LastMoodCheckInDate") private var lastMoodCheckInDate: Double = 0
     @State private var showMoodCheckIn = false
@@ -45,7 +45,7 @@ struct LauncherView: View {
             
             checkIfMoodCheckInNeeded()
         }
-        .onChange(of: scenePhase) { newPhase in
+        .onChange(of: scenePhase) { oldPhase, newPhase in
             if newPhase == .active {
                 // Track app open for streak
                 streakManager.checkAndUpdateStreak()
@@ -58,7 +58,7 @@ struct LauncherView: View {
                 checkIfMoodCheckInNeeded()
             }
         }
-        .onChange(of: lastMoodCheckInDate) { _ in
+        .onChange(of: lastMoodCheckInDate) {
             // When mood is selected, hide the mood check-in view
             if showMoodCheckIn {
                 showMoodCheckIn = false
@@ -78,9 +78,7 @@ struct LauncherView: View {
     }
 }
 
-struct LauncherView_Previews: PreviewProvider {
-    static var previews: some View {
-        LauncherView()
-    }
+#Preview {
+    LauncherView()
 }
 

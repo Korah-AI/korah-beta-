@@ -1,8 +1,8 @@
 import SwiftUI
 
 struct EditTaskView: View {
-    var task: Task
-    @Binding var tasks: [Task]
+    var task: StudyTask
+    @Binding var tasks: [StudyTask]
     @Environment(\.dismiss) var dismiss
     
     @State private var title: String
@@ -11,7 +11,7 @@ struct EditTaskView: View {
     @State private var difficulty: TaskDifficulty
     @State private var showCelebration = false
     
-    init(task: Task, tasks: Binding<[Task]>) {
+    init(task: StudyTask, tasks: Binding<[StudyTask]>) {
         self.task = task
         self._tasks = tasks
         self._title = State(initialValue: task.title)
@@ -86,11 +86,18 @@ struct EditTaskView: View {
             tasks[index].dueDate = dueDate
             tasks[index].difficulty = difficulty
             HomeDataManager.shared.saveTasks()
+            
+            // Reschedule notifications with updated task info
+            let updatedTask = tasks[index]
+            NotificationManager.shared.scheduleTaskNotifications(for: updatedTask)
         }
     }
     
     func completeTask() {
         if let index = tasks.firstIndex(where: { $0.id == task.id }) {
+            // Cancel notifications before removing task
+            NotificationManager.shared.cancelTaskNotifications(for: task.id)
+            
             tasks.remove(at: index)
             HomeDataManager.shared.saveTasks()
         }
