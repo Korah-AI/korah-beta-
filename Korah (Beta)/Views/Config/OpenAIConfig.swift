@@ -6,6 +6,7 @@ enum OpenAIConfig {
     
     // API endpoints (using Vercel proxy)
     static let chatCompletionsURL: String = "\(proxyBaseURL)/api/proxy"
+    static let chatCompletionsStreamURL: String = "\(proxyBaseURL)/api/proxy-stream"
     static let transcriptionsURL: String = "\(proxyBaseURL)/api/transcribe"
     static let speechURL: String = "\(proxyBaseURL)/api/speak"
     

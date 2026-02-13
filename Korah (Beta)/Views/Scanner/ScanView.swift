@@ -53,6 +53,23 @@ struct ScanOpenAIResponse: Decodable {
     let usage: Usage?
 }
 
+// Streaming response structure for SSE
+struct ScanStreamingResponse: Decodable {
+    struct Choice: Decodable {
+        struct Delta: Decodable {
+            let role: String?
+            let content: String?
+        }
+        let delta: Delta
+        let finishReason: String?
+        private enum CodingKeys: String, CodingKey {
+            case delta
+            case finishReason = "finish_reason"
+        }
+    }
+    let choices: [Choice]
+}
+
 
 struct ScanKorahFormatted: Decodable {
     let kind: String?           
@@ -188,11 +205,6 @@ struct ScanView: View {
     }
     
     private var contextSuggestions: [String] {
-        if let lastAssistantContent = messages.last(where: { $0.role == "assistant" })?.content,
-           let formatted = lastAssistantContent.decodeScanKorahFormatted(),
-           let qs = formatted.questions, !qs.isEmpty {
-            return normalizeSuggestions(Array(qs.prefix(3)))
-        }
         let lastAssistant = messages.last { $0.role == "assistant" }?.content ?? ""
         let lastUser = messages.last { $0.role == "user" }?.content ?? ""
         var results: [String] = []
@@ -207,27 +219,9 @@ struct ScanView: View {
         }
         var seen = Set<String>()
         let unique = results.filter { seen.insert($0).inserted }
-        return normalizeSuggestions(Array(unique.prefix(3)))
+        return Array(unique.prefix(3))
     }
     
-    private func normalizeSuggestions(_ items: [String]) -> [String] {
-        return items.map { s in
-            let trimmed = s.trimmingCharacters(in: .whitespacesAndNewlines)
-            let lower = trimmed.lowercased()
-            if lower.hasPrefix("do you want") || lower.hasPrefix("would you like") || lower.hasPrefix("do you need") || lower.hasPrefix("need help") || lower.hasPrefix("can i") || lower.hasPrefix("should we") {
-                if lower.contains("help") {
-                    return "I need help" + (trimmed.drop(while: { $0 != " " }).isEmpty ? "" : " with " + trimmed.components(separatedBy: "help").last!.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: ".!?")))
-                } else if lower.contains("learn") {
-                    return "I want to learn " + trimmed.components(separatedBy: "learn").last!.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: ".!?"))
-                } else if lower.contains("practice") {
-                    return "Give me a practice exercise on " + trimmed.components(separatedBy: "practice").last!.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: ".!?"))
-                } else {
-                    return "I want to try that"
-                }
-            }
-            return trimmed
-        }
-    }
 
     // MARK: - Extracted Views
     
@@ -684,31 +678,22 @@ struct ScanView: View {
                 HStack(alignment: .bottom) {
                     Spacer().frame(width: 0)
                     if message.role == "assistant" {
-                        if let formatted = message.content.decodeScanKorahFormatted() {
-                            ScanAnswerView(formatted: formatted, timestamp: message.timestamp)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        } else {
-                            ScrollView {
-                                Text(scanFormattedResponse(message.content))
-                                    .font(.kBody)
-                                    .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-                                    .textSelection(.enabled)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                    .monospaced(false)
-                                    .padding(Spacing.md)
-                                    .background(
+                        Text(scanFormattedResponse(message.content))
+                            .font(.kBody)
+                            .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                            .textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(Spacing.md)
+                            .background(
+                                RoundedRectangle(cornerRadius: CornerRadius.bubble, style: .continuous)
+                                    .fill(Color.adaptive(light: .Light.surface, dark: .Dark.surface))
+                                    .overlay(
                                         RoundedRectangle(cornerRadius: CornerRadius.bubble, style: .continuous)
-                                            .fill(Color.adaptive(light: .Light.surface, dark: .Dark.surface))
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: CornerRadius.bubble, style: .continuous)
-                                                    .stroke(Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
-                                            )
+                                            .stroke(Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
                                     )
-                                    .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                            .frame(maxWidth: .infinity, maxHeight: .none, alignment: .topLeading)
-                        }
+                            )
+                            .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     } else {
                         Spacer()
                         VStack(alignment: .trailing, spacing: Spacing.sm) {
@@ -776,124 +761,6 @@ struct ScanView: View {
     }
 
 
-    struct ScanAnswerView: View {
-        let formatted: ScanKorahFormatted
-        let timestamp: Date
-
-        private func badge(_ index: Int) -> some View {
-            Text("\(index)")
-                .font(.kSubheadline)
-                .bold()
-                .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-                .frame(width: 26, height: 26)
-                .background(Color.adaptive(light: .Light.accent.opacity(0.15), dark: .Dark.accent.opacity(0.2)))
-                .clipShape(.circle)
-        }
-
-        var body: some View {
-            VStack(alignment: .leading, spacing: Spacing.md) {
-                HStack(spacing: Spacing.sm) {
-                    Image(systemName: "list.bullet.rectangle")
-                        .foregroundStyle(Color.adaptive(light: .Light.accent, dark: .Dark.accent))
-                    Text("Answer")
-                        .font(.kHeadline)
-                        .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-                    Spacer()
-                }
-
-                if let title = formatted.title, !title.isEmpty {
-                    Text(title)
-                        .font(.kTitle3)
-                        .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                if let summary = formatted.summary, !summary.isEmpty {
-                    Text(summary)
-                        .font(.kBody)
-                        .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-                        .lineSpacing(4)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                if let steps = formatted.steps, !steps.isEmpty {
-                    VStack(alignment: .leading, spacing: Spacing.lg) {
-                        ForEach(Array(steps.enumerated()), id: \.offset) { idx, step in
-                            HStack(alignment: .top, spacing: Spacing.sm) {
-                                badge(idx + 1)
-                                    .padding(.top, 2)
-                                VStack(alignment: .leading, spacing: 6) {
-                                    let parts = step.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
-                                    if let first = parts.first, !first.isEmpty {
-                                        Text(String(first))
-                                            .font(.kHeadline)
-                                            .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-                                    }
-                                    if parts.count > 1 {
-                                        Text(String(parts[1]))
-                                            .font(.kBody)
-                                            .foregroundStyle(Color.adaptive(light: .Light.textSecondary, dark: .Dark.textSecondary))
-                                            .lineSpacing(4)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if let hints = formatted.hints, !hints.isEmpty {
-                    VStack(alignment: .leading, spacing: Spacing.sm) {
-                        Text("Tips")
-                            .font(.kSubheadline)
-                            .bold()
-                            .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-                        ForEach(hints, id: \.self) { h in
-                            HStack(alignment: .top, spacing: Spacing.sm) {
-                                Image(systemName: "lightbulb")
-                                    .foregroundStyle(Color.adaptive(light: .Light.warning, dark: .Dark.warning))
-                                Text(h)
-                                    .font(.kBody)
-                                    .foregroundStyle(Color.adaptive(light: .Light.textSecondary, dark: .Dark.textSecondary))
-                            }
-                        }
-                    }
-                }
-
-                if let qs = formatted.questions, !qs.isEmpty {
-                    VStack(alignment: .leading, spacing: Spacing.sm) {
-                        Text("Try these questions")
-                            .font(.kSubheadline)
-                            .bold()
-                            .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-                        ForEach(qs, id: \.self) { q in
-                            HStack(alignment: .top, spacing: Spacing.sm) {
-                                Image(systemName: "questionmark.circle")
-                                    .foregroundStyle(Color.adaptive(light: .Light.accent, dark: .Dark.accent))
-                                Text(q)
-                                    .font(.kBody)
-                                    .foregroundStyle(Color.adaptive(light: .Light.textSecondary, dark: .Dark.textSecondary))
-                            }
-                        }
-                    }
-                }
-
-                Text(timestamp, style: .time)
-                    .font(.kCaption)
-                    .foregroundStyle(Color.adaptive(light: .Light.textTertiary, dark: .Dark.textTertiary))
-            }
-            .padding(Spacing.lg)
-            .background(
-                RoundedRectangle(cornerRadius: CornerRadius.bubble, style: .continuous)
-                    .fill(Color.adaptive(light: .Light.surface, dark: .Dark.surface))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: CornerRadius.bubble, style: .continuous)
-                            .stroke(Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
-                    )
-            )
-            .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
-        }
-    }
-
 
     func sendMessage() {
         let input = userInput.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -916,55 +783,6 @@ struct ScanView: View {
         userInput = instruction
         sendMessage()
     }
-    
-    private func generateFlashcardSetFromLastAnswer() {
-        guard hasAssistantResponse && !isLoading && !showTypingIndicator else { return }
-        guard let lastAssistantContent = messages.last(where: { $0.role == "assistant" })?.content else { return }
-        
-        guard let formatted = lastAssistantContent.decodeScanKorahFormatted() else { return }
-        
-        let pairs = extractPairsFrom(formatted: formatted)
-        guard !pairs.isEmpty else { return }
-        
-        let title = formatted.title ?? "Flashcard Set"
-        
-        let flashcards = pairs.map { Flashcard(front: $0.0, back: $0.1) }
-        let newSet = FlashcardSet(title: title, cards: flashcards)
-        
-        var savedSets: [FlashcardSet] = []
-        if let data = UserDefaults.standard.data(forKey: "FlashcardSets"),
-           let decoded = try? JSONDecoder().decode([FlashcardSet].self, from: data) {
-            savedSets = decoded
-        }
-        savedSets.append(newSet)
-        if let encoded = try? JSONEncoder().encode(savedSets) {
-            UserDefaults.standard.set(encoded, forKey: "FlashcardSets")
-        }
-        
-        selectedFlashcardSetID = newSet.id
-    }
-    
-    private func generateStudyGuideFromLastAnswer() {
-        guard hasAssistantResponse && !isLoading && !showTypingIndicator else { return }
-        guard let lastAssistantContent = messages.last(where: { $0.role == "assistant" })?.content else { return }
-        
-        guard let formatted = lastAssistantContent.decodeScanKorahFormatted() else { return }
-        
-        let guide = StudyGuide(title: formatted.title ?? "Study Guide", content: lastAssistantContent)
-        
-        var savedGuides: [StudyGuide] = []
-        if let data = UserDefaults.standard.data(forKey: "StudyGuides"),
-           let decoded = try? JSONDecoder().decode([StudyGuide].self, from: data) {
-            savedGuides = decoded
-        }
-        savedGuides.append(guide)
-        if let encoded = try? JSONEncoder().encode(savedGuides) {
-            UserDefaults.standard.set(encoded, forKey: "StudyGuides")
-        }
-        
-        navigateToGuideID = guide.id
-    }
-
     
     private func requestFlashcardSetFromConversation() {
         guard hasAssistantResponse && !isLoading && !showTypingIndicator else { return }
@@ -1258,43 +1076,8 @@ struct ScanView: View {
     }
     
     private func extractReadableText(from content: String) -> String {
-        // Try to decode as formatted JSON response
-        if let formatted = content.decodeScanKorahFormatted() {
-            var text = ""
-            
-            if let title = formatted.title, !title.isEmpty {
-                text += title + "\n\n"
-            }
-            
-            if let summary = formatted.summary, !summary.isEmpty {
-                text += summary + "\n\n"
-            }
-            
-            if let steps = formatted.steps, !steps.isEmpty {
-                text += "Steps:\n"
-                for (index, step) in steps.enumerated() {
-                    text += "\(index + 1). \(step)\n"
-                }
-                text += "\n"
-            }
-            
-            if let hints = formatted.hints, !hints.isEmpty {
-                text += "Hints:\n"
-                for hint in hints {
-                    text += "• \(hint)\n"
-                }
-                text += "\n"
-            }
-            
-            if let footer = formatted.footer, !footer.isEmpty {
-                text += footer
-            }
-            
-            return text.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        
-        // Return original content if not JSON formatted
-        return content
+        // Plain text content - just return it
+        return content.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
     private func speakText(_ text: String, messageId: UUID) {
@@ -1506,22 +1289,15 @@ extension ScanView {
         
         let systemInstruction =
         """
-        You are Korah, a friendly tutor for kids. Never give final answers to homework outright; guide step-by-step.
-        Always respond with PURE JSON (no backticks, no code fences), matching this schema:
+        You are Korah, a friendly tutor for kids (ages 8-14). Never give final answers to homework outright; guide step-by-step.
 
-        {
-          "kind": "tutor",
-          "title": string,              
-          "summary": string,            
-          "steps": [string],            
-          "hints": [string],            
-          "questions": [string],        
-
-        Rules:
-        - Keep it kid-friendly, concise, and actionable.
-        - Do NOT include any non-JSON text.
-        - If the user asks for direct answers, redirect with hints in JSON.
-        - REMINDER: Students can ask you to create flashcards, study guides, or practice tests about what they're learning. Let them know they can do this if appropriate.
+        Response format:
+        - Use clear, conversational language
+        - Use numbered steps when explaining processes
+        - Use bullet points (•) for tips or hints
+        - Keep responses concise and actionable
+        - If the user asks for direct answers, redirect with guiding questions instead
+        - Remind students they can ask you to create flashcards or study guides from what they're learning
         """
 
         var apiMessages: [[String: Any]] = [["role": "system", "content": systemInstruction]]
@@ -1542,18 +1318,18 @@ extension ScanView {
             }
         }
 
-        // Non-streaming request
+        // Streaming request
         let body: [String: Any] = [
             "model": "gpt-4o",
             "messages": apiMessages,
             "temperature": 0.3,
             "max_tokens": 1000,
-            "response_format": ["type": "json_object"]
+            "stream": true
         ]
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
         
-        // Create placeholder assistant message for simulated streaming
+        // Create placeholder assistant message for streaming
         let messageId = UUID()
         let placeholderMessage = ScanMessage(id: messageId, role: "assistant", content: "", timestamp: Date(), image: nil)
         messages.append(placeholderMessage)
@@ -1564,7 +1340,7 @@ extension ScanView {
         
         streamTask = Task {
             do {
-                let (data, response) = try await URLSession.shared.data(for: request)
+                let (bytes, response) = try await URLSession.shared.bytes(for: request)
                 
                 guard let httpResponse = response as? HTTPURLResponse else {
                     await handleStreamError("Invalid response", at: messageIndex)
@@ -1572,242 +1348,64 @@ extension ScanView {
                 }
                 
                 if httpResponse.statusCode != 200 {
-                    await handleHTTPStreamError(statusCode: httpResponse.statusCode, at: messageIndex, responseData: data)
+                    // Read error body for non-200 responses
+                    var errorData = Data()
+                    for try await byte in bytes {
+                        errorData.append(byte)
+                    }
+                    await handleHTTPStreamError(statusCode: httpResponse.statusCode, at: messageIndex, responseData: errorData)
                     return
                 }
                 
-                // Decode the full response
-                let decoded = try JSONDecoder().decode(ScanOpenAIResponse.self, from: data)
-                guard let content = decoded.choices.first?.message.content, !content.isEmpty else {
+                var accumulatedContent = ""
+                
+                // Process SSE stream
+                for try await line in bytes.lines {
+                    if Task.isCancelled { break }
+                    
+                    // SSE lines start with "data: "
+                    guard line.hasPrefix("data: ") else { continue }
+                    
+                    let jsonString = String(line.dropFirst(6))
+                    
+                    // Check for stream end
+                    if jsonString == "[DONE]" { break }
+                    
+                    // Parse the streaming chunk
+                    guard let jsonData = jsonString.data(using: .utf8),
+                          let chunk = try? JSONDecoder().decode(ScanStreamingResponse.self, from: jsonData),
+                          let delta = chunk.choices.first?.delta.content else {
+                        continue
+                    }
+                    
+                    accumulatedContent += delta
+                    
+                    // Update UI with accumulated content
                     await MainActor.run {
                         if messageIndex < messages.count {
-                            messages[messageIndex].content = "I didn't understand that. Could you try asking in a different way?"
+                            messages[messageIndex].content = accumulatedContent
                         }
-                        finishStreaming()
-                    }
-                    return
-                }
-                
-                let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
-                let finalContent: String
-                
-                if trimmed.decodeScanKorahFormatted() != nil {
-                    finalContent = trimmed
-                } else {
-                    let safeSummary = trimmed.replacingOccurrences(of: "\n", with: " ")
-                    let fallback: [String: Any] = [
-                        "kind": "tutor",
-                        "title": "Here's some guidance",
-                        "summary": safeSummary,
-                        "steps": [] as [String],
-                        "hints": [] as [String],
-                        "questions": ["What part would you like to try next?"],
-                        "footer": "If you need a structured plan, ask me to list steps."
-                    ]
-                    if let jsonData = try? JSONSerialization.data(withJSONObject: fallback),
-                       let jsonString = String(data: jsonData, encoding: .utf8) {
-                        finalContent = jsonString
-                    } else {
-                        finalContent = trimmed
                     }
                 }
                 
-                // Stream the raw JSON text, then it auto-formats when complete
-                await simulateStreaming(text: finalContent, at: messageIndex)
+                // Finalize
+                await MainActor.run {
+                    if messageIndex < messages.count {
+                        if accumulatedContent.isEmpty {
+                            messages[messageIndex].content = "I didn't understand that. Could you try asking in a different way?"
+                        } else {
+                            messages[messageIndex].content = accumulatedContent.trimmingCharacters(in: .whitespacesAndNewlines)
+                        }
+                    }
+                    finishStreaming()
+                    saveCurrentConversation()
+                }
                 
             } catch {
                 if !Task.isCancelled {
                     await handleStreamError(error.localizedDescription, at: messageIndex)
                 }
             }
-        }
-    }
-    
-    /// Simulates streaming for formatted JSON responses by revealing title → summary → steps → hints → questions
-    private func simulateFormattedStreaming(formatted: ScanKorahFormatted, fullJson: String, at index: Int) async {
-        // Collect all text segments in order
-        var segments: [(field: String, text: String)] = []
-        
-        if let title = formatted.title, !title.isEmpty {
-            segments.append(("title", title))
-        }
-        if let summary = formatted.summary, !summary.isEmpty {
-            segments.append(("summary", summary))
-        }
-        if let steps = formatted.steps {
-            for (i, step) in steps.enumerated() {
-                segments.append(("step_\(i)", step))
-            }
-        }
-        if let hints = formatted.hints {
-            for (i, hint) in hints.enumerated() {
-                segments.append(("hint_\(i)", hint))
-            }
-        }
-        if let questions = formatted.questions {
-            for (i, question) in questions.enumerated() {
-                segments.append(("question_\(i)", question))
-            }
-        }
-        
-        // Calculate total characters and consistent streaming speed
-        let totalChars = segments.reduce(0) { $0 + $1.text.count }
-        guard totalChars > 0 else {
-            await MainActor.run {
-                if index < messages.count {
-                    messages[index].content = fullJson
-                }
-                finishStreaming()
-                saveCurrentConversation()
-            }
-            return
-        }
-        
-        let targetDuration: Double = min(3.0, max(1.0, Double(totalChars) * 0.012))
-        let updateInterval: UInt64 = 30_000_000 // 30ms
-        let totalUpdates = Int(targetDuration / 0.030)
-        let charsPerUpdate = max(1, totalChars / totalUpdates)
-        
-        // Track streaming progress
-        var streamedTitle: String = ""
-        var streamedSummary: String = ""
-        var streamedSteps: [String] = []
-        var streamedHints: [String] = []
-        var streamedQuestions: [String] = []
-        
-        var globalCharIndex = 0
-        
-        for segment in segments {
-            if Task.isCancelled { break }
-            
-            let chars = Array(segment.text)
-            var localIndex = 0
-            
-            while localIndex < chars.count {
-                if Task.isCancelled { break }
-                
-                let charsToAdd = min(charsPerUpdate, chars.count - localIndex)
-                localIndex += charsToAdd
-                globalCharIndex += charsToAdd
-                
-                let partialText = String(chars.prefix(localIndex))
-                
-                // Update the appropriate field
-                switch segment.field {
-                case "title":
-                    streamedTitle = partialText
-                case "summary":
-                    streamedSummary = partialText
-                case let field where field.hasPrefix("step_"):
-                    let stepIndex = Int(field.replacingOccurrences(of: "step_", with: "")) ?? 0
-                    while streamedSteps.count <= stepIndex { streamedSteps.append("") }
-                    streamedSteps[stepIndex] = partialText
-                case let field where field.hasPrefix("hint_"):
-                    let hintIndex = Int(field.replacingOccurrences(of: "hint_", with: "")) ?? 0
-                    while streamedHints.count <= hintIndex { streamedHints.append("") }
-                    streamedHints[hintIndex] = partialText
-                case let field where field.hasPrefix("question_"):
-                    let qIndex = Int(field.replacingOccurrences(of: "question_", with: "")) ?? 0
-                    while streamedQuestions.count <= qIndex { streamedQuestions.append("") }
-                    streamedQuestions[qIndex] = partialText
-                default:
-                    break
-                }
-                
-                // Build partial JSON
-                let partialJson = buildPartialJson(
-                    kind: formatted.kind,
-                    title: streamedTitle.isEmpty ? nil : streamedTitle,
-                    summary: streamedSummary.isEmpty ? nil : streamedSummary,
-                    steps: streamedSteps.isEmpty ? nil : streamedSteps,
-                    hints: streamedHints.isEmpty ? nil : streamedHints,
-                    questions: streamedQuestions.isEmpty ? nil : streamedQuestions,
-                    footer: nil
-                )
-                
-                await MainActor.run {
-                    if index < messages.count {
-                        messages[index].content = partialJson
-                    }
-                }
-                
-                if localIndex < chars.count {
-                    try? await Task.sleep(nanoseconds: updateInterval)
-                }
-            }
-        }
-        
-        // Final update with complete JSON
-        await MainActor.run {
-            if index < messages.count {
-                messages[index].content = fullJson
-            }
-            finishStreaming()
-            saveCurrentConversation()
-        }
-    }
-    
-    /// Builds a partial JSON string for streaming display
-    private func buildPartialJson(
-        kind: String?,
-        title: String?,
-        summary: String?,
-        steps: [String]?,
-        hints: [String]?,
-        questions: [String]?,
-        footer: String?
-    ) -> String {
-        var dict: [String: Any] = [:]
-        if let kind = kind { dict["kind"] = kind }
-        if let title = title { dict["title"] = title }
-        if let summary = summary { dict["summary"] = summary }
-        if let steps = steps, !steps.isEmpty { dict["steps"] = steps }
-        if let hints = hints, !hints.isEmpty { dict["hints"] = hints }
-        if let questions = questions, !questions.isEmpty { dict["questions"] = questions }
-        if let footer = footer { dict["footer"] = footer }
-        
-        if let jsonData = try? JSONSerialization.data(withJSONObject: dict),
-           let jsonString = String(data: jsonData, encoding: .utf8) {
-            return jsonString
-        }
-        return "{}"
-    }
-    
-    /// Fallback: simulates streaming for plain text
-    private func simulateStreaming(text: String, at index: Int) async {
-        let characters = Array(text)
-        let totalChars = characters.count
-        var currentIndex = 0
-        
-        let targetDuration: Double = min(2.5, Double(totalChars) * 0.015)
-        let updateInterval: UInt64 = 25_000_000
-        let charsPerUpdate = max(1, totalChars / Int(targetDuration / 0.025))
-        
-        while currentIndex < totalChars {
-            if Task.isCancelled { break }
-            
-            let endIndex = min(currentIndex + charsPerUpdate, totalChars)
-            let partialText = String(characters[0..<endIndex])
-            
-            await MainActor.run {
-                if index < messages.count {
-                    messages[index].content = partialText
-                }
-            }
-            
-            currentIndex = endIndex
-            
-            if currentIndex < totalChars {
-                try? await Task.sleep(nanoseconds: updateInterval)
-            }
-        }
-        
-        await MainActor.run {
-            if index < messages.count {
-                messages[index].content = text
-            }
-            finishStreaming()
-            saveCurrentConversation()
         }
     }
     
@@ -1828,16 +1426,27 @@ extension ScanView {
     }
     
     private func handleHTTPStreamError(statusCode: Int, at index: Int, responseData: Data?) async {
+        // Log error details for debugging
+        if let data = responseData, let errorString = String(data: data, encoding: .utf8) {
+            print("[ScanView] HTTP \(statusCode) error: \(errorString)")
+        } else {
+            print("[ScanView] HTTP \(statusCode) error (no body)")
+        }
+        
         let friendlyMessage: String
         switch statusCode {
+        case 400:
+            friendlyMessage = "Oops! There was an issue with the request. Please try again."
         case 401:
             friendlyMessage = "Oops! There's an issue with the app's authentication. Please contact support."
+        case 404:
+            friendlyMessage = "Oops! The service endpoint wasn't found. Please contact support."
         case 429:
             friendlyMessage = "Oops! I'm getting too many requests right now. Please wait a moment and try again."
         case 500...599:
             friendlyMessage = "Oops! The service is having trouble right now. Please try again in a few minutes."
         default:
-            friendlyMessage = "Oops! Something went wrong. Please try again."
+            friendlyMessage = "Oops! Something went wrong (error \(statusCode)). Please try again."
         }
         
         await MainActor.run {
