@@ -678,22 +678,27 @@ struct ScanView: View {
                 HStack(alignment: .bottom) {
                     Spacer().frame(width: 0)
                     if message.role == "assistant" {
-                        Text(scanFormattedResponse(message.content))
-                            .font(.kBody)
-                            .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-                            .textSelection(.enabled)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(Spacing.md)
-                            .background(
-                                RoundedRectangle(cornerRadius: CornerRadius.bubble, style: .continuous)
-                                    .fill(Color.adaptive(light: .Light.surface, dark: .Dark.surface))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: CornerRadius.bubble, style: .continuous)
-                                            .stroke(Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
-                                    )
-                            )
-                            .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        if let formatted = message.content.decodeScanKorahFormatted() {
+                            ScanAnswerView(formatted: formatted, timestamp: message.timestamp)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        } else {
+                            Text(scanFormattedResponse(message.content))
+                                .font(.kBody)
+                                .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                                .textSelection(.enabled)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .padding(Spacing.md)
+                                .background(
+                                    RoundedRectangle(cornerRadius: CornerRadius.bubble, style: .continuous)
+                                        .fill(Color.adaptive(light: .Light.surface, dark: .Dark.surface))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: CornerRadius.bubble, style: .continuous)
+                                                .stroke(Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
+                                        )
+                                )
+                                .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
                     } else {
                         Spacer()
                         VStack(alignment: .trailing, spacing: Spacing.sm) {
@@ -760,7 +765,107 @@ struct ScanView: View {
         }
     }
 
+    struct ScanAnswerView: View {
+        let formatted: ScanKorahFormatted
+        let timestamp: Date
 
+        private func badge(_ index: Int) -> some View {
+            Text("\(index)")
+                .font(.kSubheadline)
+                .bold()
+                .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                .frame(width: 26, height: 26)
+                .background(Color.adaptive(light: .Light.accent.opacity(0.15), dark: .Dark.accent.opacity(0.2)))
+                .clipShape(.circle)
+        }
+
+        var body: some View {
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                if let title = formatted.title, !title.isEmpty {
+                    Text(title)
+                        .font(.kTitle3)
+                        .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if let summary = formatted.summary, !summary.isEmpty {
+                    Text(summary)
+                        .font(.kBody)
+                        .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                        .lineSpacing(4)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if let steps = formatted.steps, !steps.isEmpty {
+                    VStack(alignment: .leading, spacing: Spacing.lg) {
+                        ForEach(Array(steps.enumerated()), id: \.offset) { idx, step in
+                            HStack(alignment: .top, spacing: Spacing.sm) {
+                                badge(idx + 1)
+                                    .padding(.top, 2)
+                                Text(step)
+                                    .font(.kBody)
+                                    .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                                    .lineSpacing(4)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                }
+
+                if let hints = formatted.hints, !hints.isEmpty {
+                    VStack(alignment: .leading, spacing: Spacing.sm) {
+                        Text("Tips")
+                            .font(.kSubheadline)
+                            .bold()
+                            .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                        ForEach(hints, id: \.self) { h in
+                            HStack(alignment: .top, spacing: Spacing.sm) {
+                                Image(systemName: "lightbulb")
+                                    .foregroundStyle(Color.adaptive(light: .Light.warning, dark: .Dark.warning))
+                                Text(h)
+                                    .font(.kBody)
+                                    .foregroundStyle(Color.adaptive(light: .Light.textSecondary, dark: .Dark.textSecondary))
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                }
+
+                if let qs = formatted.questions, !qs.isEmpty {
+                    VStack(alignment: .leading, spacing: Spacing.sm) {
+                        Text("Try these questions")
+                            .font(.kSubheadline)
+                            .bold()
+                            .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                        ForEach(qs, id: \.self) { q in
+                            HStack(alignment: .top, spacing: Spacing.sm) {
+                                Image(systemName: "questionmark.circle")
+                                    .foregroundStyle(Color.adaptive(light: .Light.accent, dark: .Dark.accent))
+                                Text(q)
+                                    .font(.kBody)
+                                    .foregroundStyle(Color.adaptive(light: .Light.textSecondary, dark: .Dark.textSecondary))
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                }
+
+                Text(timestamp, style: .time)
+                    .font(.kCaption)
+                    .foregroundStyle(Color.adaptive(light: .Light.textTertiary, dark: .Dark.textTertiary))
+            }
+            .padding(Spacing.lg)
+            .background(
+                RoundedRectangle(cornerRadius: CornerRadius.bubble, style: .continuous)
+                    .fill(Color.adaptive(light: .Light.surface, dark: .Dark.surface))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: CornerRadius.bubble, style: .continuous)
+                            .stroke(Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
+                    )
+            )
+            .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+        }
+    }
 
     func sendMessage() {
         let input = userInput.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1076,8 +1181,45 @@ struct ScanView: View {
     }
     
     private func extractReadableText(from content: String) -> String {
-        // Plain text content - just return it
-        return content.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Try to decode as formatted JSON response
+        if let formatted = content.decodeScanKorahFormatted() {
+            var text = ""
+            
+            if let title = formatted.title, !title.isEmpty {
+                text += title + "\n\n"
+            }
+            
+            if let summary = formatted.summary, !summary.isEmpty {
+                text += summary + "\n\n"
+            }
+            
+            if let steps = formatted.steps, !steps.isEmpty {
+                for (index, step) in steps.enumerated() {
+                    text += "\(index + 1). \(step)\n"
+                }
+                text += "\n"
+            }
+            
+            if let hints = formatted.hints, !hints.isEmpty {
+                text += "Tips:\n"
+                for hint in hints {
+                    text += "• \(hint)\n"
+                }
+                text += "\n"
+            }
+            
+            if let questions = formatted.questions, !questions.isEmpty {
+                text += "Questions:\n"
+                for question in questions {
+                    text += "• \(question)\n"
+                }
+            }
+            
+            return text.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        
+        // Return original content if not JSON formatted
+        return content
     }
     
     private func speakText(_ text: String, messageId: UUID) {
@@ -1289,15 +1431,23 @@ extension ScanView {
         
         let systemInstruction =
         """
-        You are Korah, a friendly tutor for kids (ages 8-14). Never give final answers to homework outright; guide step-by-step.
+        You are Korah, a friendly tutor for kids. Never give final answers to homework outright; guide step-by-step.
+        Always respond with PURE JSON (no backticks, no code fences), matching this schema:
 
-        Response format:
-        - Use clear, conversational language
-        - Use numbered steps when explaining processes
-        - Use bullet points (•) for tips or hints
-        - Keep responses concise and actionable
-        - If the user asks for direct answers, redirect with guiding questions instead
-        - Remind students they can ask you to create flashcards or study guides from what they're learning
+        {
+          "kind": "tutor",
+          "title": string,
+          "summary": string,
+          "steps": [string],
+          "hints": [string],
+          "questions": [string]
+        }
+
+        Rules:
+        - Keep it kid-friendly, concise, and actionable.
+        - Do NOT include any non-JSON text.
+        - If the user asks for direct answers, redirect with hints in JSON.
+        - Remind students they can ask you to create flashcards or study guides from what they're learning.
         """
 
         var apiMessages: [[String: Any]] = [["role": "system", "content": systemInstruction]]
@@ -1318,18 +1468,17 @@ extension ScanView {
             }
         }
 
-        // Streaming request
         let body: [String: Any] = [
             "model": "gpt-4o",
             "messages": apiMessages,
             "temperature": 0.3,
             "max_tokens": 1000,
-            "stream": true
+            "response_format": ["type": "json_object"]
         ]
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
         
-        // Create placeholder assistant message for streaming
+        // Create placeholder assistant message
         let messageId = UUID()
         let placeholderMessage = ScanMessage(id: messageId, role: "assistant", content: "", timestamp: Date(), image: nil)
         messages.append(placeholderMessage)
@@ -1340,7 +1489,7 @@ extension ScanView {
         
         streamTask = Task {
             do {
-                let (bytes, response) = try await URLSession.shared.bytes(for: request)
+                let (data, response) = try await URLSession.shared.data(for: request)
                 
                 guard let httpResponse = response as? HTTPURLResponse else {
                     await handleStreamError("Invalid response", at: messageIndex)
@@ -1348,58 +1497,26 @@ extension ScanView {
                 }
                 
                 if httpResponse.statusCode != 200 {
-                    // Read error body for non-200 responses
-                    var errorData = Data()
-                    for try await byte in bytes {
-                        errorData.append(byte)
-                    }
-                    await handleHTTPStreamError(statusCode: httpResponse.statusCode, at: messageIndex, responseData: errorData)
+                    await handleHTTPStreamError(statusCode: httpResponse.statusCode, at: messageIndex, responseData: data)
                     return
                 }
                 
-                var accumulatedContent = ""
-                
-                // Process SSE stream
-                for try await line in bytes.lines {
-                    if Task.isCancelled { break }
-                    
-                    // SSE lines start with "data: "
-                    guard line.hasPrefix("data: ") else { continue }
-                    
-                    let jsonString = String(line.dropFirst(6))
-                    
-                    // Check for stream end
-                    if jsonString == "[DONE]" { break }
-                    
-                    // Parse the streaming chunk
-                    guard let jsonData = jsonString.data(using: .utf8),
-                          let chunk = try? JSONDecoder().decode(ScanStreamingResponse.self, from: jsonData),
-                          let delta = chunk.choices.first?.delta.content else {
-                        continue
-                    }
-                    
-                    accumulatedContent += delta
-                    
-                    // Update UI with accumulated content
+                // Decode the full response
+                let decoded = try JSONDecoder().decode(ScanOpenAIResponse.self, from: data)
+                guard let content = decoded.choices.first?.message.content, !content.isEmpty else {
                     await MainActor.run {
                         if messageIndex < messages.count {
-                            messages[messageIndex].content = accumulatedContent
+                            messages[messageIndex].content = "I didn't understand that. Could you try asking in a different way?"
                         }
+                        finishStreaming()
                     }
+                    return
                 }
                 
-                // Finalize
-                await MainActor.run {
-                    if messageIndex < messages.count {
-                        if accumulatedContent.isEmpty {
-                            messages[messageIndex].content = "I didn't understand that. Could you try asking in a different way?"
-                        } else {
-                            messages[messageIndex].content = accumulatedContent.trimmingCharacters(in: .whitespacesAndNewlines)
-                        }
-                    }
-                    finishStreaming()
-                    saveCurrentConversation()
-                }
+                let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+                
+                // Simulate streaming the formatted response
+                await simulateFormattedStreaming(jsonContent: trimmed, at: messageIndex)
                 
             } catch {
                 if !Task.isCancelled {
@@ -1414,6 +1531,179 @@ extension ScanView {
         isStreaming = false
         showTypingIndicator = false
         streamingMessageIndex = nil
+    }
+    
+    /// Simulates streaming by progressively building the JSON with revealed content
+    private func simulateFormattedStreaming(jsonContent: String, at index: Int) async {
+        guard let formatted = jsonContent.decodeScanKorahFormatted() else {
+            // If not valid JSON, just display as-is
+            await MainActor.run {
+                if index < messages.count {
+                    messages[index].content = jsonContent
+                }
+                finishStreaming()
+                saveCurrentConversation()
+            }
+            return
+        }
+        
+        // Collect all text segments to stream
+        var segments: [String] = []
+        if let title = formatted.title, !title.isEmpty { segments.append(title) }
+        if let summary = formatted.summary, !summary.isEmpty { segments.append(summary) }
+        if let steps = formatted.steps { segments.append(contentsOf: steps) }
+        if let hints = formatted.hints { segments.append(contentsOf: hints) }
+        if let questions = formatted.questions { segments.append(contentsOf: questions) }
+        
+        let totalChars = segments.reduce(0) { $0 + $1.count }
+        guard totalChars > 0 else {
+            await MainActor.run {
+                if index < messages.count {
+                    messages[index].content = jsonContent
+                }
+                finishStreaming()
+                saveCurrentConversation()
+            }
+            return
+        }
+        
+        // Streaming parameters
+        let targetDuration: Double = min(2.5, max(0.8, Double(totalChars) * 0.008))
+        let updateInterval: UInt64 = 30_000_000 // 30ms
+        let totalUpdates = Int(targetDuration / 0.030)
+        let charsPerUpdate = max(1, totalChars / max(1, totalUpdates))
+        
+        // Track progress through each field
+        var revealedTitle = ""
+        var revealedSummary = ""
+        var revealedSteps: [String] = []
+        var revealedHints: [String] = []
+        var revealedQuestions: [String] = []
+        
+        var globalCharIndex = 0
+        
+        // Stream title
+        if let title = formatted.title, !title.isEmpty {
+            for i in stride(from: 0, to: title.count, by: charsPerUpdate) {
+                if Task.isCancelled { break }
+                let endIdx = min(i + charsPerUpdate, title.count)
+                revealedTitle = String(title.prefix(endIdx))
+                globalCharIndex = endIdx
+                
+                let partialJson = buildPartialJson(kind: formatted.kind, title: revealedTitle, summary: nil, steps: nil, hints: nil, questions: nil)
+                await MainActor.run {
+                    if index < messages.count { messages[index].content = partialJson }
+                }
+                try? await Task.sleep(nanoseconds: updateInterval)
+            }
+            revealedTitle = title
+        }
+        
+        // Stream summary
+        if let summary = formatted.summary, !summary.isEmpty {
+            for i in stride(from: 0, to: summary.count, by: charsPerUpdate) {
+                if Task.isCancelled { break }
+                let endIdx = min(i + charsPerUpdate, summary.count)
+                revealedSummary = String(summary.prefix(endIdx))
+                
+                let partialJson = buildPartialJson(kind: formatted.kind, title: revealedTitle, summary: revealedSummary, steps: nil, hints: nil, questions: nil)
+                await MainActor.run {
+                    if index < messages.count { messages[index].content = partialJson }
+                }
+                try? await Task.sleep(nanoseconds: updateInterval)
+            }
+            revealedSummary = summary
+        }
+        
+        // Stream steps
+        if let steps = formatted.steps {
+            for (stepIdx, step) in steps.enumerated() {
+                revealedSteps.append("")
+                for i in stride(from: 0, to: step.count, by: charsPerUpdate) {
+                    if Task.isCancelled { break }
+                    let endIdx = min(i + charsPerUpdate, step.count)
+                    revealedSteps[stepIdx] = String(step.prefix(endIdx))
+                    
+                    let partialJson = buildPartialJson(kind: formatted.kind, title: revealedTitle, summary: revealedSummary, steps: revealedSteps, hints: nil, questions: nil)
+                    await MainActor.run {
+                        if index < messages.count { messages[index].content = partialJson }
+                    }
+                    try? await Task.sleep(nanoseconds: updateInterval)
+                }
+                revealedSteps[stepIdx] = step
+            }
+        }
+        
+        // Stream hints
+        if let hints = formatted.hints {
+            for (hintIdx, hint) in hints.enumerated() {
+                revealedHints.append("")
+                for i in stride(from: 0, to: hint.count, by: charsPerUpdate) {
+                    if Task.isCancelled { break }
+                    let endIdx = min(i + charsPerUpdate, hint.count)
+                    revealedHints[hintIdx] = String(hint.prefix(endIdx))
+                    
+                    let partialJson = buildPartialJson(kind: formatted.kind, title: revealedTitle, summary: revealedSummary, steps: revealedSteps.isEmpty ? nil : revealedSteps, hints: revealedHints, questions: nil)
+                    await MainActor.run {
+                        if index < messages.count { messages[index].content = partialJson }
+                    }
+                    try? await Task.sleep(nanoseconds: updateInterval)
+                }
+                revealedHints[hintIdx] = hint
+            }
+        }
+        
+        // Stream questions
+        if let questions = formatted.questions {
+            for (qIdx, question) in questions.enumerated() {
+                revealedQuestions.append("")
+                for i in stride(from: 0, to: question.count, by: charsPerUpdate) {
+                    if Task.isCancelled { break }
+                    let endIdx = min(i + charsPerUpdate, question.count)
+                    revealedQuestions[qIdx] = String(question.prefix(endIdx))
+                    
+                    let partialJson = buildPartialJson(kind: formatted.kind, title: revealedTitle, summary: revealedSummary, steps: revealedSteps.isEmpty ? nil : revealedSteps, hints: revealedHints.isEmpty ? nil : revealedHints, questions: revealedQuestions)
+                    await MainActor.run {
+                        if index < messages.count { messages[index].content = partialJson }
+                    }
+                    try? await Task.sleep(nanoseconds: updateInterval)
+                }
+                revealedQuestions[qIdx] = question
+            }
+        }
+        
+        // Final complete JSON
+        await MainActor.run {
+            if index < messages.count {
+                messages[index].content = jsonContent
+            }
+            finishStreaming()
+            saveCurrentConversation()
+        }
+    }
+    
+    /// Builds a partial JSON string for streaming display
+    private func buildPartialJson(
+        kind: String?,
+        title: String?,
+        summary: String?,
+        steps: [String]?,
+        hints: [String]?,
+        questions: [String]?
+    ) -> String {
+        var dict: [String: Any] = [:]
+        if let kind = kind { dict["kind"] = kind }
+        if let title = title, !title.isEmpty { dict["title"] = title }
+        if let summary = summary, !summary.isEmpty { dict["summary"] = summary }
+        if let steps = steps, !steps.isEmpty { dict["steps"] = steps }
+        if let hints = hints, !hints.isEmpty { dict["hints"] = hints }
+        if let questions = questions, !questions.isEmpty { dict["questions"] = questions }
+        
+        if let jsonData = try? JSONSerialization.data(withJSONObject: dict),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            return jsonString
+        }
+        return "{}"
     }
     
     private func handleStreamError(_ message: String, at index: Int) async {
