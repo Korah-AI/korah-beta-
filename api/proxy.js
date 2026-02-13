@@ -1,38 +1,57 @@
-// Edge Runtime for streaming support
-export const config = {
-  runtime: 'edge',
-};
+import { checkRateLimit, getUserId, estimateTokens } from './rate-limit.js';
 
-// Simple token estimation for edge runtime
-function estimateTokens(text) {
-  if (!text) return 0;
-  return Math.ceil(text.length / 4);
-}
-
-export default async function handler(req) {
+export default async function handler(req, res) {
   // Only allow POST requests
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const body = await req.json();
+    // Get user identifier
+    const userId = getUserId(req);
+    
+    // Estimate input tokens from messages
+    const messages = req.body.messages || [];
+    const inputText = messages.map(m => typeof m.content === 'string' ? m.content : '').join(' ');
+    const estimatedInputTokens = estimateTokens(inputText);
+    
+    // Check rate limit before making API call
+    const rateLimitCheck = await checkRateLimit(userId, 0);
+    
+    // If user is already over limit, reject immediately
+    if (!rateLimitCheck.allowed) {
+      return res.status(429).json({
+        error: 'Rate limit exceeded',
+        message: 'Daily token limit reached. Please try again tomorrow.',
+        remaining: rateLimitCheck.remaining,
+        resetTime: rateLimitCheck.resetTime,
+        current: rateLimitCheck.current,
+        limit: rateLimitCheck.limit
+      });
+    }
+    
+    // Check if estimated tokens would exceed limit
+    if (rateLimitCheck.current + estimatedInputTokens > rateLimitCheck.limit) {
+      return res.status(429).json({
+        error: 'Rate limit exceeded',
+        message: 'This request would exceed your daily token limit.',
+        remaining: rateLimitCheck.remaining,
+        resetTime: rateLimitCheck.resetTime,
+        current: rateLimitCheck.current,
+        limit: rateLimitCheck.limit
+      });
+    }
     
     // Get the OpenAI API key from environment variables
     const apiKey = process.env.OPENAI_API_KEY;
     
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: 'API key not configured' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return res.status(500).json({ error: 'API key not configured' });
     }
 
-    // Check if client requested streaming
-    const isStreaming = body.stream === true;
+    // Remove stream parameter if present (proxy doesn't support streaming)
+    const bodyToSend = { ...req.body };
+    delete bodyToSend.stream;
 
     // Forward the request to OpenAI API
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -41,34 +60,24 @@ export default async function handler(req) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify(bodyToSend),
     });
 
-    // Handle streaming response
-    if (isStreaming && response.ok) {
-      // Return streaming response directly
-      return new Response(response.body, {
-        status: 200,
-        headers: {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
-        },
-      });
-    }
-
-    // Non-streaming or error response
     const data = await response.json();
-    return new Response(JSON.stringify(data), {
-      status: response.status,
-      headers: { 'Content-Type': 'application/json' },
-    });
     
+    // Update rate limit with actual token usage (if available)
+    if (data.usage && data.usage.total_tokens) {
+      await checkRateLimit(userId, data.usage.total_tokens);
+    } else {
+      // Fall back to estimated tokens if usage not provided
+      const outputText = data.choices?.[0]?.message?.content || '';
+      const estimatedOutputTokens = estimateTokens(outputText);
+      await checkRateLimit(userId, estimatedInputTokens + estimatedOutputTokens);
+    }
+    
+    return res.status(response.status).json(data);
   } catch (error) {
     console.error('Proxy error:', error);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 }

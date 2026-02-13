@@ -1542,19 +1542,18 @@ extension ScanView {
             }
         }
 
-        // Enable real SSE streaming
+        // Non-streaming request
         let body: [String: Any] = [
             "model": "gpt-4o",
             "messages": apiMessages,
             "temperature": 0.3,
             "max_tokens": 1000,
-            "stream": true,
             "response_format": ["type": "json_object"]
         ]
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
         
-        // Create placeholder assistant message for streaming
+        // Create placeholder assistant message for simulated streaming
         let messageId = UUID()
         let placeholderMessage = ScanMessage(id: messageId, role: "assistant", content: "", timestamp: Date(), image: nil)
         messages.append(placeholderMessage)
@@ -1565,7 +1564,7 @@ extension ScanView {
         
         streamTask = Task {
             do {
-                let (bytes, response) = try await URLSession.shared.bytes(for: request)
+                let (data, response) = try await URLSession.shared.data(for: request)
                 
                 guard let httpResponse = response as? HTTPURLResponse else {
                     await handleStreamError("Invalid response", at: messageIndex)
@@ -1573,81 +1572,48 @@ extension ScanView {
                 }
                 
                 if httpResponse.statusCode != 200 {
-                    // Try to read error body
-                    var errorBody = ""
-                    for try await line in bytes.lines {
-                        errorBody += line
-                    }
-                    await handleHTTPStreamError(statusCode: httpResponse.statusCode, at: messageIndex, responseData: errorBody.data(using: .utf8))
+                    await handleHTTPStreamError(statusCode: httpResponse.statusCode, at: messageIndex, responseData: data)
                     return
                 }
                 
-                // Real SSE streaming - accumulate content as it arrives
-                var fullContent = ""
-                
-                for try await line in bytes.lines {
-                    if Task.isCancelled { break }
-                    
-                    // Parse SSE data lines
-                    guard line.hasPrefix("data: ") else { continue }
-                    let data = String(line.dropFirst(6))
-                    
-                    // Check for stream completion
-                    if data == "[DONE]" { break }
-                    
-                    // Parse JSON chunk
-                    guard let jsonData = data.data(using: .utf8),
-                          let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
-                          let choices = json["choices"] as? [[String: Any]],
-                          let delta = choices.first?["delta"] as? [String: Any],
-                          let content = delta["content"] as? String else { continue }
-                    
-                    fullContent += content
-                    
-                    // Update UI with raw streaming content
-                    // Show partial JSON as it builds (will display as text until valid JSON)
+                // Decode the full response
+                let decoded = try JSONDecoder().decode(ScanOpenAIResponse.self, from: data)
+                guard let content = decoded.choices.first?.message.content, !content.isEmpty else {
                     await MainActor.run {
                         if messageIndex < messages.count {
-                            messages[messageIndex].content = fullContent
+                            messages[messageIndex].content = "I didn't understand that. Could you try asking in a different way?"
                         }
+                        finishStreaming()
+                    }
+                    return
+                }
+                
+                let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+                let finalContent: String
+                
+                if trimmed.decodeScanKorahFormatted() != nil {
+                    finalContent = trimmed
+                } else {
+                    let safeSummary = trimmed.replacingOccurrences(of: "\n", with: " ")
+                    let fallback: [String: Any] = [
+                        "kind": "tutor",
+                        "title": "Here's some guidance",
+                        "summary": safeSummary,
+                        "steps": [] as [String],
+                        "hints": [] as [String],
+                        "questions": ["What part would you like to try next?"],
+                        "footer": "If you need a structured plan, ask me to list steps."
+                    ]
+                    if let jsonData = try? JSONSerialization.data(withJSONObject: fallback),
+                       let jsonString = String(data: jsonData, encoding: .utf8) {
+                        finalContent = jsonString
+                    } else {
+                        finalContent = trimmed
                     }
                 }
                 
-                // Final update - format the complete response
-                await MainActor.run {
-                    let trimmed = fullContent.trimmingCharacters(in: .whitespacesAndNewlines)
-                    let finalContent: String
-                    
-                    if trimmed.decodeScanKorahFormatted() != nil {
-                        finalContent = trimmed
-                    } else if !trimmed.isEmpty {
-                        let safeSummary = trimmed.replacingOccurrences(of: "\n", with: " ")
-                        let fallback: [String: Any] = [
-                            "kind": "tutor",
-                            "title": "Here's some guidance",
-                            "summary": safeSummary,
-                            "steps": [] as [String],
-                            "hints": [] as [String],
-                            "questions": ["What part would you like to try next?"],
-                            "footer": "If you need a structured plan, ask me to list steps."
-                        ]
-                        if let jsonData = try? JSONSerialization.data(withJSONObject: fallback),
-                           let jsonString = String(data: jsonData, encoding: .utf8) {
-                            finalContent = jsonString
-                        } else {
-                            finalContent = trimmed
-                        }
-                    } else {
-                        finalContent = "I didn't understand that. Could you try asking in a different way?"
-                    }
-                    
-                    if messageIndex < messages.count {
-                        messages[messageIndex].content = finalContent
-                    }
-                    
-                    finishStreaming()
-                    saveCurrentConversation()
-                }
+                // Stream the raw JSON text, then it auto-formats when complete
+                await simulateStreaming(text: finalContent, at: messageIndex)
                 
             } catch {
                 if !Task.isCancelled {
