@@ -207,21 +207,24 @@ struct ScanView: View {
     }
     
     private var contextSuggestions: [String] {
-        let lastAssistant = messages.last { $0.role == "assistant" }?.content ?? ""
-        let lastUser = messages.last { $0.role == "user" }?.content ?? ""
-        var results: [String] = []
-        if !lastAssistant.isEmpty {
-            results.append("Can you go deeper on that?")
-            results.append("Give me a quick practice problem")
-            results.append("Summarize the key idea in 2 sentences")
+        guard let lastAssistant = messages.last(where: { $0.role == "assistant" }),
+              !lastAssistant.content.isEmpty else {
+            return []
         }
-        if !lastUser.isEmpty {
-            results.append("What should I try next?")
-            results.append("Check my understanding with a question")
+        
+        // Try to extract dynamic follow-up questions from the LLM response
+        if let formatted = lastAssistant.content.decodeScanKorahFormatted(),
+           let questions = formatted.questions,
+           !questions.isEmpty {
+            return Array(questions.prefix(3))
         }
-        var seen = Set<String>()
-        let unique = results.filter { seen.insert($0).inserted }
-        return Array(unique.prefix(3))
+        
+        // Fallback to generic suggestions if no questions in response
+        return [
+            "Can you explain that differently?",
+            "Give me an example",
+            "What should I try next?"
+        ]
     }
     
 
@@ -1706,7 +1709,7 @@ extension ScanView {
         - Keep it kid-friendly, concise, and actionable.
         - Do NOT include any non-JSON text.
         - If the user asks for direct answers, redirect with hints in JSON.
-        - Remind students they can ask you to create flashcards or study guides from what they're learning.
+        - The "questions" array MUST contain 2-3 contextual follow-up questions that are specific to the topic just discussed. These should help the student explore further, such as "Where can I apply this?", "How was this derived?", "Give me a practice problem", or ask about related concepts. Make them conversational and engaging.
         """
 
         var apiMessages: [[String: Any]] = [["role": "system", "content": systemInstruction]]
