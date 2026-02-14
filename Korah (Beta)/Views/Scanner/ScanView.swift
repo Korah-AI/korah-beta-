@@ -420,25 +420,133 @@ struct ScanView: View {
     }
     
     private var emptyStateView: some View {
-        VStack(spacing: Spacing.lg) {
+        VStack(spacing: Spacing.xl) {
             Spacer()
-            Text("Scan An Image,")
-                .font(.kLargeTitle)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary).opacity(0.95))
-                .padding(.horizontal)
-            Text("or Just Ask A Question!")
-                .font(.kTitle2)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(Color.adaptive(light: .Light.textSecondary, dark: .Dark.textSecondary))
-                .padding(.horizontal)
-            SuggestionChips(suggestions: starterSuggestions) { suggestion in
-                sendSuggestion(suggestion)
+            
+            // Title
+            VStack(spacing: Spacing.xs) {
+                Text("Ask Anything")
+                    .font(.kLargeTitle)
+                    .bold()
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                Text("with AI Search")
+                    .font(.kLargeTitle)
+                    .bold()
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
             }
+            .padding(.horizontal)
+            
+            // Search Field
+            HStack(spacing: Spacing.sm) {
+                TextField("Ask anything...", text: $userInput, axis: .vertical)
+                    .font(.kBody)
+                    .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                    .lineLimit(1...4)
+                    .onSubmit {
+                        if !userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            Haptics.light()
+                            sendMessage()
+                        }
+                    }
+                
+                if !userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Button(action: {
+                        Haptics.light()
+                        sendMessage()
+                    }) {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 28))
+                            .foregroundStyle(Color.adaptive(light: .Light.accent, dark: .Dark.accent))
+                    }
+                }
+            }
+            .padding(Spacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
+                    .fill(Color.adaptive(light: .Light.surface, dark: .Dark.surface))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
+                            .stroke(Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 1)
+                    )
+            )
+            .padding(.horizontal, Spacing.lg)
+            
+            // Suggestion Cards Grid
+            EmptyStateSuggestionGrid(onTap: sendSuggestion)
+                .padding(.horizontal, Spacing.md)
+            
             Spacer()
         }
         .frame(maxWidth: .infinity)
-        .padding(.horizontal)
+    }
+    
+    struct EmptyStateSuggestionCard: View {
+        let emoji: String
+        let title: String
+        let subtitle: String
+        let onTap: () -> Void
+        
+        var body: some View {
+            Button(action: {
+                Haptics.selection()
+                onTap()
+            }) {
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    HStack(spacing: Spacing.xs) {
+                        Text(emoji)
+                            .font(.system(size: 16))
+                        Text(title)
+                            .font(.kSubheadline)
+                            .bold()
+                            .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                    }
+                    Text(subtitle)
+                        .font(.kCaption)
+                        .foregroundStyle(Color.adaptive(light: .Light.textSecondary, dark: .Dark.textSecondary))
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(3)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(Spacing.md)
+                .background(
+                    RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
+                        .fill(Color.adaptive(light: .Light.surface, dark: .Dark.surface))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
+                                .stroke(Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
+                        )
+                )
+                .shadow(color: .black.opacity(0.03), radius: 4, x: 0, y: 2)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+    
+    struct EmptyStateSuggestionGrid: View {
+        let onTap: (String) -> Void
+        
+        private let suggestions: [(emoji: String, title: String, subtitle: String)] = [
+            ("📚", "Learn more", "Teach me the quadratic formula?"),
+            ("🦣", "Highlight", "What role did the Columbian Exchange play in the narrative?"),
+            ("💪", "Brief me on", "What is Gestalt's Principle on perception?"),
+            ("🏛️", "Help me write", "What agreement came out of the Berlin conference?")
+        ]
+        
+        var body: some View {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: Spacing.sm) {
+                ForEach(suggestions, id: \.title) { suggestion in
+                    EmptyStateSuggestionCard(
+                        emoji: suggestion.emoji,
+                        title: suggestion.title,
+                        subtitle: suggestion.subtitle
+                    ) {
+                        onTap(suggestion.subtitle)
+                    }
+                }
+            }
+        }
     }
     
     private var quickTipsBar: some View {
@@ -641,18 +749,20 @@ struct ScanView: View {
                     
                     if messages.isEmpty {
                         emptyStateView
+                    } else {
+                        quickTipsBar
+                        messagesListView
                     }
-                    
-                    quickTipsBar
-                    messagesListView
                     
                     if isVoiceModeActive {
                         voiceModeIndicator
                     }
                     
-                    imagePreviewView
-                    ttsControlsView
-                    composerBar
+                    if !messages.isEmpty {
+                        imagePreviewView
+                        ttsControlsView
+                        composerBar
+                    }
                 }
                 .kBackground()
                 .transition(.opacity)
