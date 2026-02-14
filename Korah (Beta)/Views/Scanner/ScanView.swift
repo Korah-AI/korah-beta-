@@ -147,6 +147,8 @@ struct ScanView: View {
     
     @State private var selectedFlashcardSetID: UUID? = nil
     @State private var navigateToGuideID: UUID? = nil
+    
+    @State private var showCameraMode = false
 
     @State private var messages: [ScanMessage] = []
     @State private var userInput: String = ""
@@ -262,49 +264,159 @@ struct ScanView: View {
     }
     
     private var headerBar: some View {
-        HStack {
-            Button(action: { hideKeyboard(); navigateToHome = true }) {
-                Image(systemName: "chevron.left")
-                    .font(.headline)
-                    .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-            }
-            Text("Scan")
-                .font(.kHeadline)
-                .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-            Spacer()
-            Button {
-                if !messages.isEmpty {
-                    showNewChatAlert = true
+        VStack(spacing: Spacing.sm) {
+            // Top bar with back button and actions
+            HStack {
+                Button(action: { hideKeyboard(); navigateToHome = true }) {
+                    Image(systemName: "chevron.left")
+                        .font(.headline)
+                        .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
                 }
-            } label: {
-                Image(systemName: "square.and.pencil")
-                    .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                
+                Spacer()
+                
+                if !showCameraMode {
+                    Button {
+                        if !messages.isEmpty {
+                            showNewChatAlert = true
+                        }
+                    } label: {
+                        Image(systemName: "square.and.pencil")
+                            .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                    }
+                    Button {
+                        showConversationHistory = true
+                    } label: {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                    }
+                    Button(role: .destructive) {
+                        showClearChatAlert = true
+                    } label: {
+                        Image(systemName: "trash")
+                            .foregroundStyle(Color.adaptive(light: .Light.error, dark: .Dark.error).opacity(0.9))
+                    }
+                    .disabled(messages.isEmpty)
+                }
             }
-            Button {
-                showConversationHistory = true
-            } label: {
-                Image(systemName: "clock.arrow.circlepath")
-                    .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+            .padding(.horizontal, Spacing.md)
+            .padding(.top, Spacing.xl)
+            
+            // Mode Toggle
+            HStack(spacing: Spacing.sm) {
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showCameraMode = true
+                        hideKeyboard()
+                    }
+                    Haptics.selection()
+                }) {
+                    HStack(spacing: Spacing.xs) {
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 14))
+                        Text("Camera")
+                            .font(.kSubheadline)
+                    }
+                    .foregroundStyle(showCameraMode ? .white : Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                    .padding(.vertical, Spacing.sm)
+                    .padding(.horizontal, Spacing.md)
+                    .background(
+                        RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
+                            .fill(showCameraMode ? Color.adaptive(light: .Light.accent, dark: .Dark.accent) : Color.adaptive(light: .Light.surface, dark: .Dark.surface))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
+                                    .stroke(showCameraMode ? Color.clear : Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
+                            )
+                    )
+                    .shadow(color: showCameraMode ? Color.adaptive(light: .Light.accent, dark: .Dark.accent).opacity(0.3) : .clear, radius: 8, x: 0, y: 4)
+                }
+                
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showCameraMode = false
+                    }
+                    Haptics.selection()
+                }) {
+                    HStack(spacing: Spacing.xs) {
+                        Image(systemName: "message.fill")
+                            .font(.system(size: 14))
+                        Text("Chat")
+                            .font(.kSubheadline)
+                    }
+                    .foregroundStyle(!showCameraMode ? .white : Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                    .padding(.vertical, Spacing.sm)
+                    .padding(.horizontal, Spacing.md)
+                    .background(
+                        RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
+                            .fill(!showCameraMode ? Color.adaptive(light: .Light.accent, dark: .Dark.accent) : Color.adaptive(light: .Light.surface, dark: .Dark.surface))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
+                                    .stroke(!showCameraMode ? Color.clear : Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
+                            )
+                    )
+                    .shadow(color: !showCameraMode ? Color.adaptive(light: .Light.accent, dark: .Dark.accent).opacity(0.3) : .clear, radius: 8, x: 0, y: 4)
+                }
             }
-            Button(role: .destructive) {
-                showClearChatAlert = true
-            } label: {
-                Image(systemName: "trash")
-                    .foregroundStyle(Color.adaptive(light: .Light.error, dark: .Dark.error).opacity(0.9))
-            }
-            .disabled(messages.isEmpty)
+            .padding(.horizontal, Spacing.md)
+            .padding(.bottom, Spacing.md)
         }
-        .padding(Spacing.md)
-        .background(
-            RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
-                .fill(Color.adaptive(light: .Light.surface, dark: .Dark.surface))
-                .overlay(
-                    RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
-                        .stroke(Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
+    }
+    
+    private var modeToggle: some View {
+        HStack(spacing: Spacing.sm) {
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showCameraMode = true
+                    hideKeyboard()
+                }
+                Haptics.selection()
+            }) {
+                HStack(spacing: Spacing.xs) {
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 14))
+                    Text("Camera")
+                        .font(.kSubheadline)
+                }
+                .foregroundStyle(showCameraMode ? .white : Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                .padding(.vertical, Spacing.sm)
+                .padding(.horizontal, Spacing.md)
+                .background(
+                    RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
+                        .fill(showCameraMode ? Color.adaptive(light: .Light.accent, dark: .Dark.accent) : Color.adaptive(light: .Light.surface, dark: .Dark.surface))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
+                                .stroke(showCameraMode ? Color.clear : Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
+                        )
                 )
-        )
-        .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 2)
-        .padding(.horizontal)
+                .shadow(color: showCameraMode ? Color.adaptive(light: .Light.accent, dark: .Dark.accent).opacity(0.3) : .clear, radius: 8, x: 0, y: 4)
+            }
+            
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showCameraMode = false
+                }
+                Haptics.selection()
+            }) {
+                HStack(spacing: Spacing.xs) {
+                    Image(systemName: "message.fill")
+                        .font(.system(size: 14))
+                    Text("Chat")
+                        .font(.kSubheadline)
+                }
+                .foregroundStyle(!showCameraMode ? .white : Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                .padding(.vertical, Spacing.sm)
+                .padding(.horizontal, Spacing.md)
+                .background(
+                    RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
+                        .fill(!showCameraMode ? Color.adaptive(light: .Light.accent, dark: .Dark.accent) : Color.adaptive(light: .Light.surface, dark: .Dark.surface))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
+                                .stroke(!showCameraMode ? Color.clear : Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
+                        )
+                )
+                .shadow(color: !showCameraMode ? Color.adaptive(light: .Light.accent, dark: .Dark.accent).opacity(0.3) : .clear, radius: 8, x: 0, y: 4)
+            }
+        }
     }
     
     private var emptyStateView: some View {
@@ -510,9 +622,6 @@ struct ScanView: View {
             onToggleVoiceMode: toggleVoiceMode,
             onAttachment: {
                 Haptics.selection()
-                if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                    imageSourceType = .camera
-                }
                 showImageSourceAlert = true
             },
             onSend: {
@@ -523,26 +632,57 @@ struct ScanView: View {
     }
     
     var body: some View {
-        VStack(spacing: 0) {
-            navigationLinks
-            headerBar
-            
-            if messages.isEmpty {
-                emptyStateView
+        ZStack {
+            // Chat Mode
+            if !showCameraMode {
+                VStack(spacing: 0) {
+                    navigationLinks
+                    headerBar
+                    
+                    if messages.isEmpty {
+                        emptyStateView
+                    }
+                    
+                    quickTipsBar
+                    messagesListView
+                    
+                    if isVoiceModeActive {
+                        voiceModeIndicator
+                    }
+                    
+                    imagePreviewView
+                    ttsControlsView
+                    composerBar
+                }
+                .kBackground()
+                .transition(.opacity)
             }
             
-            quickTipsBar
-            messagesListView
-            
-            if isVoiceModeActive {
-                voiceModeIndicator
+            // Camera Mode
+            if showCameraMode {
+                ZStack(alignment: .top) {
+                    CustomCameraView(
+                        onPhotoCaptured: { image in
+                            selectedImage = image
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                showCameraMode = false
+                            }
+                        },
+                        onDismiss: {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                showCameraMode = false
+                            }
+                        }
+                    )
+                    .ignoresSafeArea()
+                    
+                    modeToggle
+                        .padding(.top, Spacing.xl + 44)
+                        .padding(.horizontal, Spacing.md)
+                }
+                .transition(.opacity)
             }
-            
-            imagePreviewView
-            ttsControlsView
-            composerBar
         }
-        .kBackground()
         .alert("Delete Chat", isPresented: $showClearChatAlert) {
             Button("Delete", role: .destructive) {
                 withAnimation { 
@@ -578,8 +718,9 @@ struct ScanView: View {
         }
         .confirmationDialog("Choose Image Source", isPresented: $showImageSourceAlert) {
             Button("Camera") {
-                imageSourceType = .camera
-                showImagePicker = true
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showCameraMode = true
+                }
             }
             Button("Photo Library") {
                 imageSourceType = .photoLibrary
@@ -605,23 +746,8 @@ struct ScanView: View {
         }
         .tint(Color.adaptive(light: .Light.accent, dark: .Dark.accent))
         .onAppear {
-            requestCameraAccessIfNeeded { granted in
-                if granted {
-                    if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                        imageSourceType = .camera
-                    } else {
-                        imageSourceType = .photoLibrary
-                    }
-                    if !showImagePicker {
-                        showImagePicker = true
-                    }
-                } else {
-                    imageSourceType = .photoLibrary
-                    if !showImagePicker {
-                        showImagePicker = true
-                    }
-                }
-            }
+            // Default to camera mode when view appears
+            showCameraMode = true
         }
     }
     
