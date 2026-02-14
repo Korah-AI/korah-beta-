@@ -147,6 +147,8 @@ struct ScanView: View {
     
     @State private var selectedFlashcardSetID: UUID? = nil
     @State private var navigateToGuideID: UUID? = nil
+    
+    @State private var showCameraMode = false
 
     @State private var messages: [ScanMessage] = []
     @State private var userInput: String = ""
@@ -205,21 +207,24 @@ struct ScanView: View {
     }
     
     private var contextSuggestions: [String] {
-        let lastAssistant = messages.last { $0.role == "assistant" }?.content ?? ""
-        let lastUser = messages.last { $0.role == "user" }?.content ?? ""
-        var results: [String] = []
-        if !lastAssistant.isEmpty {
-            results.append("Can you go deeper on that?")
-            results.append("Give me a quick practice problem")
-            results.append("Summarize the key idea in 2 sentences")
+        guard let lastAssistant = messages.last(where: { $0.role == "assistant" }),
+              !lastAssistant.content.isEmpty else {
+            return []
         }
-        if !lastUser.isEmpty {
-            results.append("What should I try next?")
-            results.append("Check my understanding with a question")
+        
+        // Try to extract dynamic follow-up questions from the LLM response
+        if let formatted = lastAssistant.content.decodeScanKorahFormatted(),
+           let questions = formatted.questions,
+           !questions.isEmpty {
+            return Array(questions.prefix(3))
         }
-        var seen = Set<String>()
-        let unique = results.filter { seen.insert($0).inserted }
-        return Array(unique.prefix(3))
+        
+        // Fallback to generic suggestions if no questions in response
+        return [
+            "Can you explain that differently?",
+            "Give me an example",
+            "What should I try next?"
+        ]
     }
     
 
@@ -262,71 +267,289 @@ struct ScanView: View {
     }
     
     private var headerBar: some View {
-        HStack {
-            Button(action: { hideKeyboard(); navigateToHome = true }) {
-                Image(systemName: "chevron.left")
-                    .font(.headline)
-                    .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-            }
-            Text("Scan")
-                .font(.kHeadline)
-                .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-            Spacer()
-            Button {
-                if !messages.isEmpty {
-                    showNewChatAlert = true
+        VStack(spacing: Spacing.sm) {
+            // Top bar with back button and actions
+            HStack {
+                Button(action: { hideKeyboard(); navigateToHome = true }) {
+                    Image(systemName: "chevron.left")
+                        .font(.headline)
+                        .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
                 }
-            } label: {
-                Image(systemName: "square.and.pencil")
-                    .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                
+                Spacer()
+                
+                if !showCameraMode {
+                    Button {
+                        if !messages.isEmpty {
+                            showNewChatAlert = true
+                        }
+                    } label: {
+                        Image(systemName: "square.and.pencil")
+                            .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                    }
+                    Button {
+                        showConversationHistory = true
+                    } label: {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                    }
+                    Button(role: .destructive) {
+                        showClearChatAlert = true
+                    } label: {
+                        Image(systemName: "trash")
+                            .foregroundStyle(Color.adaptive(light: .Light.error, dark: .Dark.error).opacity(0.9))
+                    }
+                    .disabled(messages.isEmpty)
+                }
             }
-            Button {
-                showConversationHistory = true
-            } label: {
-                Image(systemName: "clock.arrow.circlepath")
-                    .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+            .padding(.horizontal, Spacing.md)
+            .padding(.top, Spacing.xl)
+            
+            // Mode Toggle
+            HStack(spacing: Spacing.sm) {
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showCameraMode = true
+                        hideKeyboard()
+                    }
+                    Haptics.selection()
+                }) {
+                    HStack(spacing: Spacing.xs) {
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 14))
+                        Text("Camera")
+                            .font(.kSubheadline)
+                    }
+                    .foregroundStyle(showCameraMode ? .white : Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                    .padding(.vertical, Spacing.sm)
+                    .padding(.horizontal, Spacing.md)
+                    .background(
+                        RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
+                            .fill(showCameraMode ? Color.adaptive(light: .Light.accent, dark: .Dark.accent) : Color.adaptive(light: .Light.surface, dark: .Dark.surface))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
+                                    .stroke(showCameraMode ? Color.clear : Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
+                            )
+                    )
+                    .shadow(color: showCameraMode ? Color.adaptive(light: .Light.accent, dark: .Dark.accent).opacity(0.3) : .clear, radius: 8, x: 0, y: 4)
+                }
+                
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showCameraMode = false
+                    }
+                    Haptics.selection()
+                }) {
+                    HStack(spacing: Spacing.xs) {
+                        Image(systemName: "message.fill")
+                            .font(.system(size: 14))
+                        Text("Chat")
+                            .font(.kSubheadline)
+                    }
+                    .foregroundStyle(!showCameraMode ? .white : Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                    .padding(.vertical, Spacing.sm)
+                    .padding(.horizontal, Spacing.md)
+                    .background(
+                        RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
+                            .fill(!showCameraMode ? Color.adaptive(light: .Light.accent, dark: .Dark.accent) : Color.adaptive(light: .Light.surface, dark: .Dark.surface))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
+                                    .stroke(!showCameraMode ? Color.clear : Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
+                            )
+                    )
+                    .shadow(color: !showCameraMode ? Color.adaptive(light: .Light.accent, dark: .Dark.accent).opacity(0.3) : .clear, radius: 8, x: 0, y: 4)
+                }
             }
-            Button(role: .destructive) {
-                showClearChatAlert = true
-            } label: {
-                Image(systemName: "trash")
-                    .foregroundStyle(Color.adaptive(light: .Light.error, dark: .Dark.error).opacity(0.9))
-            }
-            .disabled(messages.isEmpty)
+            .padding(.horizontal, Spacing.md)
+            .padding(.bottom, Spacing.md)
         }
-        .padding(Spacing.md)
-        .background(
-            RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
-                .fill(Color.adaptive(light: .Light.surface, dark: .Dark.surface))
-                .overlay(
-                    RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
-                        .stroke(Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
+    }
+    
+    private var modeToggle: some View {
+        HStack(spacing: Spacing.sm) {
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showCameraMode = true
+                    hideKeyboard()
+                }
+                Haptics.selection()
+            }) {
+                HStack(spacing: Spacing.xs) {
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 14))
+                    Text("Camera")
+                        .font(.kSubheadline)
+                }
+                .foregroundStyle(showCameraMode ? .white : Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                .padding(.vertical, Spacing.sm)
+                .padding(.horizontal, Spacing.md)
+                .background(
+                    RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
+                        .fill(showCameraMode ? Color.adaptive(light: .Light.accent, dark: .Dark.accent) : Color.adaptive(light: .Light.surface, dark: .Dark.surface))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
+                                .stroke(showCameraMode ? Color.clear : Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
+                        )
                 )
-        )
-        .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 2)
-        .padding(.horizontal)
+                .shadow(color: showCameraMode ? Color.adaptive(light: .Light.accent, dark: .Dark.accent).opacity(0.3) : .clear, radius: 8, x: 0, y: 4)
+            }
+            
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showCameraMode = false
+                }
+                Haptics.selection()
+            }) {
+                HStack(spacing: Spacing.xs) {
+                    Image(systemName: "message.fill")
+                        .font(.system(size: 14))
+                    Text("Chat")
+                        .font(.kSubheadline)
+                }
+                .foregroundStyle(!showCameraMode ? .white : Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                .padding(.vertical, Spacing.sm)
+                .padding(.horizontal, Spacing.md)
+                .background(
+                    RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
+                        .fill(!showCameraMode ? Color.adaptive(light: .Light.accent, dark: .Dark.accent) : Color.adaptive(light: .Light.surface, dark: .Dark.surface))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
+                                .stroke(!showCameraMode ? Color.clear : Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
+                        )
+                )
+                .shadow(color: !showCameraMode ? Color.adaptive(light: .Light.accent, dark: .Dark.accent).opacity(0.3) : .clear, radius: 8, x: 0, y: 4)
+            }
+        }
     }
     
     private var emptyStateView: some View {
-        VStack(spacing: Spacing.lg) {
+        VStack(spacing: Spacing.xl) {
             Spacer()
-            Text("Scan An Image,")
-                .font(.kLargeTitle)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary).opacity(0.95))
-                .padding(.horizontal)
-            Text("or Just Ask A Question!")
-                .font(.kTitle2)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(Color.adaptive(light: .Light.textSecondary, dark: .Dark.textSecondary))
-                .padding(.horizontal)
-            SuggestionChips(suggestions: starterSuggestions) { suggestion in
-                sendSuggestion(suggestion)
+            
+            // Title
+            VStack(spacing: Spacing.xs) {
+                Text("Ask Anything")
+                    .font(.kLargeTitle)
+                    .bold()
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                Text("with AI Search")
+                    .font(.kLargeTitle)
+                    .bold()
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
             }
+            .padding(.horizontal)
+            
+            // Search Field
+            HStack(spacing: Spacing.sm) {
+                TextField("Ask anything...", text: $userInput, axis: .vertical)
+                    .font(.kBody)
+                    .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                    .lineLimit(1...4)
+                    .onSubmit {
+                        if !userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            Haptics.light()
+                            sendMessage()
+                        }
+                    }
+                
+                if !userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Button(action: {
+                        Haptics.light()
+                        sendMessage()
+                    }) {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 28))
+                            .foregroundStyle(Color.adaptive(light: .Light.accent, dark: .Dark.accent))
+                    }
+                }
+            }
+            .padding(Spacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
+                    .fill(Color.adaptive(light: .Light.surface, dark: .Dark.surface))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
+                            .stroke(Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 1)
+                    )
+            )
+            .padding(.horizontal, Spacing.lg)
+            
+            // Suggestion Cards Grid
+            EmptyStateSuggestionGrid(onTap: sendSuggestion)
+                .padding(.horizontal, Spacing.md)
+            
             Spacer()
         }
         .frame(maxWidth: .infinity)
-        .padding(.horizontal)
+    }
+    
+    struct EmptyStateSuggestionCard: View {
+        let emoji: String
+        let title: String
+        let subtitle: String
+        let onTap: () -> Void
+        
+        var body: some View {
+            Button(action: {
+                Haptics.selection()
+                onTap()
+            }) {
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    HStack(spacing: Spacing.xs) {
+                        Text(emoji)
+                            .font(.system(size: 16))
+                        Text(title)
+                            .font(.kSubheadline)
+                            .bold()
+                            .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                    }
+                    Text(subtitle)
+                        .font(.kCaption)
+                        .foregroundStyle(Color.adaptive(light: .Light.textSecondary, dark: .Dark.textSecondary))
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(3)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(Spacing.md)
+                .background(
+                    RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
+                        .fill(Color.adaptive(light: .Light.surface, dark: .Dark.surface))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
+                                .stroke(Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
+                        )
+                )
+                .shadow(color: .black.opacity(0.03), radius: 4, x: 0, y: 2)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+    
+    struct EmptyStateSuggestionGrid: View {
+        let onTap: (String) -> Void
+        
+        private let suggestions: [(emoji: String, title: String, subtitle: String)] = [
+            ("📚", "Learn more", "Teach me the quadratic formula?"),
+            ("🦣", "Highlight", "What role did the Columbian Exchange play in the narrative?"),
+            ("💪", "Brief me on", "What is Gestalt's Principle on perception?"),
+            ("🏛️", "Help me write", "What agreement came out of the Berlin conference?")
+        ]
+        
+        var body: some View {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: Spacing.sm) {
+                ForEach(suggestions, id: \.title) { suggestion in
+                    EmptyStateSuggestionCard(
+                        emoji: suggestion.emoji,
+                        title: suggestion.title,
+                        subtitle: suggestion.subtitle
+                    ) {
+                        onTap(suggestion.subtitle)
+                    }
+                }
+            }
+        }
     }
     
     private var quickTipsBar: some View {
@@ -510,9 +733,6 @@ struct ScanView: View {
             onToggleVoiceMode: toggleVoiceMode,
             onAttachment: {
                 Haptics.selection()
-                if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                    imageSourceType = .camera
-                }
                 showImageSourceAlert = true
             },
             onSend: {
@@ -523,26 +743,59 @@ struct ScanView: View {
     }
     
     var body: some View {
-        VStack(spacing: 0) {
-            navigationLinks
-            headerBar
-            
-            if messages.isEmpty {
-                emptyStateView
+        ZStack {
+            // Chat Mode
+            if !showCameraMode {
+                VStack(spacing: 0) {
+                    navigationLinks
+                    headerBar
+                    
+                    if messages.isEmpty {
+                        emptyStateView
+                    } else {
+                        quickTipsBar
+                        messagesListView
+                    }
+                    
+                    if isVoiceModeActive {
+                        voiceModeIndicator
+                    }
+                    
+                    if !messages.isEmpty {
+                        imagePreviewView
+                        ttsControlsView
+                        composerBar
+                    }
+                }
+                .kBackground()
+                .transition(.opacity)
             }
             
-            quickTipsBar
-            messagesListView
-            
-            if isVoiceModeActive {
-                voiceModeIndicator
+            // Camera Mode
+            if showCameraMode {
+                ZStack(alignment: .top) {
+                    CustomCameraView(
+                        onPhotoCaptured: { image in
+                            selectedImage = image
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                showCameraMode = false
+                            }
+                        },
+                        onDismiss: {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                showCameraMode = false
+                            }
+                        }
+                    )
+                    .ignoresSafeArea()
+                    
+                    modeToggle
+                        .padding(.top, Spacing.xl + 44)
+                        .padding(.horizontal, Spacing.md)
+                }
+                .transition(.opacity)
             }
-            
-            imagePreviewView
-            ttsControlsView
-            composerBar
         }
-        .kBackground()
         .alert("Delete Chat", isPresented: $showClearChatAlert) {
             Button("Delete", role: .destructive) {
                 withAnimation { 
@@ -578,8 +831,9 @@ struct ScanView: View {
         }
         .confirmationDialog("Choose Image Source", isPresented: $showImageSourceAlert) {
             Button("Camera") {
-                imageSourceType = .camera
-                showImagePicker = true
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showCameraMode = true
+                }
             }
             Button("Photo Library") {
                 imageSourceType = .photoLibrary
@@ -605,23 +859,8 @@ struct ScanView: View {
         }
         .tint(Color.adaptive(light: .Light.accent, dark: .Dark.accent))
         .onAppear {
-            requestCameraAccessIfNeeded { granted in
-                if granted {
-                    if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                        imageSourceType = .camera
-                    } else {
-                        imageSourceType = .photoLibrary
-                    }
-                    if !showImagePicker {
-                        showImagePicker = true
-                    }
-                } else {
-                    imageSourceType = .photoLibrary
-                    if !showImagePicker {
-                        showImagePicker = true
-                    }
-                }
-            }
+            // Default to camera mode when view appears
+            showCameraMode = true
         }
     }
     
@@ -1470,7 +1709,7 @@ extension ScanView {
         - Keep it kid-friendly, concise, and actionable.
         - Do NOT include any non-JSON text.
         - If the user asks for direct answers, redirect with hints in JSON.
-        - Remind students they can ask you to create flashcards or study guides from what they're learning.
+        - The "questions" array MUST contain 2-3 contextual follow-up questions that are specific to the topic just discussed. These should help the student explore further, such as "Where can I apply this?", "How was this derived?", "Give me a practice problem", or ask about related concepts. Make them conversational and engaging.
         """
 
         var apiMessages: [[String: Any]] = [["role": "system", "content": systemInstruction]]
