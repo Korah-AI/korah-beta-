@@ -669,6 +669,7 @@ struct ScanView: View {
     struct ScanChatBubble: View {
         let message: ScanMessage
         @State private var isSpeaking = false
+        @State private var thinkingOpacity: Double = 0.4
         let onCopy: (String) -> Void
         let onListen: (String, UUID) -> Void
         let onRetry: () -> Void
@@ -678,7 +679,29 @@ struct ScanView: View {
                 HStack(alignment: .bottom) {
                     Spacer().frame(width: 0)
                     if message.role == "assistant" {
-                        if let formatted = message.content.decodeScanKorahFormatted() {
+                        if message.content.isEmpty {
+                            // Show loading state when content is empty
+                            Text("Korah is thinking...")
+                                .font(.kBody)
+                                .foregroundStyle(Color.adaptive(light: .Light.accent, dark: .Dark.accent))
+                                .opacity(thinkingOpacity)
+                                .padding(Spacing.md)
+                                .background(
+                                    RoundedRectangle(cornerRadius: CornerRadius.bubble, style: .continuous)
+                                        .fill(Color.adaptive(light: .Light.surface, dark: .Dark.surface))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: CornerRadius.bubble, style: .continuous)
+                                                .stroke(Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
+                                        )
+                                )
+                                .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .onAppear {
+                                    withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
+                                        thinkingOpacity = 1.0
+                                    }
+                                }
+                        } else if let formatted = message.content.decodeScanKorahFormatted() {
                             ScanAnswerView(formatted: formatted, timestamp: message.timestamp)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         } else {
