@@ -20,8 +20,17 @@ export async function checkRateLimit(userId, tokensUsed = 0) {
   const key = `rate_limit:${userId}:${today}`;
   
   try {
-    // Get current usage
-    const currentUsage = await redis.get(key) || 0;
+    // Add timeout wrapper for Redis operations (3 second timeout)
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Redis timeout')), 3000)
+    );
+    
+    // Get current usage with timeout
+    const currentUsage = await Promise.race([
+      redis.get(key),
+      timeoutPromise
+    ]).then(val => val || 0);
+    
     const newUsage = Number(currentUsage) + tokensUsed;
     
     // Check if limit exceeded
@@ -39,8 +48,11 @@ export async function checkRateLimit(userId, tokensUsed = 0) {
       };
     }
     
-    // Update usage with 24-hour expiry (86400 seconds)
-    await redis.set(key, newUsage, { ex: 86400 });
+    // Update usage with 24-hour expiry (86400 seconds) - with timeout
+    await Promise.race([
+      redis.set(key, newUsage, { ex: 86400 }),
+      timeoutPromise
+    ]);
     
     const tomorrow = new Date();
     tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
