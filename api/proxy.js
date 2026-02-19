@@ -66,13 +66,18 @@ export default async function handler(req, res) {
     const data = await response.json();
     
     // Update rate limit with actual token usage (if available)
+    // Don't await - let it update in background to avoid blocking response
     if (data.usage && data.usage.total_tokens) {
-      await checkRateLimit(userId, data.usage.total_tokens);
+      checkRateLimit(userId, data.usage.total_tokens).catch(err => 
+        console.error('Rate limit update failed:', err)
+      );
     } else {
       // Fall back to estimated tokens if usage not provided
       const outputText = data.choices?.[0]?.message?.content || '';
       const estimatedOutputTokens = estimateTokens(outputText);
-      await checkRateLimit(userId, estimatedInputTokens + estimatedOutputTokens);
+      checkRateLimit(userId, estimatedInputTokens + estimatedOutputTokens).catch(err => 
+        console.error('Rate limit update failed:', err)
+      );
     }
     
     return res.status(response.status).json(data);
