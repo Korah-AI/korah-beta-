@@ -29,7 +29,7 @@ DEVELOPMENT
   <li> Add text streaming for API </li>
   <li> Update loading screens </li>
   <li> Take notes from StudyFetch </li>
-  <li> Take Jayden's overall feedback </li>
+  <li> Take Jayden's overall feedback @feedback.md </li>
   <li> Make .env file for the API Key in a .gitignore file to reduce latency? </li>
   <li> Make outline for web version </li>
   <li> Korah AP/SAT? (use webscrapers and Vapi for tailoring? </li>
