@@ -36,7 +36,10 @@ DEVELOPMENT
 </ul>
 
 <h1>Main Priorities</h1>
-<li> Update A.I. responses, speed, latency, and streaming. </li>
-<li>Implement Screentime Features. </li>
-<li>Begin Website Development</li>
-<li>Update U.I. (Gauth/StudyFetch Inspired)</li>
+<ul>
+  <li> Update A.I. responses, speed, latency, and streaming. </li>
+  <li>Implement Screentime Features. </li>
+  <li>Begin Website Development</li>
+  <li>Update U.I. (Gauth/StudyFetch Inspired)</li>
+</ul>
+
