@@ -21,6 +21,7 @@ DEVELOPMENT
 
 <ul>
   <li> Switch to Responses API to update model to GPT-5-Nano </li>
+  <li> Implement auto-cropping like Gauth </li>
   <li> Add text streaming for API </li>
   <li> Update loading screens </li>
   <li> Take notes from StudyFetch </li>
