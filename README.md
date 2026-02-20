@@ -36,6 +36,6 @@ DEVELOPMENT
 </ul>
 
 <h1>Main Priorities</h1>
-- Update A.I. responses, speed, latency, and streaming.
-- Implement Screentime Features
-- Begin Web Version
+<li> Update A.I. responses, speed, latency, and streaming. </li>
+<li>Implement Screentime Features. </li>
+<li>- Begin Web Version</li>
