@@ -20,7 +20,7 @@ DEVELOPMENT
 <h1> Todo List </h1>
 
 <ul>
-  <li> Update prompting to be better, longer, etc. Right now, it is too strict and concise. </li>
+  <li> Update prompting to be better, longer, etc. Right now, it is too strict and concise. Render as markdown instead of JSON. </li>
   <li> Screen Time Features (Must request from Apple. May add "paid" tier for acceptance) </li>
   <li> Live Activities + Notifications </li>
   <li> Either update or remove Tasks section </li>
