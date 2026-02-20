@@ -21,6 +21,9 @@ DEVELOPMENT
 
 <ul>
   <li> Update prompting to be better, longer, etc. Right now, it is too strict and concise. </li>
+  <li> Screen Time Features (Must request from Apple. May add "paid" tier for acceptance) </li>
+  <li> Live Activities + Notifications </li>
+  <li> Either update or remove Tasks section </li>
   <li> Switch to Responses API to update model to GPT-5-Nano </li>
   <li> Implement auto-cropping like Gauth </li>
   <li> Add text streaming for API </li>
