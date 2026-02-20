@@ -34,3 +34,8 @@ DEVELOPMENT
   <li> Make outline for web version </li>
   <li> Korah AP/SAT? (use webscrapers and Vapi for tailoring? </li>
 </ul>
+
+<h1>Main Priorities</h1>
+- Update A.I. responses, speed, latency, and streaming.
+- Implement Screentime Features
+- Begin Web Version
