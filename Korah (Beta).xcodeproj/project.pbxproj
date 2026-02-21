@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		2C4A04062EFF535D00862664 /* README.txt in Resources */ = {isa = PBXBuildFile; fileRef = 2C4A03D82EFF535D00862664 /* README.txt */; };
 		2C6056C62F11FDF4009E17B8 /* ActivityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2C6056C52F11FDF4009E17B8 /* ActivityKit.framework */; };
 /* End PBXBuildFile section */
 
@@ -42,7 +41,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		2C4A03D82EFF535D00862664 /* README.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = README.txt; sourceTree = "<group>"; };
 		2C6056C52F11FDF4009E17B8 /* ActivityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ActivityKit.framework; path = System/Library/Frameworks/ActivityKit.framework; sourceTree = SDKROOT; };
 		2C6056CE2F1203A6009E17B8 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		2C6056D02F1203A6009E17B8 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
@@ -118,7 +116,6 @@
 				2C98C8DD2EFE4F0A00BF141B /* Korah (Beta)UITests */,
 				2C6056D22F1203A6009E17B8 /* FocusTimerWidget */,
 				2C98C8C42EFE4F0800BF141B /* Products */,
-				2C4A03D82EFF535D00862664 /* README.txt */,
 				2C6056C42F11FDF4009E17B8 /* Frameworks */,
 			);
 			sourceTree = "<group>";
@@ -254,7 +251,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2C4A04062EFF535D00862664 /* README.txt in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
