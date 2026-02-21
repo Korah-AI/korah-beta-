@@ -15,7 +15,7 @@ FEATURES
 DEVELOPMENT
 -----------
 - Languages: Swift, JavaScript.
-- API: OpenAI; GPT-4o (will be changed for better latency).
+- API: OpenAI; GPT-4o (will be changed for better latency). Proxied via Vercel in backend.
 
 <h1> Todo List </h1>
 
