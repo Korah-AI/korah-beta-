@@ -75,7 +75,6 @@ struct ScanKorahFormatted: Decodable {
     let kind: String?           
     let title: String?          
     let summary: String?        
-    let steps: [String]?        
     let hints: [String]?        
     let questions: [String]?    
     let footer: String?         
@@ -1058,22 +1057,6 @@ struct ScanView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                if let steps = formatted.steps, !steps.isEmpty {
-                    VStack(alignment: .leading, spacing: Spacing.lg) {
-                        ForEach(Array(steps.enumerated()), id: \.offset) { idx, step in
-                            HStack(alignment: .top, spacing: Spacing.sm) {
-                                badge(idx + 1)
-                                    .padding(.top, 2)
-                                Text(step)
-                                    .font(.kBody)
-                                    .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-                                    .lineSpacing(4)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
-                    }
-                }
-
                 if let hints = formatted.hints, !hints.isEmpty {
                     VStack(alignment: .leading, spacing: Spacing.sm) {
                         Text("Tips")
@@ -1176,7 +1159,7 @@ struct ScanView: View {
             }
         }
 
-        let instruction = "Create a flashcard set from our conversation in the same JSON schema. Put concise terms in hints and matching definitions in steps."
+        let instruction = "Create a flashcard set from our conversation in the same JSON schema. Put concise terms in hints and matching definitions."
         apiMessages.append(["role": "user", "content": instruction])
 
         let body: [String: Any] = [
@@ -1293,7 +1276,6 @@ struct ScanView: View {
           "kind": "study_guide",
           "title": string,
           "summary": string,
-          "steps": [string],
           "hints": [string],
           "questions": [string],
           "footer": string
@@ -1404,17 +1386,8 @@ struct ScanView: View {
 
     
     private func extractPairsFrom(formatted: ScanKorahFormatted) -> [(String, String)] {
-        if let hints = formatted.hints, !hints.isEmpty, let steps = formatted.steps, !steps.isEmpty {
-            let count = min(hints.count, steps.count)
-            return (0..<count).map { (hints[$0], steps[$0]) }
-        }
-        
-        if let steps = formatted.steps, !steps.isEmpty {
-            if let hints = formatted.hints, !hints.isEmpty {
-                let count = min(steps.count, hints.count)
-                return (0..<count).map { (steps[$0], hints[$0]) }
-            }
-            return steps.map { ($0, "") }
+        if let hints = formatted.hints, !hints.isEmpty {
+            return hints.map { ($0, "") }
         }
         
         if let summary = formatted.summary, !summary.isEmpty {
@@ -1453,13 +1426,6 @@ struct ScanView: View {
             
             if let summary = formatted.summary, !summary.isEmpty {
                 text += summary + "\n\n"
-            }
-            
-            if let steps = formatted.steps, !steps.isEmpty {
-                for (index, step) in steps.enumerated() {
-                    text += "\(index + 1). \(step)\n"
-                }
-                text += "\n"
             }
             
             if let hints = formatted.hints, !hints.isEmpty {
@@ -1700,13 +1666,12 @@ extension ScanView {
           "kind": "tutor",
           "title": string,
           "summary": string,
-          "steps": [string],
           "hints": [string],
           "questions": [string]
         }
 
         Rules:
-        - Keep it kid-friendly, concise, and actionable.
+        - Be a tutor that is friendly and makes learning fun, using emojis and being educational. Make the summary array nice and long, getting into what they need to learn
         - Do NOT include any non-JSON text.
         - If the user asks for direct answers, redirect with hints in JSON.
         - The "questions" array MUST contain 2-3 contextual follow-up questions that are specific to the topic just discussed. These should help the student explore further, such as "Where can I apply this?", "How was this derived?", "Give me a practice problem", or ask about related concepts. Make them conversational and engaging.
@@ -1733,7 +1698,7 @@ extension ScanView {
         let body: [String: Any] = [
             "model": "gpt-4o",
             "messages": apiMessages,
-            "temperature": 0.3,
+            "temperature": 0.9,
             "max_tokens": 1000,
             "response_format": ["type": "json_object"]
         ]
@@ -1813,7 +1778,6 @@ extension ScanView {
         var segments: [String] = []
         if let title = formatted.title, !title.isEmpty { segments.append(title) }
         if let summary = formatted.summary, !summary.isEmpty { segments.append(summary) }
-        if let steps = formatted.steps { segments.append(contentsOf: steps) }
         if let hints = formatted.hints { segments.append(contentsOf: hints) }
         if let questions = formatted.questions { segments.append(contentsOf: questions) }
         
@@ -1838,7 +1802,6 @@ extension ScanView {
         // Track progress through each field
         var revealedTitle = ""
         var revealedSummary = ""
-        var revealedSteps: [String] = []
         var revealedHints: [String] = []
         var revealedQuestions: [String] = []
         
@@ -1852,7 +1815,7 @@ extension ScanView {
                 revealedTitle = String(title.prefix(endIdx))
                 globalCharIndex = endIdx
                 
-                let partialJson = buildPartialJson(kind: formatted.kind, title: revealedTitle, summary: nil, steps: nil, hints: nil, questions: nil)
+                let partialJson = buildPartialJson(kind: formatted.kind, title: revealedTitle, summary: nil, hints: nil, questions: nil)
                 await MainActor.run {
                     if index < messages.count { messages[index].content = partialJson }
                 }
@@ -1868,32 +1831,13 @@ extension ScanView {
                 let endIdx = min(i + charsPerUpdate, summary.count)
                 revealedSummary = String(summary.prefix(endIdx))
                 
-                let partialJson = buildPartialJson(kind: formatted.kind, title: revealedTitle, summary: revealedSummary, steps: nil, hints: nil, questions: nil)
+                let partialJson = buildPartialJson(kind: formatted.kind, title: revealedTitle, summary: revealedSummary, hints: nil, questions: nil)
                 await MainActor.run {
                     if index < messages.count { messages[index].content = partialJson }
                 }
                 try? await Task.sleep(nanoseconds: updateInterval)
             }
             revealedSummary = summary
-        }
-        
-        // Stream steps
-        if let steps = formatted.steps {
-            for (stepIdx, step) in steps.enumerated() {
-                revealedSteps.append("")
-                for i in stride(from: 0, to: step.count, by: charsPerUpdate) {
-                    if Task.isCancelled { break }
-                    let endIdx = min(i + charsPerUpdate, step.count)
-                    revealedSteps[stepIdx] = String(step.prefix(endIdx))
-                    
-                    let partialJson = buildPartialJson(kind: formatted.kind, title: revealedTitle, summary: revealedSummary, steps: revealedSteps, hints: nil, questions: nil)
-                    await MainActor.run {
-                        if index < messages.count { messages[index].content = partialJson }
-                    }
-                    try? await Task.sleep(nanoseconds: updateInterval)
-                }
-                revealedSteps[stepIdx] = step
-            }
         }
         
         // Stream hints
@@ -1905,7 +1849,7 @@ extension ScanView {
                     let endIdx = min(i + charsPerUpdate, hint.count)
                     revealedHints[hintIdx] = String(hint.prefix(endIdx))
                     
-                    let partialJson = buildPartialJson(kind: formatted.kind, title: revealedTitle, summary: revealedSummary, steps: revealedSteps.isEmpty ? nil : revealedSteps, hints: revealedHints, questions: nil)
+                    let partialJson = buildPartialJson(kind: formatted.kind, title: revealedTitle, summary: revealedSummary, hints: revealedHints, questions: nil)
                     await MainActor.run {
                         if index < messages.count { messages[index].content = partialJson }
                     }
@@ -1924,7 +1868,7 @@ extension ScanView {
                     let endIdx = min(i + charsPerUpdate, question.count)
                     revealedQuestions[qIdx] = String(question.prefix(endIdx))
                     
-                    let partialJson = buildPartialJson(kind: formatted.kind, title: revealedTitle, summary: revealedSummary, steps: revealedSteps.isEmpty ? nil : revealedSteps, hints: revealedHints.isEmpty ? nil : revealedHints, questions: revealedQuestions)
+                    let partialJson = buildPartialJson(kind: formatted.kind, title: revealedTitle, summary: revealedSummary, hints: revealedHints.isEmpty ? nil : revealedHints, questions: revealedQuestions)
                     await MainActor.run {
                         if index < messages.count { messages[index].content = partialJson }
                     }
@@ -1949,7 +1893,6 @@ extension ScanView {
         kind: String?,
         title: String?,
         summary: String?,
-        steps: [String]?,
         hints: [String]?,
         questions: [String]?
     ) -> String {
@@ -1957,7 +1900,6 @@ extension ScanView {
         if let kind = kind { dict["kind"] = kind }
         if let title = title, !title.isEmpty { dict["title"] = title }
         if let summary = summary, !summary.isEmpty { dict["summary"] = summary }
-        if let steps = steps, !steps.isEmpty { dict["steps"] = steps }
         if let hints = hints, !hints.isEmpty { dict["hints"] = hints }
         if let questions = questions, !questions.isEmpty { dict["questions"] = questions }
         
@@ -2590,3 +2532,4 @@ class TTSAudioPlayerDelegate: NSObject, AVAudioPlayerDelegate {
         onFinish()
     }
 }
+
