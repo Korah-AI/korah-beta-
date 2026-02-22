@@ -2,6 +2,7 @@ import SwiftUI
 import UIKit
 import AVFoundation
 import Foundation
+import MarkdownUI
 
 
 struct ScanMessage: Identifiable {
@@ -590,6 +591,7 @@ struct ScanView: View {
                     ForEach(messages) { message in
                         ScanChatBubble(
                             message: message,
+                            isStreaming: isStreaming && message.id == messages.last?.id,
                             onCopy: { content in copyToClipboard(content) },
                             onListen: { content, id in speakText(content, messageId: id) },
                             onRetry: { retryLastMessage() }
@@ -906,6 +908,7 @@ struct ScanView: View {
 
     struct ScanChatBubble: View {
         let message: ScanMessage
+        let isStreaming: Bool
         @State private var isSpeaking = false
         @State private var thinkingOpacity: Double = 0.4
         let onCopy: (String) -> Void
@@ -943,9 +946,7 @@ struct ScanView: View {
                             ScanAnswerView(formatted: formatted, timestamp: message.timestamp)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         } else {
-                            Text(scanFormattedResponse(message.content))
-                                .font(.kBody)
-                                .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                            LatexMarkdownView(content: message.content, isStreaming: isStreaming)
                                 .textSelection(.enabled)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .padding(Spacing.md)
@@ -1660,21 +1661,25 @@ extension ScanView {
         let systemInstruction =
         """
         You are Korah, a friendly tutor for kids. Never give final answers to homework outright; guide step-by-step.
-        Always respond with PURE JSON (no backticks, no code fences), matching this schema:
-
-        {
-          "kind": "tutor",
-          "title": string,
-          "summary": string,
-          "hints": [string],
-          "questions": [string]
-        }
-
+        
         Rules:
-        - Be a tutor that is friendly and makes learning fun, using emojis and being educational. Make the summary array nice and long, getting into what they need to learn
-        - Do NOT include any non-JSON text.
-        - If the user asks for direct answers, redirect with hints in JSON.
-        - The "questions" array MUST contain 2-3 contextual follow-up questions that are specific to the topic just discussed. These should help the student explore further, such as "Where can I apply this?", "How was this derived?", "Give me a practice problem", or ask about related concepts. Make them conversational and engaging.
+        - Be a tutor that is friendly and makes learning fun, using emojis and being educational
+        - Explain concepts clearly and provide helpful hints
+        - If the user asks for direct answers, redirect with guiding questions and hints
+        - Use natural, conversational language
+        - Break down complex topics into understandable pieces
+        - Be encouraging and patient
+        
+        Formatting:
+        - Use **bold** for key terms and important concepts
+        - Use *italics* for emphasis
+        - Use bullet points with - or * for lists
+        - Use ## for section headers when organizing longer explanations
+        - Use ### for sub-headers within sections
+        - For math equations, use LaTeX syntax:
+          * Inline math: $x^2 + y^2 = z^2$
+          * Display math: $$\\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$$
+        - Keep it visually organized and easy to scan
         """
 
         var apiMessages: [[String: Any]] = [["role": "system", "content": systemInstruction]]
@@ -1700,7 +1705,6 @@ extension ScanView {
             "messages": apiMessages,
             "temperature": 0.9,
             "max_tokens": 1000,
-            "response_format": ["type": "json_object"],
             "stream": true
         ]
 

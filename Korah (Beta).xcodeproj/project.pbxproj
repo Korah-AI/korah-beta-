@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		2C6056C62F11FDF4009E17B8 /* ActivityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2C6056C52F11FDF4009E17B8 /* ActivityKit.framework */; };
+		2CAE49C12F4AEA710032236E /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 2CAE49C02F4AEA710032236E /* MarkdownUI */; };
+		2CAE49C82F4AEF1E0032236E /* LaTeXSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = 2CAE49C72F4AEF1E0032236E /* LaTeXSwiftUI */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -78,6 +80,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				2C6056C62F11FDF4009E17B8 /* ActivityKit.framework in Frameworks */,
+				2CAE49C12F4AEA710032236E /* MarkdownUI in Frameworks */,
+				2CAE49C82F4AEF1E0032236E /* LaTeXSwiftUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -151,6 +155,8 @@
 			);
 			name = "Korah (Beta)";
 			packageProductDependencies = (
+				2CAE49C02F4AEA710032236E /* MarkdownUI */,
+				2CAE49C72F4AEF1E0032236E /* LaTeXSwiftUI */,
 			);
 			productName = "Korah (Beta)";
 			productReference = 2C98C8C32EFE4F0800BF141B /* Korah.app */;
@@ -234,6 +240,10 @@
 			);
 			mainGroup = 2C98C8BA2EFE4F0800BF141B;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				2CAE49BF2F4AEA710032236E /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
+				2CAE49C62F4AEF1E0032236E /* XCRemoteSwiftPackageReference "LaTeXSwiftUI" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 2C98C8C42EFE4F0800BF141B /* Products */;
 			projectDirPath = "";
@@ -454,8 +464,8 @@
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = AppIcon;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -499,8 +509,8 @@
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = AppIcon;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -643,6 +653,38 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		2CAE49BF2F4AEA710032236E /* XCRemoteSwiftPackageReference "swift-markdown-ui" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/gonzalezreal/swift-markdown-ui.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.4.1;
+			};
+		};
+		2CAE49C62F4AEF1E0032236E /* XCRemoteSwiftPackageReference "LaTeXSwiftUI" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/colinc86/LaTeXSwiftUI";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		2CAE49C02F4AEA710032236E /* MarkdownUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2CAE49BF2F4AEA710032236E /* XCRemoteSwiftPackageReference "swift-markdown-ui" */;
+			productName = MarkdownUI;
+		};
+		2CAE49C72F4AEF1E0032236E /* LaTeXSwiftUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2CAE49C62F4AEF1E0032236E /* XCRemoteSwiftPackageReference "LaTeXSwiftUI" */;
+			productName = LaTeXSwiftUI;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 2C98C8BB2EFE4F0800BF141B /* Project object */;
 }
