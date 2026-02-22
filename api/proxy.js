@@ -1,5 +1,3 @@
-import { checkRateLimit, getUserId, estimateTokens } from './rate-limit.js';
-
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -14,41 +12,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Get user identifier
-    const userId = getUserId(req);
-    
-    // Estimate input tokens from messages
-    const messages = req.body.messages || [];
-    const inputText = messages.map(m => typeof m.content === 'string' ? m.content : '').join(' ');
-    const estimatedInputTokens = estimateTokens(inputText);
-    
-    // Check rate limit before making API call
-    const rateLimitCheck = await checkRateLimit(userId, 0);
-    
-    // If user is already over limit, reject immediately
-    if (!rateLimitCheck.allowed) {
-      return res.status(429).json({
-        error: 'Rate limit exceeded',
-        message: 'Daily token limit reached. Please try again tomorrow.',
-        remaining: rateLimitCheck.remaining,
-        resetTime: rateLimitCheck.resetTime,
-        current: rateLimitCheck.current,
-        limit: rateLimitCheck.limit
-      });
-    }
-    
-    // Check if estimated tokens would exceed limit
-    if (rateLimitCheck.current + estimatedInputTokens > rateLimitCheck.limit) {
-      return res.status(429).json({
-        error: 'Rate limit exceeded',
-        message: 'This request would exceed your daily token limit.',
-        remaining: rateLimitCheck.remaining,
-        resetTime: rateLimitCheck.resetTime,
-        current: rateLimitCheck.current,
-        limit: rateLimitCheck.limit
-      });
-    }
-    
     // Get the OpenAI API key from environment variables
     const apiKey = process.env.OPENAI_API_KEY;
     
@@ -56,9 +19,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'API key not configured' });
     }
 
-    // Remove stream parameter if present (proxy doesn't support streaming)
-    const bodyToSend = { ...req.body };
-    delete bodyToSend.stream;
+    const isStreaming = req.body.stream === true;
 
     // Forward the request to OpenAI API
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -67,27 +28,38 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
       },
-      body: JSON.stringify(bodyToSend),
+      body: JSON.stringify(req.body),
     });
 
-    const data = await response.json();
-    
-    // Update rate limit with actual token usage (if available)
-    // Don't await - let it update in background to avoid blocking response
-    if (data.usage && data.usage.total_tokens) {
-      checkRateLimit(userId, data.usage.total_tokens).catch(err => 
-        console.error('Rate limit update failed:', err)
-      );
-    } else {
-      // Fall back to estimated tokens if usage not provided
-      const outputText = data.choices?.[0]?.message?.content || '';
-      const estimatedOutputTokens = estimateTokens(outputText);
-      checkRateLimit(userId, estimatedInputTokens + estimatedOutputTokens).catch(err => 
-        console.error('Rate limit update failed:', err)
-      );
+    if (!response.ok) {
+      const errorData = await response.text();
+      return res.status(response.status).json({ error: errorData });
     }
-    
-    return res.status(response.status).json(data);
+
+    // Handle streaming response
+    if (isStreaming) {
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      
+      // Pipe the OpenAI stream directly to the client
+      response.body.pipeTo(new WritableStream({
+        write(chunk) {
+          res.write(chunk);
+        },
+        close() {
+          res.end();
+        },
+        abort(err) {
+          console.error('Stream aborted:', err);
+          res.end();
+        }
+      }));
+    } else {
+      // Handle non-streaming response
+      const data = await response.json();
+      return res.status(response.status).json(data);
+    }
   } catch (error) {
     console.error('Proxy error:', error);
     return res.status(500).json({ error: 'Internal server error' });
