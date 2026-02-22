@@ -1700,7 +1700,8 @@ extension ScanView {
             "messages": apiMessages,
             "temperature": 0.9,
             "max_tokens": 1000,
-            "response_format": ["type": "json_object"]
+            "response_format": ["type": "json_object"],
+            "stream": true
         ]
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
@@ -1716,7 +1717,7 @@ extension ScanView {
         
         streamTask = Task {
             do {
-                let (data, response) = try await URLSession.shared.data(for: request)
+                let (bytes, response) = try await URLSession.shared.bytes(for: request)
                 
                 guard let httpResponse = response as? HTTPURLResponse else {
                     await handleStreamError("Invalid response", at: messageIndex)
@@ -1724,13 +1725,44 @@ extension ScanView {
                 }
                 
                 if httpResponse.statusCode != 200 {
-                    await handleHTTPStreamError(statusCode: httpResponse.statusCode, at: messageIndex, responseData: data)
+                    await handleStreamError("Server error: \(httpResponse.statusCode)", at: messageIndex)
                     return
                 }
                 
-                // Decode the full response
-                let decoded = try JSONDecoder().decode(ScanOpenAIResponse.self, from: data)
-                guard let content = decoded.choices.first?.message.content, !content.isEmpty else {
+                var accumulatedContent = ""
+                
+                for try await line in bytes.lines {
+                    if Task.isCancelled { break }
+                    
+                    // SSE format: "data: {json}" or "data: [DONE]"
+                    guard line.hasPrefix("data: ") else { continue }
+                    let dataString = String(line.dropFirst(6))
+                    
+                    if dataString == "[DONE]" {
+                        break
+                    }
+                    
+                    // Parse the streaming chunk
+                    guard let data = dataString.data(using: .utf8),
+                          let chunk = try? JSONDecoder().decode(ScanStreamingResponse.self, from: data),
+                          let delta = chunk.choices.first?.delta.content else {
+                        continue
+                    }
+                    
+                    accumulatedContent += delta
+                    
+                    // Update UI with accumulated content
+                    await MainActor.run {
+                        if messageIndex < messages.count {
+                            messages[messageIndex].content = accumulatedContent
+                        }
+                    }
+                }
+                
+                // After streaming completes, validate and format the JSON
+                let trimmed = accumulatedContent.trimmingCharacters(in: .whitespacesAndNewlines)
+                
+                guard !trimmed.isEmpty else {
                     await MainActor.run {
                         if messageIndex < messages.count {
                             messages[messageIndex].content = "I didn't understand that. Could you try asking in a different way?"
@@ -1740,10 +1772,14 @@ extension ScanView {
                     return
                 }
                 
-                let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
-                
-                // Simulate streaming the formatted response
-                await simulateFormattedStreaming(jsonContent: trimmed, at: messageIndex)
+                // Final update with complete content
+                await MainActor.run {
+                    if messageIndex < messages.count {
+                        messages[messageIndex].content = trimmed
+                    }
+                    finishStreaming()
+                    saveCurrentConversation()
+                }
                 
             } catch {
                 if !Task.isCancelled {
@@ -1760,192 +1796,10 @@ extension ScanView {
         streamingMessageIndex = nil
     }
     
-    /// Simulates streaming by progressively building the JSON with revealed content
-    private func simulateFormattedStreaming(jsonContent: String, at index: Int) async {
-        guard let formatted = jsonContent.decodeScanKorahFormatted() else {
-            // If not valid JSON, just display as-is
-            await MainActor.run {
-                if index < messages.count {
-                    messages[index].content = jsonContent
-                }
-                finishStreaming()
-                saveCurrentConversation()
-            }
-            return
-        }
-        
-        // Collect all text segments to stream
-        var segments: [String] = []
-        if let title = formatted.title, !title.isEmpty { segments.append(title) }
-        if let summary = formatted.summary, !summary.isEmpty { segments.append(summary) }
-        if let hints = formatted.hints { segments.append(contentsOf: hints) }
-        if let questions = formatted.questions { segments.append(contentsOf: questions) }
-        
-        let totalChars = segments.reduce(0) { $0 + $1.count }
-        guard totalChars > 0 else {
-            await MainActor.run {
-                if index < messages.count {
-                    messages[index].content = jsonContent
-                }
-                finishStreaming()
-                saveCurrentConversation()
-            }
-            return
-        }
-        
-        // Streaming parameters
-        let targetDuration: Double = min(2.5, max(0.8, Double(totalChars) * 0.008))
-        let updateInterval: UInt64 = 30_000_000 // 30ms
-        let totalUpdates = Int(targetDuration / 0.030)
-        let charsPerUpdate = max(1, totalChars / max(1, totalUpdates))
-        
-        // Track progress through each field
-        var revealedTitle = ""
-        var revealedSummary = ""
-        var revealedHints: [String] = []
-        var revealedQuestions: [String] = []
-        
-        var globalCharIndex = 0
-        
-        // Stream title
-        if let title = formatted.title, !title.isEmpty {
-            for i in stride(from: 0, to: title.count, by: charsPerUpdate) {
-                if Task.isCancelled { break }
-                let endIdx = min(i + charsPerUpdate, title.count)
-                revealedTitle = String(title.prefix(endIdx))
-                globalCharIndex = endIdx
-                
-                let partialJson = buildPartialJson(kind: formatted.kind, title: revealedTitle, summary: nil, hints: nil, questions: nil)
-                await MainActor.run {
-                    if index < messages.count { messages[index].content = partialJson }
-                }
-                try? await Task.sleep(nanoseconds: updateInterval)
-            }
-            revealedTitle = title
-        }
-        
-        // Stream summary
-        if let summary = formatted.summary, !summary.isEmpty {
-            for i in stride(from: 0, to: summary.count, by: charsPerUpdate) {
-                if Task.isCancelled { break }
-                let endIdx = min(i + charsPerUpdate, summary.count)
-                revealedSummary = String(summary.prefix(endIdx))
-                
-                let partialJson = buildPartialJson(kind: formatted.kind, title: revealedTitle, summary: revealedSummary, hints: nil, questions: nil)
-                await MainActor.run {
-                    if index < messages.count { messages[index].content = partialJson }
-                }
-                try? await Task.sleep(nanoseconds: updateInterval)
-            }
-            revealedSummary = summary
-        }
-        
-        // Stream hints
-        if let hints = formatted.hints {
-            for (hintIdx, hint) in hints.enumerated() {
-                revealedHints.append("")
-                for i in stride(from: 0, to: hint.count, by: charsPerUpdate) {
-                    if Task.isCancelled { break }
-                    let endIdx = min(i + charsPerUpdate, hint.count)
-                    revealedHints[hintIdx] = String(hint.prefix(endIdx))
-                    
-                    let partialJson = buildPartialJson(kind: formatted.kind, title: revealedTitle, summary: revealedSummary, hints: revealedHints, questions: nil)
-                    await MainActor.run {
-                        if index < messages.count { messages[index].content = partialJson }
-                    }
-                    try? await Task.sleep(nanoseconds: updateInterval)
-                }
-                revealedHints[hintIdx] = hint
-            }
-        }
-        
-        // Stream questions
-        if let questions = formatted.questions {
-            for (qIdx, question) in questions.enumerated() {
-                revealedQuestions.append("")
-                for i in stride(from: 0, to: question.count, by: charsPerUpdate) {
-                    if Task.isCancelled { break }
-                    let endIdx = min(i + charsPerUpdate, question.count)
-                    revealedQuestions[qIdx] = String(question.prefix(endIdx))
-                    
-                    let partialJson = buildPartialJson(kind: formatted.kind, title: revealedTitle, summary: revealedSummary, hints: revealedHints.isEmpty ? nil : revealedHints, questions: revealedQuestions)
-                    await MainActor.run {
-                        if index < messages.count { messages[index].content = partialJson }
-                    }
-                    try? await Task.sleep(nanoseconds: updateInterval)
-                }
-                revealedQuestions[qIdx] = question
-            }
-        }
-        
-        // Final complete JSON
-        await MainActor.run {
-            if index < messages.count {
-                messages[index].content = jsonContent
-            }
-            finishStreaming()
-            saveCurrentConversation()
-        }
-    }
-    
-    /// Builds a partial JSON string for streaming display
-    private func buildPartialJson(
-        kind: String?,
-        title: String?,
-        summary: String?,
-        hints: [String]?,
-        questions: [String]?
-    ) -> String {
-        var dict: [String: Any] = [:]
-        if let kind = kind { dict["kind"] = kind }
-        if let title = title, !title.isEmpty { dict["title"] = title }
-        if let summary = summary, !summary.isEmpty { dict["summary"] = summary }
-        if let hints = hints, !hints.isEmpty { dict["hints"] = hints }
-        if let questions = questions, !questions.isEmpty { dict["questions"] = questions }
-        
-        if let jsonData = try? JSONSerialization.data(withJSONObject: dict),
-           let jsonString = String(data: jsonData, encoding: .utf8) {
-            return jsonString
-        }
-        return "{}"
-    }
-    
     private func handleStreamError(_ message: String, at index: Int) async {
         await MainActor.run {
             if index < messages.count {
                 messages[index].content = "Hmm, I'm having trouble connecting. Please check your internet connection and try again."
-            }
-            finishStreaming()
-        }
-    }
-    
-    private func handleHTTPStreamError(statusCode: Int, at index: Int, responseData: Data?) async {
-        // Log error details for debugging
-        if let data = responseData, let errorString = String(data: data, encoding: .utf8) {
-            print("[ScanView] HTTP \(statusCode) error: \(errorString)")
-        } else {
-            print("[ScanView] HTTP \(statusCode) error (no body)")
-        }
-        
-        let friendlyMessage: String
-        switch statusCode {
-        case 400:
-            friendlyMessage = "Oops! There was an issue with the request. Please try again."
-        case 401:
-            friendlyMessage = "Oops! There's an issue with the app's authentication. Please contact support."
-        case 404:
-            friendlyMessage = "Oops! The service endpoint wasn't found. Please contact support."
-        case 429:
-            friendlyMessage = "Oops! I'm getting too many requests right now. Please wait a moment and try again."
-        case 500...599:
-            friendlyMessage = "Oops! The service is having trouble right now. Please try again in a few minutes."
-        default:
-            friendlyMessage = "Oops! Something went wrong (error \(statusCode)). Please try again."
-        }
-        
-        await MainActor.run {
-            if index < messages.count {
-                messages[index].content = friendlyMessage
             }
             finishStreaming()
         }

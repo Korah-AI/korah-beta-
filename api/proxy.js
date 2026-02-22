@@ -12,7 +12,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Get the OpenAI API key from environment variables
     const apiKey = process.env.OPENAI_API_KEY;
     
     if (!apiKey) {
@@ -21,8 +20,7 @@ export default async function handler(req, res) {
 
     const isStreaming = req.body.stream === true;
 
-    // Forward the request to OpenAI API
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const upstream = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -31,37 +29,45 @@ export default async function handler(req, res) {
       body: JSON.stringify(req.body),
     });
 
-    if (!response.ok) {
-      const errorData = await response.text();
-      return res.status(response.status).json({ error: errorData });
+    if (!upstream.ok) {
+      const errorData = await upstream.text();
+      return res.status(upstream.status).send(errorData);
     }
 
     // Handle streaming response
     if (isStreaming) {
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
+      if (!upstream.body) {
+        return res.status(500).json({ error: 'No response body' });
+      }
+
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+      });
       
-      // Pipe the OpenAI stream directly to the client
-      response.body.pipeTo(new WritableStream({
-        write(chunk) {
-          res.write(chunk);
-        },
-        close() {
-          res.end();
-        },
-        abort(err) {
-          console.error('Stream aborted:', err);
-          res.end();
+      const reader = upstream.body.getReader();
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          res.write(Buffer.from(value));
         }
-      }));
+        res.end();
+      } catch (err) {
+        console.error('Stream error:', err);
+        res.end();
+      }
     } else {
       // Handle non-streaming response
-      const data = await response.json();
-      return res.status(response.status).json(data);
+      const data = await upstream.json();
+      return res.status(upstream.status).json(data);
     }
   } catch (error) {
     console.error('Proxy error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    if (!res.headersSent) {
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    res.end();
   }
 }
