@@ -41,5 +41,6 @@ DEVELOPMENT
   <li>Implement Screentime Features. </li>
   <li>Begin Website Development</li>
   <li>Update U.I. (Gauth/StudyFetch Inspired)</li>
+  <li>Update daily notifcations</li>
 </ul>
 
