@@ -3,6 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>API_KEY</key>
+	<!--replace this api key to not be publicly accessible-->
 	<string>AIzaSyDFEj7HwWEMX49QlAjXFuChASb2hzMvpHs</string>
 	<key>GCM_SENDER_ID</key>
 	<string>226169460321</string>
