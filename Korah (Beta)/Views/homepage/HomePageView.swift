@@ -54,9 +54,8 @@ struct HomePageView: View {
                             }
                         }
                         .padding()
-                        .background(Color.white.opacity(0.08))
-                        .cornerRadius(20)
-                        .shadow(color: .purple.opacity(0.3), radius: 10, x: 0, y: 5)
+                        .kGlassEffect(cornerRadius: CornerRadius.xl)
+                        .kShadowGlow()
                         .padding(.horizontal)
                         .padding(.top, 20)
                         
@@ -212,9 +211,8 @@ struct HomePageView: View {
                         }
                     }
                     .padding()
-                    .background(Color.white.opacity(0.06))
-                    .cornerRadius(15)
-                    .shadow(color: .purple.opacity(0.2), radius: 8, x: 0, y: 4)
+                    .kGlassEffect(cornerRadius: CornerRadius.lg)
+                    .kShadowSubtle()
                     .padding(.horizontal)
 
                     VStack(alignment: .leading, spacing: 10) {
@@ -274,9 +272,8 @@ struct HomePageView: View {
 
                     }
                     .padding()
-                    .background(Color.white.opacity(0.06))
-                    .cornerRadius(15)
-                    .shadow(color: .purple.opacity(0.2), radius: 8, x: 0, y: 4)
+                    .kGlassEffect(cornerRadius: CornerRadius.lg)
+                    .kShadowSubtle()
                     .padding(.horizontal)
 
                     VStack(spacing: 10) {
@@ -294,18 +291,20 @@ struct HomePageView: View {
                             selectedTab = 2
                         }) {
                             Text("Chat Now")
-                                .font(.headline)
-                                .foregroundColor(.white)
+                                .font(.kHeadline)
+                                .foregroundStyle(.white)
                                 .padding()
                                 .frame(maxWidth: .infinity)
-                                .background(Color.purple)
-                                .cornerRadius(12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: CornerRadius.button, style: .continuous)
+                                        .fill(LinearGradient.kPurpleGradient)
+                                )
+                                .kShadowGlow()
                         }
                     }
                     .padding()
-                    .background(Color.white.opacity(0.06))
-                    .cornerRadius(15)
-                    .shadow(color: .purple.opacity(0.2), radius: 8, x: 0, y: 4)
+                    .kGlassEffect(cornerRadius: CornerRadius.lg)
+                    .kShadowSubtle()
                     .padding(.horizontal)
                     
                     // Feedback Button
@@ -314,15 +313,18 @@ struct HomePageView: View {
                     }) {
                         HStack {
                             Image(systemName: "envelope.fill")
-                                .font(.headline)
+                                .font(.kHeadline)
                             Text("Send Feedback")
-                                .font(.headline)
+                                .font(.kHeadline)
                         }
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.purple)
-                        .cornerRadius(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: CornerRadius.button, style: .continuous)
+                                .fill(LinearGradient.kPurpleGradient)
+                        )
+                        .kShadowGlow()
                     }
                     .padding(.horizontal)
                     .padding(.bottom, 20)
@@ -330,7 +332,7 @@ struct HomePageView: View {
                     Spacer()
                     }
                 }
-                .background(Color.korahBackgroundStart.ignoresSafeArea())
+                .kBackground(withStars: true)
                 .refreshable {
                     dataManager.refreshAll()
                 }
@@ -539,8 +541,7 @@ struct StatCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
-        .background(Color.white.opacity(0.05))
-        .cornerRadius(12)
+        .kGlassEffect(cornerRadius: CornerRadius.button, interactive: false)
     }
 }
 
@@ -563,12 +564,7 @@ struct QuickActionButton: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 20)
-            .background(Color.white.opacity(0.08))
-            .cornerRadius(16)
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(color.opacity(0.3), lineWidth: 1)
-            )
+            .kGlassEffect(cornerRadius: CornerRadius.lg, interactive: true)
         }
     }
 }

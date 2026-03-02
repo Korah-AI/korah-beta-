@@ -38,9 +38,8 @@ struct ToDoListView: View {
             StatBox(icon: "calendar.badge.clock", value: "\(todayTasksCount)", label: "Today", color: .orange)
         }
         .padding()
-        .background(Color.white.opacity(0.08))
-        .cornerRadius(16)
-        .shadow(color: .purple.opacity(0.2), radius: 8, x: 0, y: 4)
+        .kGlassEffect(cornerRadius: CornerRadius.lg)
+        .kShadowSubtle()
         .padding(.horizontal)
         .padding(.top)
     }
@@ -846,7 +845,7 @@ struct ToDoListView: View {
             }
             .preferredColorScheme(.dark)
             .accentColor(.purple)
-            .korahGradientBackground()
+            .kBackground(withStars: true)
             .background(Color.clear)
             .onAppear {
             let tabBarAppearance = UITabBarAppearance()
@@ -862,12 +861,12 @@ struct ToDoListView: View {
         }
         .sheet(isPresented: $showingAddTask) {
             AddTaskView(tasks: $dataManager.tasks)
-                .korahGradientBackground()
+                .kBackground(withStars: true)
                 .onAppear { UITableView.appearance().backgroundColor = .clear }
         }
         .sheet(item: $editingTask) { task in
             EditTaskView(task: task, tasks: $dataManager.tasks)
-                .korahGradientBackground()
+                .kBackground(withStars: true)
                 .onAppear { UITableView.appearance().backgroundColor = .clear }
         }
         .alert("Delete Task", isPresented: $showDeleteConfirmation) {
