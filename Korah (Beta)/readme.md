@@ -5,3 +5,4 @@
 * Implement screentime features beta and request to Apple
 * Update `@Scanview.swift` to be more like web version (UI + Backend functionality) (Should be able to show loading screens while generating study items)
 * Improve role of Tasks and Focus Timer in the app
+* Make default "no answer" giving prompt optional (App and Web)
