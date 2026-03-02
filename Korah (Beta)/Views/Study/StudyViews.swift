@@ -76,12 +76,15 @@ struct StudyHomeView: View {
                     Button("Practice Test") { pendingCreationType = .practiceTests; showCreationTemplate = true }
                 } label: {
                     HStack { Image(systemName: "plus.circle.fill"); Text("Create") }
-                        .font(.headline)
-                        .foregroundColor(.white)
+                        .font(.kHeadline)
+                        .foregroundStyle(.white)
                         .padding()
                         .frame(maxWidth: .infinity)
-                        .background(Color.purple)
-                        .cornerRadius(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: CornerRadius.button, style: .continuous)
+                                .fill(LinearGradient.kPurpleGradient)
+                        )
+                        .kShadowGlow()
                         .padding(.horizontal)
                 }
 
@@ -123,13 +126,9 @@ struct StudyHomeView: View {
                                             }
                                             .frame(maxWidth: .infinity)
                                             .padding(.vertical, 16)
-                                            .foregroundColor(.white)
-                                            .background(Color.white.opacity(0.08))
-                                            .cornerRadius(12)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 12)
-                                                    .stroke(Color.purple.opacity(0.3), lineWidth: 1)
-                                            )
+                                            .foregroundStyle(.white)
+                                            .kGlassEffect(cornerRadius: CornerRadius.button)
+                                            .kShadowSubtle()
                                         }
                                         
                                         Button(action: { pendingCreationType = .studyGuides; showCreationTemplate = true }) {
@@ -142,13 +141,9 @@ struct StudyHomeView: View {
                                             }
                                             .frame(maxWidth: .infinity)
                                             .padding(.vertical, 16)
-                                            .foregroundColor(.white)
-                                            .background(Color.white.opacity(0.08))
-                                            .cornerRadius(12)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 12)
-                                                    .stroke(Color.purple.opacity(0.3), lineWidth: 1)
-                                            )
+                                            .foregroundStyle(.white)
+                                            .kGlassEffect(cornerRadius: CornerRadius.button)
+                                            .kShadowSubtle()
                                         }
                                         
                                         Button(action: { pendingCreationType = .practiceTests; showCreationTemplate = true }) {
@@ -161,13 +156,9 @@ struct StudyHomeView: View {
                                             }
                                             .frame(maxWidth: .infinity)
                                             .padding(.vertical, 16)
-                                            .foregroundColor(.white)
-                                            .background(Color.white.opacity(0.08))
-                                            .cornerRadius(12)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 12)
-                                                    .stroke(Color.purple.opacity(0.3), lineWidth: 1)
-                                            )
+                                            .foregroundStyle(.white)
+                                            .kGlassEffect(cornerRadius: CornerRadius.button)
+                                            .kShadowSubtle()
                                         }
                                     }
                                     .padding(.horizontal, 24)
@@ -421,7 +412,7 @@ struct StudyHomeView: View {
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
-            .korahGradientBackground()
+            .kBackground(withStars: true)
         }
         .tint(.purple)
         .onAppear(perform: loadRecentStudy)

@@ -768,7 +768,7 @@ struct ScanView: View {
                         composerBar
                     }
                 }
-                .kBackground()
+                .kBackground(withStars: true)
                 .transition(.opacity)
             }
             

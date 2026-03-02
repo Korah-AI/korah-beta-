@@ -324,17 +324,11 @@ struct FocusTimerView: View {
                     }
                 }
                 .padding(12)
-                .background(Color.white.opacity(0.1))
-                .cornerRadius(10)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.purple.opacity(0.3), lineWidth: 1)
-                )
+                .kGlassEffect()
             }
         }
         .padding(16)
-        .background(Color.white.opacity(0.05))
-        .cornerRadius(16)
+        .kGlassEffect()
         .padding(.horizontal)
     }
     
@@ -601,15 +595,8 @@ struct FocusTimerView: View {
                     .foregroundColor(.white.opacity(0.8))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(
-                        RoundedRectangle(cornerRadius: 14)
-                            .fill(Color.white.opacity(0.1))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .strokeBorder(Color.white.opacity(0.2), lineWidth: 1.5)
-                            )
-                    )
                 }
+                .buttonStyle(.kGlass)
                 
                 if !timerManager.isTimerRunning {
                     Button(action: { showTaskPicker = true }) {
@@ -622,15 +609,8 @@ struct FocusTimerView: View {
                         .foregroundColor(.white.opacity(0.8))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(
-                            RoundedRectangle(cornerRadius: 14)
-                                .fill(Color.purple.opacity(0.25))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 14)
-                                        .strokeBorder(Color.purple.opacity(0.3), lineWidth: 1.5)
-                                )
-                        )
                     }
+                    .buttonStyle(.kGlass)
                 }
             }
         }
@@ -666,8 +646,7 @@ struct FocusTimerView: View {
             }
             .padding(.vertical, 8)
         }
-        .korahGradientBackground()
-        .background(Color.clear)
+        .kBackground(withStars: true)
         .navigationBarBackButtonHidden(true)
         .onAppear {
             requestNotificationPermission()
@@ -826,7 +805,7 @@ struct TaskPickerSheet: View {
                     .scrollContentBackground(.hidden)
                 }
             }
-            .korahGradientBackground()
+            .kBackground(withStars: true)
             .navigationTitle("Select Tasks")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -847,93 +826,99 @@ struct ImprovedTaskPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.korahBackgroundStart.ignoresSafeArea()
-                
-                if allTasks.isEmpty {
-                    VStack(spacing: 20) {
-                        Image(systemName: "checklist.unchecked")
-                            .font(.system(size: 70))
-                            .foregroundColor(.purple.opacity(0.6))
-                        
-                        Text("No Tasks Yet")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
-                        
-                        Text("Create tasks in the Tasks tab to select them for your focus sessions")
-                            .font(.body)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 40)
-                    }
-                } else {
-                    ScrollView {
-                        VStack(spacing: 16) {
-                            // Selected count header
-                            if !selectedTasks.isEmpty {
-                                HStack {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundColor(.green)
-                                    Text("\(selectedTasks.count) task\(selectedTasks.count == 1 ? "" : "s") selected")
-                                        .font(.subheadline)
-                                        .foregroundColor(.white)
-                                    Spacer()
-                                    Button("Clear All") {
-                                        withAnimation {
-                                            selectedTasks.removeAll()
-                                        }
-                                    }
-                                    .font(.caption)
-                                    .foregroundColor(.red.opacity(0.8))
-                                }
-                                .padding()
-                                .background(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .fill(Color.white.opacity(0.08))
-                                )
-                                .padding(.horizontal)
-                                .padding(.top)
-                            }
+        ZStack {
+            Color.korahBackgroundStart.ignoresSafeArea()
+            TwinklingStarsBackground()
+            
+            NavigationStack {
+                ZStack {
+                    Color.clear
+                    
+                    if allTasks.isEmpty {
+                        VStack(spacing: 20) {
+                            Image(systemName: "checklist.unchecked")
+                                .font(.system(size: 70))
+                                .foregroundColor(.purple.opacity(0.6))
                             
-                            // Task list
-                            ForEach(allTasks) { task in
-                                TaskSelectionRow(
-                                    task: task,
-                                    isSelected: selectedTasks.contains(where: { $0.id == task.id })
-                                ) {
-                                    withAnimation(.spring(response: 0.3)) {
-                                        if selectedTasks.contains(where: { $0.id == task.id }) {
-                                            selectedTasks.removeAll { $0.id == task.id }
-                                        } else {
-                                            selectedTasks.append(task)
+                            Text("No Tasks Yet")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                            
+                            Text("Create tasks in the Tasks tab to select them for your focus sessions")
+                                .font(.body)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 40)
+                        }
+                    } else {
+                        ScrollView {
+                            VStack(spacing: 16) {
+                                // Selected count header
+                                if !selectedTasks.isEmpty {
+                                    HStack {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(.green)
+                                        Text("\(selectedTasks.count) task\(selectedTasks.count == 1 ? "" : "s") selected")
+                                            .font(.subheadline)
+                                            .foregroundColor(.white)
+                                        Spacer()
+                                        Button("Clear All") {
+                                            withAnimation {
+                                                selectedTasks.removeAll()
+                                            }
+                                        }
+                                        .font(.caption)
+                                        .foregroundColor(.red.opacity(0.8))
+                                    }
+                                    .padding()
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .fill(Color.white.opacity(0.08))
+                                    )
+                                    .kGlassEffect()
+                                    .padding(.horizontal)
+                                    .padding(.top)
+                                }
+                                
+                                // Task list
+                                ForEach(allTasks) { task in
+                                    TaskSelectionRow(
+                                        task: task,
+                                        isSelected: selectedTasks.contains(where: { $0.id == task.id })
+                                    ) {
+                                        withAnimation(.spring(response: 0.3)) {
+                                            if selectedTasks.contains(where: { $0.id == task.id }) {
+                                                selectedTasks.removeAll { $0.id == task.id }
+                                            } else {
+                                                selectedTasks.append(task)
+                                            }
                                         }
                                     }
                                 }
+                                .padding(.horizontal)
                             }
-                            .padding(.horizontal)
+                            .padding(.bottom, 100)
                         }
-                        .padding(.bottom, 100)
                     }
                 }
-            }
-            .navigationTitle("Select Tasks to Focus On")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
-                        dismiss()
+                .navigationTitle("Select Tasks to Focus On")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") {
+                            dismiss()
+                        }
+                        .font(.headline)
+                        .foregroundColor(.purple)
                     }
-                    .font(.headline)
-                    .foregroundColor(.purple)
-                }
-                
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
+                    
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") {
+                            dismiss()
+                        }
+                        .foregroundColor(.secondary)
                     }
-                    .foregroundColor(.secondary)
                 }
             }
         }
@@ -994,17 +979,7 @@ struct TaskSelectionRow: View {
                 Spacer()
             }
             .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(isSelected ? Color.purple.opacity(0.15) : Color.white.opacity(0.06))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14)
-                            .strokeBorder(
-                                isSelected ? Color.purple.opacity(0.5) : Color.white.opacity(0.1),
-                                lineWidth: isSelected ? 2 : 1
-                            )
-                    )
-            )
+            .kGlassEffect(interactive: isSelected)
         }
         .buttonStyle(.plain)
     }
@@ -1049,7 +1024,7 @@ struct CustomTimePickerSheet: View {
                 
                 Spacer()
             }
-            .korahGradientBackground()
+            .kBackground(withStars: true)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
