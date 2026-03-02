@@ -2,11 +2,13 @@ import SwiftUI
 
 /// Twinkling stars background effect matching the web theme
 struct TwinklingStarsBackground: View {
-    @State private var stars: [Star] = []
+    @State private var stars: [Star]
     private let starCount: Int
     
     init(starCount: Int = 100) {
         self.starCount = starCount
+        // Initialize stars with placeholder values - they'll be regenerated in onAppear with actual geometry
+        self._stars = State(initialValue: [])
     }
     
     var body: some View {
@@ -33,9 +35,11 @@ struct TwinklingStarsBackground: View {
                         .blur(radius: star.blur)
                 }
             }
-            .onAppear {
-                generateStars(in: geometry.size)
-                startTwinkling()
+            .task {
+                if stars.isEmpty {
+                    generateStars(in: geometry.size)
+                    startTwinkling()
+                }
             }
         }
     }
