@@ -2,6 +2,7 @@ import SwiftUI
 import Foundation
 import UserNotifications
 import FirebaseCore
+import GoogleSignIn
 
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(
@@ -10,6 +11,14 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     ) -> Bool {
         FirebaseApp.configure()
         return true
+    }
+    
+    func application(
+        _ app: UIApplication,
+        open url: URL,
+        options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+    ) -> Bool {
+        return GIDSignIn.sharedInstance.handle(url)
     }
 }
 
@@ -48,8 +57,8 @@ struct KorahApp: App {
                 }
             }
             .environment(authManager)
-            .onChange(of: authManager.isAuthenticated) {
-                // Handle auth state changes
+            .onOpenURL { url in
+                GIDSignIn.sharedInstance.handle(url)
             }
             .task {
                 await authManager.checkAuthenticationState()

@@ -157,7 +157,7 @@ struct SignupView: View {
                 
                 // OAuth Buttons
                 VStack(spacing: 12) {
-                    Button(action: {}) {
+                    Button(action: handleGoogleSignIn) {
                         HStack {
                             Image(systemName: "g.circle.fill")
                                 .font(.system(size: 20))
@@ -173,23 +173,7 @@ struct SignupView: View {
                     .foregroundStyle(.primary)
                     .background(Color(.secondarySystemBackground))
                     .clipShape(.rect(cornerRadius: 8))
-                    
-                    Button(action: {}) {
-                        HStack {
-                            Image(systemName: "apple.logo")
-                                .font(.system(size: 18))
-                            
-                            Text("Sign up with Apple")
-                                .font(.system(size: 16, weight: .semibold))
-                            
-                            Spacer()
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 44)
-                    .foregroundStyle(.primary)
-                    .background(Color(.secondarySystemBackground))
-                    .clipShape(.rect(cornerRadius: 8))
+                    .disabled(authManager.isLoading)
                 }
                 
                 Spacer()
@@ -222,6 +206,16 @@ struct SignupView: View {
                     email: email,
                     password: password
                 )
+            } catch {
+                // Error is already handled in AuthManager
+            }
+        }
+    }
+    
+    private func handleGoogleSignIn() {
+        Task {
+            do {
+                try await authManager.initiateGoogleSignIn()
             } catch {
                 // Error is already handled in AuthManager
             }
