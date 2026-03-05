@@ -5,149 +5,163 @@ struct LoginView: View {
     @State private var password = ""
     @Environment(AuthManager.self) private var authManager
     @FocusState private var focusedField: Field?
-    
-    enum Field {
-        case email
-        case password
-    }
-    
+    @State private var appeared = false
+
+    enum Field { case email, password }
+
     var body: some View {
-        ZStack {
-            Color(.systemBackground)
-                .ignoresSafeArea()
-            
-            VStack(spacing: 24) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Welcome Back")
-                        .font(.system(size: 32, weight: .bold))
-                    
-                    Text("Sign in to continue")
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, 32)
-                
-                VStack(spacing: 16) {
-                    // Email Field
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Email")
-                            .font(.system(size: 14, weight: .semibold))
-                        
-                        TextField("name@example.com", text: $email)
-                            .textInputAutocapitalization(.never)
-                            .keyboardType(.emailAddress)
-                            .focused($focusedField, equals: .email)
-                            .padding(12)
-                            .background(Color(.secondarySystemBackground))
-                            .clipShape(.rect(cornerRadius: 8))
-                    }
-                    
-                    // Password Field
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Password")
-                            .font(.system(size: 14, weight: .semibold))
-                        
-                        SecureField("••••••••", text: $password)
-                            .focused($focusedField, equals: .password)
-                            .padding(12)
-                            .background(Color(.secondarySystemBackground))
-                            .clipShape(.rect(cornerRadius: 8))
-                    }
-                }
-                
-                // Error Message
+        ScrollView {
+            VStack(spacing: Spacing.xxl) {
+                LoginLogoSection()
+                    .opacity(appeared ? 1 : 0)
+                    .offset(y: appeared ? 0 : 24)
+                    .animation(KAnimation.smooth, value: appeared)
+
+                LoginFormSection(
+                    email: $email,
+                    password: $password,
+                    focusedField: $focusedField
+                )
+                .opacity(appeared ? 1 : 0)
+                .offset(y: appeared ? 0 : 24)
+                .animation(KAnimation.smooth.delay(0.1), value: appeared)
+
                 if let error = authManager.errorMessage {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(error)
-                            .font(.system(size: 13))
-                            .foregroundStyle(.red)
-                            .lineLimit(3)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(12)
-                    .background(Color.red.opacity(0.1))
-                    .clipShape(.rect(cornerRadius: 8))
+                    AuthErrorBanner(message: error)
+                        .transition(.opacity.combined(with: .offset(y: -8)))
                 }
-                
-                // Login Button
+
                 Button(action: handleLogin) {
                     if authManager.isLoading {
-                        ProgressView()
-                            .tint(.white)
+                        ProgressView().tint(.white)
                     } else {
                         Text("Sign In")
-                            .font(.system(size: 16, weight: .semibold))
                     }
                 }
-                .frame(maxWidth: .infinity)
-                .frame(height: 44)
-                .foregroundStyle(.white)
-                .background(email.isEmpty || password.isEmpty || authManager.isLoading ? Color.gray : Color.blue)
-                .clipShape(.rect(cornerRadius: 8))
+                .buttonStyle(.kPrimary)
                 .disabled(email.isEmpty || password.isEmpty || authManager.isLoading)
-                
-                Divider()
-                    .padding(.vertical, 8)
-                
-                // OAuth Buttons
-                VStack(spacing: 12) {
-                    Button(action: handleGoogleSignIn) {
-                        HStack {
-                            Image(systemName: "g.circle.fill")
-                                .font(.system(size: 20))
-                            
-                            Text("Continue with Google")
-                                .font(.system(size: 16, weight: .semibold))
-                            
-                            Spacer()
-                        }
+                .opacity(appeared ? 1 : 0)
+                .animation(KAnimation.smooth.delay(0.2), value: appeared)
+
+                AuthOrDivider()
+                    .opacity(appeared ? 1 : 0)
+                    .animation(KAnimation.smooth.delay(0.25), value: appeared)
+
+                Button(action: handleGoogleSignIn) {
+                    HStack(spacing: Spacing.sm) {
+                        Image(systemName: "g.circle.fill")
+                            .font(.system(size: ComponentSize.Icon.medium))
+                        Text("Continue with Google")
+                        Spacer()
                     }
                     .frame(maxWidth: .infinity)
-                    .frame(height: 44)
-                    .foregroundStyle(.primary)
-                    .background(Color(.secondarySystemBackground))
-                    .clipShape(.rect(cornerRadius: 8))
-                    .disabled(authManager.isLoading)
                 }
-                
-                Spacer()
-                
-                // Sign Up Link
-                HStack {
-                    Text("Don't have an account?")
-                        .foregroundStyle(.secondary)
-                    
-                    NavigationLink("Sign up") {
-                        SignupView()
-                    }
-                    .foregroundStyle(.blue)
-                }
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.bottom, 32)
+                .buttonStyle(.kGlass)
+                .disabled(authManager.isLoading)
+                .opacity(appeared ? 1 : 0)
+                .animation(KAnimation.smooth.delay(0.3), value: appeared)
+
+                LoginFooterLink()
+                    .opacity(appeared ? 1 : 0)
+                    .animation(KAnimation.smooth.delay(0.35), value: appeared)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, Spacing.lg)
+            .padding(.top, Spacing.section)
+            .padding(.bottom, Spacing.xxl)
         }
-        .navigationBarTitleDisplayMode(.inline)
+        .scrollBounceBehavior(.basedOnSize)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .onAppear { appeared = true }
     }
-    
+
     private func handleLogin() {
+        Haptics.light()
         Task {
             do {
                 try await authManager.login(email: email, password: password)
-            } catch {
-                // Error is already handled in AuthManager
-            }
+            } catch {}
         }
     }
-    
+
     private func handleGoogleSignIn() {
+        Haptics.light()
         Task {
             do {
                 try await authManager.initiateGoogleSignIn()
-            } catch {
-                // Error is already handled in AuthManager
+            } catch {}
+        }
+    }
+}
+
+// MARK: - Private Sub-Views
+
+private struct LoginLogoSection: View {
+    var body: some View {
+        VStack(spacing: Spacing.md) {
+            Image("korahimg")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 88, height: 88)
+                .kShadowGlow()
+
+            VStack(spacing: Spacing.xs) {
+                Text("Welcome Back")
+                    .kTitleStyle()
+                Text("Sign in to continue your studies")
+                    .kSecondaryStyle()
+            }
+            .multilineTextAlignment(.center)
+        }
+    }
+}
+
+private struct LoginFormSection: View {
+    @Binding var email: String
+    @Binding var password: String
+    var focusedField: FocusState<LoginView.Field?>.Binding
+
+    /// Left-edge offset matching the icon column + gap so the divider
+    /// aligns with the text content rather than the icon.
+    private let dividerLeading: CGFloat =
+        Spacing.md + ComponentSize.Icon.large + Spacing.sm
+
+    var body: some View {
+        VStack(spacing: 0) {
+            AuthFieldRow(label: "Email", systemImage: "envelope") {
+                TextField("name@example.com", text: $email)
+                    .textInputAutocapitalization(.never)
+                    .keyboardType(.emailAddress)
+                    .focused(focusedField, equals: .email)
+                    .autocorrectionDisabled()
+            }
+
+            Rectangle()
+                .fill(Color.kSeparator)
+                .frame(height: 0.5)
+                .padding(.leading, dividerLeading)
+
+            AuthFieldRow(label: "Password", systemImage: "lock") {
+                SecureField("••••••••", text: $password)
+                    .focused(focusedField, equals: .password)
             }
         }
+        .kGlassEffect(cornerRadius: CornerRadius.card)
+        .kShadowSubtle()
+    }
+}
+
+private struct LoginFooterLink: View {
+    var body: some View {
+        HStack(spacing: Spacing.xs) {
+            Text("Don't have an account?")
+                .kSecondaryStyle()
+
+            NavigationLink("Sign up") {
+                SignupView()
+            }
+            .buttonStyle(.kGhost)
+        }
+        .padding(.bottom, Spacing.md)
     }
 }
 
