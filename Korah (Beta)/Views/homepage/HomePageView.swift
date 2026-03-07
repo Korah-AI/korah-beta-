@@ -73,11 +73,11 @@ struct HomePageView: View {
                                 QuickActionButton(icon: "plus.circle.fill", title: "New Task", color: .purple) {
                                     selectedTab = 1
                                 }
-                                QuickActionButton(icon: "camera.viewfinder", title: "Scan", color: .blue) {
+                                QuickActionButton(icon: "person.fill", title: "A.I Chat", color: .blue) {
                                     selectedTab = 2
                                 }
-                                QuickActionButton(icon: "message.fill", title: "Chat", color: .green) {
-                                    selectedTab = 2
+                                QuickActionButton(icon: "book", title: "Study", color: .green) {
+                                    selectedTab = 4
                                 }
                                 QuickActionButton(icon: "timer", title: "Focus Timer", color: .orange) {
                                     selectedTab = 3
