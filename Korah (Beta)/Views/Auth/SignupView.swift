@@ -23,79 +23,177 @@ struct SignupView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: Spacing.xxl) {
-                SignupHeadingSection()
-                    .opacity(appeared ? 1 : 0)
-                    .offset(y: appeared ? 0 : 24)
-                    .animation(KAnimation.smooth, value: appeared)
-
-                SignupPersonalSection(
-                    firstName: $firstName,
-                    lastName: $lastName,
-                    email: $email,
-                    focusedField: $focusedField
-                )
-                .opacity(appeared ? 1 : 0)
-                .offset(y: appeared ? 0 : 24)
-                .animation(KAnimation.smooth.delay(0.1), value: appeared)
-
-                SignupCredentialsSection(
-                    password: $password,
-                    confirmPassword: $confirmPassword,
-                    focusedField: $focusedField
-                )
-                .opacity(appeared ? 1 : 0)
-                .offset(y: appeared ? 0 : 24)
-                .animation(KAnimation.smooth.delay(0.15), value: appeared)
-
-                if let error = authManager.errorMessage {
-                    AuthErrorBanner(message: error)
-                        .transition(.opacity.combined(with: .offset(y: -8)))
-                }
-
-                Button(action: handleSignup) {
-                    if authManager.isLoading {
-                        ProgressView().tint(.white)
-                    } else {
-                        Text("Create Account")
+        ZStack {
+            // Background
+            TwinklingStarsBackground(starCount: 100)
+                .ignoresSafeArea()
+            
+            ScrollView {
+                VStack {
+                    Spacer(minLength: 40)
+                    
+                    // Main Bento Card
+                    VStack(spacing: 28) {
+                        // Top Icon (Korah Mascot)
+                        Image("korahimg")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 100, height: 100)
+                            .kShadowGlow()
+                        
+                        // Title
+                        VStack(spacing: 8) {
+                            Text("Create Account")
+                                .font(.system(size: 32, weight: .semibold, design: .rounded))
+                                .foregroundStyle(.white)
+                            Text("Join Korah and study smarter")
+                                .font(.system(size: 15))
+                                .foregroundStyle(.white.opacity(0.6))
+                        }
+                        
+                        // Form Fields
+                        VStack(spacing: 16) {
+                            HStack(spacing: 12) {
+                                BentoInputField(
+                                    text: $firstName,
+                                    placeholder: "First Name",
+                                    isSecure: false,
+                                    focused: $focusedField,
+                                    field: .firstName
+                                )
+                                
+                                BentoInputField(
+                                    text: $lastName,
+                                    placeholder: "Last Name",
+                                    isSecure: false,
+                                    focused: $focusedField,
+                                    field: .lastName
+                                )
+                            }
+                            
+                            BentoInputField(
+                                text: $email,
+                                placeholder: "Email",
+                                isSecure: false,
+                                focused: $focusedField,
+                                field: .email
+                            )
+                            
+                            BentoInputField(
+                                text: $password,
+                                placeholder: "Password",
+                                isSecure: true,
+                                focused: $focusedField,
+                                field: .password,
+                                showHelpIcon: true
+                            )
+                            
+                            BentoInputField(
+                                text: $confirmPassword,
+                                placeholder: "Confirm Password",
+                                isSecure: true,
+                                focused: $focusedField,
+                                field: .confirmPassword
+                            )
+                        }
+                        
+                        // Action Buttons
+                        VStack(spacing: 12) {
+                            Button(action: handleSignup) {
+                                Group {
+                                    if authManager.isLoading {
+                                        ProgressView().tint(.white)
+                                    } else {
+                                        Text("Create Account")
+                                    }
+                                }
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 60)
+                                .background(Color.black.opacity(0.4))
+                                .clipShape(RoundedRectangle(cornerRadius: 30))
+                                .foregroundStyle(.white)
+                                .font(.system(size: 18, weight: .medium))
+                            }
+                            .buttonStyle(BentoGlowingButtonStyle())
+                            .disabled(!isFormValid || authManager.isLoading)
+                            
+                            Button(action: handleGoogleSignIn) {
+                                HStack(spacing: 12) {
+                                    Image("Google-Logo-PNG-Image")
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 24, height: 24)
+                                    Text("Sign up with Google")
+                                }
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 60)
+                                .background(Color.black.opacity(0.3))
+                                .clipShape(RoundedRectangle(cornerRadius: 30))
+                                .foregroundStyle(.white)
+                                .font(.system(size: 18, weight: .medium))
+                            }
+                            .disabled(authManager.isLoading)
+                        }
+                        
+                        if let error = authManager.errorMessage {
+                            Text(error)
+                                .font(.system(size: 13))
+                                .foregroundStyle(Color.kError)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
+                        }
+                        
+                        // Footer
+                        HStack(spacing: 4) {
+                            Text("Already have an account?")
+                                .foregroundStyle(.white.opacity(0.6))
+                            
+                            Button("Sign in") { dismiss() }
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.white)
+                        }
+                        .font(.system(size: 14))
                     }
-                }
-                .buttonStyle(.kPrimary)
-                .disabled(!isFormValid || authManager.isLoading)
-                .opacity(appeared ? 1 : 0)
-                .animation(KAnimation.smooth.delay(0.2), value: appeared)
-
-                AuthOrDivider()
-                    .opacity(appeared ? 1 : 0)
-                    .animation(KAnimation.smooth.delay(0.25), value: appeared)
-
-                Button(action: handleGoogleSignIn) {
-                    HStack(spacing: Spacing.sm) {
-                        Image(systemName: "g.circle.fill")
-                            .font(.system(size: ComponentSize.Icon.medium))
-                        Text("Sign up with Google")
-                        Spacer()
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 40)
+                    .background {
+                        if #available(iOS 18.0, *) {
+                            RoundedRectangle(cornerRadius: 48, style: .continuous)
+                                .fill(.clear)
+                                .glassEffect(
+                                    .regular.tint(.white.opacity(0.05)),
+                                    in: .rect(cornerRadius: 48)
+                                )
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 48, style: .continuous)
+                                        .stroke(.white.opacity(0.1), lineWidth: 1)
+                                }
+                        } else {
+                            RoundedRectangle(cornerRadius: 48, style: .continuous)
+                                .fill(Color.white.opacity(0.03))
+                                .background(.ultraThinMaterial.opacity(0.4))
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 48, style: .continuous)
+                                        .stroke(.white.opacity(0.1), lineWidth: 1)
+                                }
+                        }
                     }
-                    .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.kGlass)
-                .disabled(authManager.isLoading)
-                .opacity(appeared ? 1 : 0)
-                .animation(KAnimation.smooth.delay(0.3), value: appeared)
-
-                SignupFooterLink(dismiss: dismiss)
+                    .padding(.horizontal, 24)
                     .opacity(appeared ? 1 : 0)
-                    .animation(KAnimation.smooth.delay(0.35), value: appeared)
+                    .offset(y: appeared ? 0 : 40)
+                    
+                    Spacer(minLength: 40)
+                }
             }
-            .padding(.horizontal, Spacing.lg)
-            .padding(.top, Spacing.xxl)
-            .padding(.bottom, Spacing.xxl)
         }
         .scrollBounceBehavior(.basedOnSize)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .navigationBarTitleDisplayMode(.inline)
-        .onAppear { appeared = true }
+        .navigationBarBackButtonHidden()
+        .onAppear {
+            withAnimation(.spring(response: 0.8, dampingFraction: 0.8)) {
+                appeared = true
+            }
+        }
     }
 
     private func handleSignup() {
@@ -122,135 +220,43 @@ struct SignupView: View {
     }
 }
 
-// MARK: - Private Sub-Views
+// MARK: - Bento Components
 
-private struct SignupHeadingSection: View {
+private struct BentoInputField: View {
+    @Binding var text: String
+    let placeholder: String
+    let isSecure: Bool
+    var focused: FocusState<SignupView.Field?>.Binding
+    let field: SignupView.Field
+    var showHelpIcon: Bool = false
+    
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.xs) {
-            Text("Create Account")
-                .kTitleStyle()
-            Text("Join Korah and start studying smarter")
-                .kSecondaryStyle()
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-private struct SignupPersonalSection: View {
-    @Binding var firstName: String
-    @Binding var lastName: String
-    @Binding var email: String
-    var focusedField: FocusState<SignupView.Field?>.Binding
-
-    private let dividerLeading: CGFloat =
-        Spacing.md + ComponentSize.Icon.large + Spacing.sm
-
-    var body: some View {
-        VStack(spacing: 0) {
-            AuthFieldRow(label: "First Name", systemImage: "person") {
-                TextField("John", text: $firstName)
-                    .focused(focusedField, equals: .firstName)
-                    .textContentType(.givenName)
-                    .autocorrectionDisabled()
-            }
-
-            separator
-
-            AuthFieldRow(label: "Last Name", systemImage: "person") {
-                TextField("Doe", text: $lastName)
-                    .focused(focusedField, equals: .lastName)
-                    .textContentType(.familyName)
-                    .autocorrectionDisabled()
-            }
-
-            separator
-
-            AuthFieldRow(label: "Email", systemImage: "envelope") {
-                TextField("name@example.com", text: $email)
-                    .textInputAutocapitalization(.never)
-                    .keyboardType(.emailAddress)
-                    .focused(focusedField, equals: .email)
-                    .autocorrectionDisabled()
-            }
-        }
-        .kGlassEffect(cornerRadius: CornerRadius.card)
-        .kShadowSubtle()
-    }
-
-    private var separator: some View {
-        Rectangle()
-            .fill(Color.kSeparator)
-            .frame(height: 0.5)
-            .padding(.leading, dividerLeading)
-    }
-}
-
-private struct SignupCredentialsSection: View {
-    @Binding var password: String
-    @Binding var confirmPassword: String
-    var focusedField: FocusState<SignupView.Field?>.Binding
-
-    private let dividerLeading: CGFloat =
-        Spacing.md + ComponentSize.Icon.large + Spacing.sm
-
-    var body: some View {
-        VStack(spacing: 0) {
-            AuthFieldRow(label: "Password", systemImage: "lock") {
-                VStack(alignment: .leading, spacing: Spacing.xxs) {
-                    SecureField("••••••••", text: $password)
-                        .focused(focusedField, equals: .password)
-
-                    if !password.isEmpty {
-                        AuthValidationHint(
-                            message: password.count >= 8
-                                ? "At least 8 characters"
-                                : "At least 8 characters required",
-                            isValid: password.count >= 8
-                        )
-                    }
+        ZStack(alignment: .trailing) {
+            Group {
+                if isSecure {
+                    SecureField("", text: $text, prompt: Text(placeholder).foregroundStyle(.white.opacity(0.3)))
+                } else {
+                    TextField("", text: $text, prompt: Text(placeholder).foregroundStyle(.white.opacity(0.3)))
+                        .textInputAutocapitalization(placeholder.contains("Name") ? .words : .never)
+                        .keyboardType(placeholder.contains("Email") ? .emailAddress : .default)
+                        .autocorrectionDisabled()
                 }
-                .animation(KAnimation.quick, value: password.isEmpty)
             }
-
-            Rectangle()
-                .fill(Color.kSeparator)
-                .frame(height: 0.5)
-                .padding(.leading, dividerLeading)
-
-            AuthFieldRow(label: "Confirm Password", systemImage: "lock.fill") {
-                VStack(alignment: .leading, spacing: Spacing.xxs) {
-                    SecureField("••••••••", text: $confirmPassword)
-                        .focused(focusedField, equals: .confirmPassword)
-
-                    if !confirmPassword.isEmpty {
-                        AuthValidationHint(
-                            message: password == confirmPassword
-                                ? "Passwords match"
-                                : "Passwords do not match",
-                            isValid: password == confirmPassword
-                        )
-                    }
-                }
-                .animation(KAnimation.quick, value: confirmPassword.isEmpty)
+            .focused(focused, equals: field)
+            .padding(.horizontal, 20)
+            .frame(height: 60)
+            .background(Color.white.opacity(0.05))
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .foregroundStyle(.white)
+            .font(.system(size: 16))
+            
+            if showHelpIcon {
+                Image(systemName: "questionmark.circle.fill")
+                    .foregroundStyle(.white.opacity(0.2))
+                    .padding(.trailing, 14)
+                    .font(.system(size: 16))
             }
         }
-        .kGlassEffect(cornerRadius: CornerRadius.card)
-        .kShadowSubtle()
-    }
-}
-
-private struct SignupFooterLink: View {
-    let dismiss: DismissAction
-
-    var body: some View {
-        HStack(spacing: Spacing.xs) {
-            Text("Already have an account?")
-                .kSecondaryStyle()
-
-            Button("Sign in") { dismiss() }
-                .buttonStyle(.kGhost)
-        }
-        .padding(.bottom, Spacing.md)
     }
 }
 

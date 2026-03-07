@@ -6,6 +6,7 @@ struct LoginView: View {
     @Environment(AuthManager.self) private var authManager
     @FocusState private var focusedField: Field?
     @State private var appeared = false
+    @State private var rotation: Double = 0
 
     enum Field { case email, password }
 
@@ -70,6 +71,7 @@ struct LoginView: View {
                                 .foregroundStyle(.white)
                                 .font(.system(size: 18, weight: .medium))
                             }
+                            .buttonStyle(BentoGlowingButtonStyle())
                             .disabled(email.isEmpty || password.isEmpty || authManager.isLoading)
                             
                             Button(action: handleGoogleSignIn) {
@@ -211,9 +213,60 @@ private struct BentoInputField: View {
     }
 }
 
-#Preview {
-    NavigationStack {
-        LoginView()
-            .environment(AuthManager.shared)
+// MARK: - Animated Button Style
+
+struct BentoGlowingButtonStyle: ButtonStyle {
+    @State private var rotation: Double = 0
+    @State private var dashPhase: CGFloat = 0
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .overlay {
+                    ZStack {
+                        // Rainbow rotating gradient stroke with dash
+                        RoundedRectangle(cornerRadius: 30)
+                            .stroke(
+                                AngularGradient(
+                                    colors: [
+                                        .red, .orange, .yellow, .green, .mint, .teal, .blue, .indigo, .purple, .pink, .red
+                                    ],
+                                    center: .center,
+                                    angle: .degrees(rotation)
+                                ),
+                                style: StrokeStyle(
+                                    lineWidth: 3,
+                                    lineCap: .round,
+                                    lineJoin: .round,
+                                    dash: [40, 400],
+                                    dashPhase: dashPhase
+                                )
+                            )
+                            .blur(radius: 0.5)
+
+                        // Subtle angular glow accent with reduced opacity
+                        RoundedRectangle(cornerRadius: 30)
+                            .stroke(
+                                AngularGradient(
+                                    colors: [.clear, .white.opacity(0.25), .clear],
+                                    center: .center,
+                                    angle: .degrees(rotation)
+                                ),
+                                lineWidth: 2
+                            )
+                            .blur(radius: 2)
+                    }
+                }
+        
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .animation(.easeIn(duration: 0.1), value: configuration.isPressed)
+            .onAppear {
+                withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
+                    rotation = 360
+                }
+                withAnimation(.linear(duration: 2).repeatForever(autoreverses: false)) {
+                    dashPhase = -440 // moves the dash around the perimeter continuously
+                }
+            }
     }
 }
