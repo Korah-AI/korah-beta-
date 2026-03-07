@@ -20,13 +20,15 @@ struct LatexMarkdownView: View {
     private func renderMarkdownWithLatexSegments(_ text: String) -> some View {
         let segments = splitIntoMarkdownAndLatexSegments(text)
         VStack(alignment: .leading, spacing: 4) {
-            ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
+            ForEach(segments.enumerated(), id: \.offset) { _, segment in
                 if segment.isLatex {
-                    let latexSource = segment.content
-                    LaTeX(latexSource)
+                    let delimited = segment.display
+                        ? "$$\(segment.content)$$"
+                        : "$\(segment.content)$"
+                    LaTeX(delimited)
                         .parsingMode(.onlyEquations)
                         .font(.system(size: 17))
-                        .foregroundColor(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                        .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
                 } else if !segment.content.isEmpty {
                     Markdown(segment.content)
                         .markdownTheme(.korah)
