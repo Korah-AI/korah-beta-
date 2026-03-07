@@ -13,13 +13,23 @@ struct SignupView: View {
 
     enum Field { case firstName, lastName, email, password, confirmPassword }
 
+    private var hasMinLength: Bool { password.count >= 8 }
+    private var hasUppercase: Bool { password.contains(where: \.isUppercase) }
+    private var hasLowercase: Bool { password.contains(where: \.isLowercase) }
+    private var hasNumber: Bool { password.contains(where: \.isNumber) }
+    private var passwordsMatch: Bool { !confirmPassword.isEmpty && password == confirmPassword }
+
+    private var isEmailFormatValid: Bool {
+        let parts = email.split(separator: "@", maxSplits: 1)
+        return parts.count == 2 && parts[1].contains(".")
+    }
+
     private var isPasswordValid: Bool {
-        password.count >= 8 && password == confirmPassword
+        hasMinLength && hasUppercase && hasLowercase && hasNumber && passwordsMatch
     }
 
     private var isFormValid: Bool {
-        !firstName.isEmpty && !lastName.isEmpty && !email.isEmpty
-            && isPasswordValid && email.contains("@")
+        !firstName.isEmpty && !lastName.isEmpty && isEmailFormatValid && isPasswordValid
     }
 
     var body: some View {
@@ -71,30 +81,52 @@ struct SignupView: View {
                                 )
                             }
                             
-                            BentoInputField(
-                                text: $email,
-                                placeholder: "Email",
-                                isSecure: false,
-                                focused: $focusedField,
-                                field: .email
-                            )
+                            VStack(alignment: .leading, spacing: 6) {
+                                BentoInputField(
+                                    text: $email,
+                                    placeholder: "Email",
+                                    isSecure: false,
+                                    focused: $focusedField,
+                                    field: .email
+                                )
+                                if !email.isEmpty {
+                                    AuthValidationHint(message: "Valid email address", isValid: isEmailFormatValid)
+                                        .padding(.horizontal, 4)
+                                }
+                            }
                             
-                            BentoInputField(
-                                text: $password,
-                                placeholder: "Password",
-                                isSecure: true,
-                                focused: $focusedField,
-                                field: .password,
-                                showHelpIcon: true
-                            )
+                            VStack(alignment: .leading, spacing: 6) {
+                                BentoInputField(
+                                    text: $password,
+                                    placeholder: "Password",
+                                    isSecure: true,
+                                    focused: $focusedField,
+                                    field: .password
+                                )
+                                if !password.isEmpty {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        AuthValidationHint(message: "At least 8 characters", isValid: hasMinLength)
+                                        AuthValidationHint(message: "One uppercase letter", isValid: hasUppercase)
+                                        AuthValidationHint(message: "One lowercase letter", isValid: hasLowercase)
+                                        AuthValidationHint(message: "One number", isValid: hasNumber)
+                                    }
+                                    .padding(.horizontal, 4)
+                                }
+                            }
                             
-                            BentoInputField(
-                                text: $confirmPassword,
-                                placeholder: "Confirm Password",
-                                isSecure: true,
-                                focused: $focusedField,
-                                field: .confirmPassword
-                            )
+                            VStack(alignment: .leading, spacing: 6) {
+                                BentoInputField(
+                                    text: $confirmPassword,
+                                    placeholder: "Confirm Password",
+                                    isSecure: true,
+                                    focused: $focusedField,
+                                    field: .confirmPassword
+                                )
+                                if !confirmPassword.isEmpty {
+                                    AuthValidationHint(message: "Passwords match", isValid: passwordsMatch)
+                                        .padding(.horizontal, 4)
+                                }
+                            }
                         }
                         
                         // Action Buttons

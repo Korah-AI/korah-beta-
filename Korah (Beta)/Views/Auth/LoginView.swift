@@ -18,21 +18,28 @@ struct LoginView: View {
             
             ScrollView {
                 VStack {
-                    Spacer(minLength: 80)
+                    Spacer(minLength: 50)
                     
                     // Main Bento Card
-                    VStack(spacing: 32) {
+                    VStack(spacing: 12) {
                         // Top Icon (Korah Mascot)
                         Image("korahimg")
                             .resizable()
                             .scaledToFit()
-                            .frame(width: 120, height: 120)
+                            .frame(width: 150, height: 150)
                             .kShadowGlow()
                         
                         // Title
                         Text("Korah")
                             .font(.system(size: 38, weight: .semibold, design: .rounded))
                             .foregroundStyle(.white)
+                        
+                        HStack(spacing: 4) {
+                            Text("Study Smarter, Not Harder")
+                                .foregroundStyle(.white.opacity(0.6))
+                                .padding(.bottom, 10)
+                        }
+                        .font(.system(size: 18))
                         
                         // Form Fields
                         VStack(spacing: 20) {
