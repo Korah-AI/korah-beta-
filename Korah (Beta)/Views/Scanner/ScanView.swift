@@ -268,10 +268,14 @@ struct ScanView: View {
     
     private var headerBar: some View {
         VStack(spacing: Spacing.sm) {
+            modeToggle
+                .padding(.horizontal, Spacing.md)
+                .padding(.top, Spacing.xl)
+            
             // Top bar with back button and actions
             HStack {
                 Button(action: { hideKeyboard(); navigateToHome = true }) {
-                    Image(systemName: "chevron.left")
+                    Image(systemName: "null")
                         .font(.headline)
                         .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
                 }
@@ -303,123 +307,74 @@ struct ScanView: View {
                 }
             }
             .padding(.horizontal, Spacing.md)
-            .padding(.top, Spacing.xl)
-            
-            // Mode Toggle
-            HStack(spacing: Spacing.sm) {
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        showCameraMode = true
-                        hideKeyboard()
-                    }
-                    Haptics.selection()
-                }) {
-                    HStack(spacing: Spacing.xs) {
-                        Image(systemName: "camera.fill")
-                            .font(.system(size: 14))
-                        Text("Camera")
-                            .font(.kSubheadline)
-                    }
-                    .foregroundStyle(showCameraMode ? .white : Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-                    .padding(.vertical, Spacing.sm)
-                    .padding(.horizontal, Spacing.md)
-                    .background(
-                        RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
-                            .fill(showCameraMode ? Color.adaptive(light: .Light.accent, dark: .Dark.accent) : Color.adaptive(light: .Light.surface, dark: .Dark.surface))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
-                                    .stroke(showCameraMode ? Color.clear : Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
-                            )
-                    )
-                    .shadow(color: showCameraMode ? Color.adaptive(light: .Light.accent, dark: .Dark.accent).opacity(0.3) : .clear, radius: 8, x: 0, y: 4)
-                }
-                
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        showCameraMode = false
-                    }
-                    Haptics.selection()
-                }) {
-                    HStack(spacing: Spacing.xs) {
-                        Image(systemName: "message.fill")
-                            .font(.system(size: 14))
-                        Text("Chat")
-                            .font(.kSubheadline)
-                    }
-                    .foregroundStyle(!showCameraMode ? .white : Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-                    .padding(.vertical, Spacing.sm)
-                    .padding(.horizontal, Spacing.md)
-                    .background(
-                        RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
-                            .fill(!showCameraMode ? Color.adaptive(light: .Light.accent, dark: .Dark.accent) : Color.adaptive(light: .Light.surface, dark: .Dark.surface))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
-                                    .stroke(!showCameraMode ? Color.clear : Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
-                            )
-                    )
-                    .shadow(color: !showCameraMode ? Color.adaptive(light: .Light.accent, dark: .Dark.accent).opacity(0.3) : .clear, radius: 8, x: 0, y: 4)
-                }
-            }
-            .padding(.horizontal, Spacing.md)
             .padding(.bottom, Spacing.md)
         }
     }
     
     private var modeToggle: some View {
-        HStack(spacing: Spacing.sm) {
-            Button(action: {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    showCameraMode = true
-                    hideKeyboard()
-                }
-                Haptics.selection()
-            }) {
-                HStack(spacing: Spacing.xs) {
-                    Image(systemName: "camera.fill")
-                        .font(.system(size: 14))
-                    Text("Camera")
-                        .font(.kSubheadline)
-                }
-                .foregroundStyle(showCameraMode ? .white : Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-                .padding(.vertical, Spacing.sm)
-                .padding(.horizontal, Spacing.md)
-                .background(
-                    RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
-                        .fill(showCameraMode ? Color.adaptive(light: .Light.accent, dark: .Dark.accent) : Color.adaptive(light: .Light.surface, dark: .Dark.surface))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
-                                .stroke(showCameraMode ? Color.clear : Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
-                        )
-                )
-                .shadow(color: showCameraMode ? Color.adaptive(light: .Light.accent, dark: .Dark.accent).opacity(0.3) : .clear, radius: 8, x: 0, y: 4)
+        HStack(spacing: Spacing.xs) {
+            modeToggleButton(
+                title: "Camera",
+                systemImage: "camera.fill",
+                isSelected: showCameraMode
+            ) {
+                setCameraMode(true)
             }
             
-            Button(action: {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    showCameraMode = false
-                }
-                Haptics.selection()
-            }) {
-                HStack(spacing: Spacing.xs) {
-                    Image(systemName: "message.fill")
-                        .font(.system(size: 14))
-                    Text("Chat")
-                        .font(.kSubheadline)
-                }
-                .foregroundStyle(!showCameraMode ? .white : Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-                .padding(.vertical, Spacing.sm)
-                .padding(.horizontal, Spacing.md)
-                .background(
-                    RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
-                        .fill(!showCameraMode ? Color.adaptive(light: .Light.accent, dark: .Dark.accent) : Color.adaptive(light: .Light.surface, dark: .Dark.surface))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
-                                .stroke(!showCameraMode ? Color.clear : Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
-                        )
-                )
-                .shadow(color: !showCameraMode ? Color.adaptive(light: .Light.accent, dark: .Dark.accent).opacity(0.3) : .clear, radius: 8, x: 0, y: 4)
+            modeToggleButton(
+                title: "Chat",
+                systemImage: "message.fill",
+                isSelected: !showCameraMode
+            ) {
+                setCameraMode(false)
             }
         }
+        .padding(Spacing.xs)
+        .kGlassEffect(cornerRadius: CornerRadius.pill, interactive: true)
+        .clipShape(.rect(cornerRadius: CornerRadius.pill))
+    }
+    
+    private func setCameraMode(_ enabled: Bool) {
+        withAnimation(.easeInOut(duration: 0.25)) {
+            showCameraMode = enabled
+            if enabled {
+                hideKeyboard()
+            }
+        }
+        Haptics.selection()
+    }
+    
+    @ViewBuilder
+    private func modeToggleButton(
+        title: String,
+        systemImage: String,
+        isSelected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .font(.kSubheadline)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, Spacing.sm)
+                .padding(.horizontal, Spacing.md)
+                .foregroundStyle(
+                    isSelected
+                    ? .white
+                    : Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary)
+                )
+                .background {
+                    if isSelected {
+                        RoundedRectangle(cornerRadius: CornerRadius.pill, style: .continuous)
+                            .fill(Color.adaptive(light: .Light.accent, dark: .Dark.accent).opacity(0.2))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: CornerRadius.pill, style: .continuous)
+                                    .stroke(Color.white.opacity(0.2), lineWidth: 0.6)
+                            )
+                            .kGlassEffect(cornerRadius: CornerRadius.pill, interactive: true)
+                    }
+                }
+        }
+        .buttonStyle(.plain)
     }
     
     private var emptyStateView: some View {
@@ -791,7 +746,7 @@ struct ScanView: View {
                     .ignoresSafeArea()
                     
                     modeToggle
-                        .padding(.top, Spacing.xl + 44)
+                        .padding(.top, Spacing.sm)
                         .padding(.horizontal, Spacing.md)
                 }
                 .transition(.opacity)

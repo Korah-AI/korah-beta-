@@ -9,26 +9,35 @@ import UIKit
 class CameraViewModel: NSObject {
     var captureSession: AVCaptureSession?
     var photoOutput: AVCapturePhotoOutput?
-    var previewLayer: AVCaptureVideoPreviewLayer?
     var isFlashOn = false
-    var currentZoomFactor: CGFloat = 1.0
     var isSessionRunning = false
     var errorMessage: String?
     
     private var currentCamera: AVCaptureDevice?
     private var photoCompletion: ((UIImage?) -> Void)?
+    private let sessionQueue = DispatchQueue(label: "com.korah.camera.session", qos: .userInitiated)
     
     override init() {
         super.init()
     }
     
     func setupCamera() async throws {
+        stopCamera()
+        
         let session = AVCaptureSession()
         session.beginConfiguration()
         session.sessionPreset = .photo
         
-        // Get camera device
-        guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else {
+        // Prefer 0.5x ultra-wide camera and fall back to other rear cameras
+        let discovery = AVCaptureDevice.DiscoverySession(
+            deviceTypes: [.builtInUltraWideCamera, .builtInDualWideCamera, .builtInWideAngleCamera],
+            mediaType: .video,
+            position: .back
+        )
+        guard let camera =
+            discovery.devices.first(where: { $0.deviceType == .builtInUltraWideCamera }) ??
+            discovery.devices.first else {
+            session.commitConfiguration()
             throw CameraError.noCameraAvailable
         }
         
@@ -36,32 +45,64 @@ class CameraViewModel: NSObject {
         
         // Add camera input
         let input = try AVCaptureDeviceInput(device: camera)
-        if session.canAddInput(input) {
-            session.addInput(input)
+        guard session.canAddInput(input) else {
+            session.commitConfiguration()
+            throw CameraError.configurationFailed
         }
+        session.addInput(input)
         
         // Add photo output
         let output = AVCapturePhotoOutput()
-        if session.canAddOutput(output) {
-            session.addOutput(output)
+        guard session.canAddOutput(output) else {
+            session.commitConfiguration()
+            throw CameraError.configurationFailed
         }
+        session.addOutput(output)
         
         photoOutput = output
         session.commitConfiguration()
         captureSession = session
+        isFlashOn = false
+        errorMessage = nil
         
-        // Start session on background thread
-        Task.detached {
-            session.startRunning()
-            await MainActor.run {
-                self.isSessionRunning = true
+        // Start session on dedicated queue and verify running state
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            sessionQueue.async {
+                if !session.isRunning {
+                    session.startRunning()
+                }
+                
+                if session.isRunning {
+                    continuation.resume(returning: ())
+                } else {
+                    continuation.resume(throwing: CameraError.sessionStartFailed)
+                }
             }
         }
+        
+        isSessionRunning = session.isRunning
     }
     
     func stopCamera() {
-        captureSession?.stopRunning()
+        if isFlashOn {
+            setTorchEnabled(false)
+        }
+        
+        guard let session = captureSession else {
+            isSessionRunning = false
+            return
+        }
+        
+        captureSession = nil
+        photoOutput = nil
+        currentCamera = nil
         isSessionRunning = false
+        
+        sessionQueue.async {
+            if session.isRunning {
+                session.stopRunning()
+            }
+        }
     }
     
     func capturePhoto(completion: @escaping (UIImage?) -> Void) {
@@ -83,26 +124,39 @@ class CameraViewModel: NSObject {
     }
     
     func toggleFlash() {
-        isFlashOn.toggle()
+        setTorchEnabled(!isFlashOn)
     }
     
-    func setZoom(_ factor: CGFloat) {
-        guard let device = currentCamera else { return }
+    private func setTorchEnabled(_ enabled: Bool) {
+        guard let device = currentCamera, device.hasTorch else {
+            isFlashOn = false
+            if enabled {
+                errorMessage = "Flash isn’t available on this camera."
+            }
+            return
+        }
         
         do {
             try device.lockForConfiguration()
-            let clampedFactor = min(max(factor, 1.0), device.activeFormat.videoMaxZoomFactor)
-            device.videoZoomFactor = clampedFactor
-            currentZoomFactor = clampedFactor
-            device.unlockForConfiguration()
+            defer { device.unlockForConfiguration() }
+            
+            if enabled {
+                try device.setTorchModeOn(level: AVCaptureDevice.maxAvailableTorchLevel)
+            } else {
+                device.torchMode = .off
+            }
+            
+            isFlashOn = enabled
         } catch {
-            print("Failed to set zoom: \(error)")
+            isFlashOn = false
+            errorMessage = "Unable to change flash right now."
         }
     }
     
     enum CameraError: Error {
         case noCameraAvailable
-        case unauthorized
+        case configurationFailed
+        case sessionStartFailed
     }
 }
 
@@ -166,9 +220,11 @@ struct CameraPreviewView: UIViewRepresentable {
 // MARK: - Custom Camera View
 
 struct CustomCameraView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var viewModel = CameraViewModel()
     @State private var showPermissionAlert = false
     @State private var isCapturing = false
+    @State private var setupTask: Task<Void, Never>?
     
     let onPhotoCaptured: (UIImage) -> Void
     let onDismiss: () -> Void
@@ -226,6 +282,7 @@ struct CustomCameraView: View {
                     // Close Button
                     Button(action: {
                         Haptics.selection()
+                        viewModel.stopCamera()
                         onDismiss()
                     }) {
                         Image(systemName: "xmark")
@@ -261,11 +318,23 @@ struct CustomCameraView: View {
                 }
             }
         }
-        .task {
-            await requestCameraPermission()
+        .onAppear {
+            startCamera()
         }
         .onDisappear {
+            setupTask?.cancel()
+            setupTask = nil
             viewModel.stopCamera()
+        }
+        .onChange(of: scenePhase) { _, newValue in
+            switch newValue {
+            case .active:
+                startCamera()
+            case .inactive, .background:
+                viewModel.stopCamera()
+            @unknown default:
+                break
+            }
         }
         .alert("Camera Access Required", isPresented: $showPermissionAlert) {
             Button("Settings") {
@@ -278,6 +347,13 @@ struct CustomCameraView: View {
             }
         } message: {
             Text("Please enable camera access in Settings to scan documents and images.")
+        }
+    }
+    
+    private func startCamera() {
+        setupTask?.cancel()
+        setupTask = Task {
+            await requestCameraPermission()
         }
     }
     
@@ -305,7 +381,12 @@ struct CustomCameraView: View {
         do {
             try await viewModel.setupCamera()
         } catch {
-            viewModel.errorMessage = "Failed to start camera. Please try again."
+            do {
+                try await Task.sleep(for: .milliseconds(250))
+                try await viewModel.setupCamera()
+            } catch {
+                viewModel.errorMessage = "Failed to start camera. Please try again."
+            }
         }
     }
     
