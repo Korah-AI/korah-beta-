@@ -2,6 +2,7 @@ import Foundation
 import FirebaseAuth
 import FirebaseFirestore
 import CryptoKit
+import GoogleSignIn
 
 @Observable
 @MainActor
@@ -73,6 +74,33 @@ final class AuthManager {
     
     // MARK: - Google Sign-In
     
+    func initiateGoogleSignIn() async throws {
+        isLoading = true
+        errorMessage = nil
+        
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let rootViewController = windowScene.windows.first?.rootViewController else {
+            isLoading = false
+            throw NSError(domain: "AuthManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "Could not find root view controller"])
+        }
+        
+        do {
+            let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: rootViewController)
+            guard let idToken = result.user.idToken?.tokenString else {
+                isLoading = false
+                throw NSError(domain: "AuthManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "Could not get ID Token"])
+            }
+            
+            let accessToken = result.user.accessToken.tokenString
+            
+            try await signInWithGoogle(idToken: idToken, accessToken: accessToken)
+        } catch {
+            isLoading = false
+            errorMessage = error.localizedDescription
+            throw error
+        }
+    }
+    
     func signInWithGoogle(idToken: String, accessToken: String, firstName: String = "", lastName: String = "") async throws {
         isLoading = true
         errorMessage = nil
@@ -97,51 +125,6 @@ final class AuthManager {
                     id: result.user.uid,
                     firstName: first.isEmpty ? "User" : first,
                     lastName: last,
-                    email: result.user.email ?? "",
-                    createdAt: Date()
-                )
-                
-                try db.collection("users").document(user.id).setData(from: user)
-                self.currentUser = user
-            }
-            
-            self.isAuthenticated = true
-            isLoading = false
-        } catch {
-            isLoading = false
-            errorMessage = error.localizedDescription
-            throw error
-        }
-    }
-    
-    // MARK: - Apple Sign-In
-    
-    func signInWithApple(identityToken: Data, nonce: String, firstName: String = "", lastName: String = "") async throws {
-        isLoading = true
-        errorMessage = nil
-        
-        do {
-            let tokenString = String(data: identityToken, encoding: .utf8) ?? ""
-            let credential = OAuthProvider.appleCredential(
-                withIDToken: tokenString,
-                rawNonce: nonce,
-                fullName: nil
-            )
-            
-            let result = try await Auth.auth().signIn(with: credential)
-            
-            // Check if user exists in Firestore
-            let snapshot = try await db.collection("users").document(result.user.uid).getDocument()
-            
-            if snapshot.exists {
-                let user = try snapshot.data(as: User.self)
-                self.currentUser = user
-            } else {
-                // Create new user profile
-                let user = User(
-                    id: result.user.uid,
-                    firstName: firstName.isEmpty ? "User" : firstName,
-                    lastName: lastName,
                     email: result.user.email ?? "",
                     createdAt: Date()
                 )
