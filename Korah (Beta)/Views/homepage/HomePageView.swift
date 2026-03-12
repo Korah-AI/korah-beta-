@@ -7,7 +7,9 @@ struct HomePageView: View {
     @State private var showTimerCelebration = false
     @State private var editingTask: StudyTask? = nil
     @State private var showFeedback = false
+    @State private var showSettings = false
 
+    @Environment(AuthManager.self) private var authManager
     @AppStorage("UserMood") private var userMood: String = ""
 
     @State private var dataManager = HomeDataManager.shared
@@ -34,7 +36,7 @@ struct HomePageView: View {
                         VStack(spacing: 16) {
                             HStack {
                                 VStack(alignment: .leading, spacing: 8) {
-                                    Text("Hello, Student! 👋")
+                                    Text("Hello, \(authManager.currentUser?.firstName ?? "Student")! 👋")
                                         .font(.title)
                                         .fontWeight(.bold)
                                         .foregroundColor(.white)
@@ -327,7 +329,28 @@ struct HomePageView: View {
                         .kShadowGlow()
                     }
                     .padding(.horizontal)
-                    .padding(.bottom, 20)
+                    .padding(.bottom, 12)
+                    
+                    // Settings Button
+                    Button(action: {
+                        showSettings = true
+                    }) {
+                        HStack {
+                            Image(systemName: "gearshape.fill")
+                                .font(.kHeadline)
+                            Text("Settings")
+                                .font(.kHeadline)
+                        }
+                        .foregroundStyle(.white.opacity(0.8))
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(
+                            RoundedRectangle(cornerRadius: CornerRadius.button, style: .continuous)
+                                .fill(Color.white.opacity(0.1))
+                        )
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom, 32)
 
                     Spacer()
                     }
@@ -335,6 +358,14 @@ struct HomePageView: View {
                 .kBackground(withStars: true)
                 .refreshable {
                     dataManager.refreshAll()
+                }
+                .confirmationDialog("Settings", isPresented: $showSettings, titleVisibility: .visible) {
+                    Button("Log Out", role: .destructive) {
+                        try? authManager.logout()
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("Manage your account and preferences.")
                 }
                 .sheet(isPresented: $showMoodPicker) {
                     NavigationStack {

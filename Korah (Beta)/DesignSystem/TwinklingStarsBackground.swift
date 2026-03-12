@@ -2,13 +2,11 @@ import SwiftUI
 
 /// Twinkling stars background effect matching the web theme
 struct TwinklingStarsBackground: View {
-    @State private var stars: [Star]
+    @State private var stars: [Star] = []
     private let starCount: Int
     
     init(starCount: Int = 100) {
         self.starCount = starCount
-        // Initialize stars with placeholder values - they'll be regenerated in onAppear with actual geometry
-        self._stars = State(initialValue: [])
     }
     
     var body: some View {
@@ -35,16 +33,25 @@ struct TwinklingStarsBackground: View {
                         .blur(radius: star.blur)
                 }
             }
-            .task {
+            .onAppear {
                 if stars.isEmpty {
                     generateStars(in: geometry.size)
                     startTwinkling()
+                }
+            }
+            // Ensure stars re-position if the screen rotates or size changes
+            .onChange(of: geometry.size) { _, newSize in
+                if newSize != .zero {
+                    generateStars(in: newSize)
                 }
             }
         }
     }
     
     private func generateStars(in size: CGSize) {
+        // If size is zero, we can't generate stars properly yet
+        guard size.width > 0 && size.height > 0 else { return }
+        
         stars = (0..<starCount).map { _ in
             Star(
                 x: CGFloat.random(in: 0...size.width),
@@ -60,7 +67,8 @@ struct TwinklingStarsBackground: View {
         Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
             withAnimation(.easeInOut(duration: Double.random(in: 1...3))) {
                 for index in stars.indices {
-                    if Bool.random() {
+                    // Only update a small subset of stars for a more natural effect
+                    if Int.random(in: 0...10) == 0 {
                         stars[index].opacity = Double.random(in: 0.3...1.0)
                     }
                 }
@@ -77,15 +85,4 @@ private struct Star: Identifiable {
     var size: CGFloat
     var opacity: Double
     var blur: CGFloat
-}
-
-// MARK: - View Extension
-
-extension View {
-    /// Apply twinkling stars background
-    func withTwinklingStars(starCount: Int = 100) -> some View {
-        self.background(
-            TwinklingStarsBackground(starCount: starCount)
-        )
-    }
 }

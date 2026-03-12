@@ -9,211 +9,227 @@ struct SignupView: View {
     @Environment(AuthManager.self) private var authManager
     @Environment(\.dismiss) private var dismiss
     @FocusState private var focusedField: Field?
-    
-    enum Field {
-        case firstName
-        case lastName
-        case email
-        case password
-        case confirmPassword
+    @State private var appeared = false
+
+    enum Field { case firstName, lastName, email, password, confirmPassword }
+
+    private var hasMinLength: Bool { password.count >= 8 }
+    private var hasUppercase: Bool { password.contains(where: \.isUppercase) }
+    private var hasLowercase: Bool { password.contains(where: \.isLowercase) }
+    private var hasNumber: Bool { password.contains(where: \.isNumber) }
+    private var passwordsMatch: Bool { !confirmPassword.isEmpty && password == confirmPassword }
+
+    private var isEmailFormatValid: Bool {
+        let parts = email.split(separator: "@", maxSplits: 1)
+        return parts.count == 2 && parts[1].contains(".")
     }
-    
+
     private var isPasswordValid: Bool {
-        password.count >= 8 && password == confirmPassword
+        hasMinLength && hasUppercase && hasLowercase && hasNumber && passwordsMatch
     }
-    
+
     private var isFormValid: Bool {
-        !firstName.isEmpty && !lastName.isEmpty && !email.isEmpty && isPasswordValid && email.contains("@")
+        !firstName.isEmpty && !lastName.isEmpty && isEmailFormatValid && isPasswordValid
     }
-    
+
     var body: some View {
         ZStack {
-            Color(.systemBackground)
+            // Background
+            TwinklingStarsBackground(starCount: 100)
                 .ignoresSafeArea()
             
-            VStack(spacing: 24) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Create Account")
-                        .font(.system(size: 32, weight: .bold))
+            ScrollView {
+                VStack {
+                    Spacer(minLength: 40)
                     
-                    Text("Join us to get started")
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, 24)
-                
-                ScrollView {
-                    VStack(spacing: 16) {
-                        // First Name
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("First Name")
-                                .font(.system(size: 14, weight: .semibold))
-                            
-                            TextField("John", text: $firstName)
-                                .focused($focusedField, equals: .firstName)
-                                .padding(12)
-                                .background(Color(.secondarySystemBackground))
-                                .clipShape(.rect(cornerRadius: 8))
+                    // Main Bento Card
+                    VStack(spacing: 28) {
+                        // Top Icon (Korah Mascot)
+                        Image("korahimg")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 100, height: 100)
+                            .kShadowGlow()
+                        
+                        // Title
+                        VStack(spacing: 8) {
+                            Text("Create Account")
+                                .font(.system(size: 32, weight: .semibold, design: .rounded))
+                                .foregroundStyle(.white)
+                            Text("Join Korah and study smarter")
+                                .font(.system(size: 15))
+                                .foregroundStyle(.white.opacity(0.6))
                         }
                         
-                        // Last Name
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Last Name")
-                                .font(.system(size: 14, weight: .semibold))
+                        // Form Fields
+                        VStack(spacing: 16) {
+                            HStack(spacing: 12) {
+                                BentoInputField(
+                                    text: $firstName,
+                                    placeholder: "First Name",
+                                    isSecure: false,
+                                    focused: $focusedField,
+                                    field: .firstName
+                                )
+                                
+                                BentoInputField(
+                                    text: $lastName,
+                                    placeholder: "Last Name",
+                                    isSecure: false,
+                                    focused: $focusedField,
+                                    field: .lastName
+                                )
+                            }
                             
-                            TextField("Doe", text: $lastName)
-                                .focused($focusedField, equals: .lastName)
-                                .padding(12)
-                                .background(Color(.secondarySystemBackground))
-                                .clipShape(.rect(cornerRadius: 8))
-                        }
-                        
-                        // Email
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Email")
-                                .font(.system(size: 14, weight: .semibold))
+                            VStack(alignment: .leading, spacing: 6) {
+                                BentoInputField(
+                                    text: $email,
+                                    placeholder: "Email",
+                                    isSecure: false,
+                                    focused: $focusedField,
+                                    field: .email
+                                )
+                                if !email.isEmpty {
+                                    AuthValidationHint(message: "Valid email address", isValid: isEmailFormatValid)
+                                        .padding(.horizontal, 4)
+                                }
+                            }
                             
-                            TextField("name@example.com", text: $email)
-                                .textInputAutocapitalization(.never)
-                                .keyboardType(.emailAddress)
-                                .focused($focusedField, equals: .email)
-                                .padding(12)
-                                .background(Color(.secondarySystemBackground))
-                                .clipShape(.rect(cornerRadius: 8))
-                        }
-                        
-                        // Password
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Password")
-                                .font(.system(size: 14, weight: .semibold))
+                            VStack(alignment: .leading, spacing: 6) {
+                                BentoInputField(
+                                    text: $password,
+                                    placeholder: "Password",
+                                    isSecure: true,
+                                    focused: $focusedField,
+                                    field: .password
+                                )
+                                if !password.isEmpty {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        AuthValidationHint(message: "At least 8 characters", isValid: hasMinLength)
+                                        AuthValidationHint(message: "One uppercase letter", isValid: hasUppercase)
+                                        AuthValidationHint(message: "One lowercase letter", isValid: hasLowercase)
+                                        AuthValidationHint(message: "One number", isValid: hasNumber)
+                                    }
+                                    .padding(.horizontal, 4)
+                                }
+                            }
                             
-                            SecureField("••••••••", text: $password)
-                                .focused($focusedField, equals: .password)
-                                .padding(12)
-                                .background(Color(.secondarySystemBackground))
-                                .clipShape(.rect(cornerRadius: 8))
-                            
-                            if !password.isEmpty {
-                                Text(password.count >= 8 ? "✓ At least 8 characters" : "⚠ At least 8 characters required")
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(password.count >= 8 ? .green : .orange)
+                            VStack(alignment: .leading, spacing: 6) {
+                                BentoInputField(
+                                    text: $confirmPassword,
+                                    placeholder: "Confirm Password",
+                                    isSecure: true,
+                                    focused: $focusedField,
+                                    field: .confirmPassword
+                                )
+                                if !confirmPassword.isEmpty {
+                                    AuthValidationHint(message: "Passwords match", isValid: passwordsMatch)
+                                        .padding(.horizontal, 4)
+                                }
                             }
                         }
                         
-                        // Confirm Password
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Confirm Password")
-                                .font(.system(size: 14, weight: .semibold))
-                            
-                            SecureField("••••••••", text: $confirmPassword)
-                                .focused($focusedField, equals: .confirmPassword)
-                                .padding(12)
-                                .background(Color(.secondarySystemBackground))
-                                .clipShape(.rect(cornerRadius: 8))
-                            
-                            if !confirmPassword.isEmpty && password != confirmPassword {
-                                Text("⚠ Passwords do not match")
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(.orange)
+                        // Action Buttons
+                        VStack(spacing: 12) {
+                            Button(action: handleSignup) {
+                                Group {
+                                    if authManager.isLoading {
+                                        ProgressView().tint(.white)
+                                    } else {
+                                        Text("Create Account")
+                                    }
+                                }
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 60)
+                                .background(Color.black.opacity(0.4))
+                                .clipShape(RoundedRectangle(cornerRadius: 30))
+                                .foregroundStyle(.white)
+                                .font(.system(size: 18, weight: .medium))
                             }
+                            .buttonStyle(BentoGlowingButtonStyle())
+                            .disabled(!isFormValid || authManager.isLoading)
+                            
+                            Button(action: handleGoogleSignIn) {
+                                HStack(spacing: 12) {
+                                    Image("Google-Logo-PNG-Image")
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 24, height: 24)
+                                    Text("Sign up with Google")
+                                }
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 60)
+                                .background(Color.black.opacity(0.3))
+                                .clipShape(RoundedRectangle(cornerRadius: 30))
+                                .foregroundStyle(.white)
+                                .font(.system(size: 18, weight: .medium))
+                            }
+                            .disabled(authManager.isLoading)
+                        }
+                        
+                        if let error = authManager.errorMessage {
+                            Text(error)
+                                .font(.system(size: 13))
+                                .foregroundStyle(Color.kError)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
+                        }
+                        
+                        // Footer
+                        HStack(spacing: 4) {
+                            Text("Already have an account?")
+                                .foregroundStyle(.white.opacity(0.6))
+                            
+                            Button("Sign in") { dismiss() }
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.white)
+                        }
+                        .font(.system(size: 14))
+                    }
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 40)
+                    .background {
+                        if #available(iOS 18.0, *) {
+                            RoundedRectangle(cornerRadius: 48, style: .continuous)
+                                .fill(.clear)
+                                .glassEffect(
+                                    .regular.tint(.white.opacity(0.05)),
+                                    in: .rect(cornerRadius: 48)
+                                )
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 48, style: .continuous)
+                                        .stroke(.white.opacity(0.1), lineWidth: 1)
+                                }
+                        } else {
+                            RoundedRectangle(cornerRadius: 48, style: .continuous)
+                                .fill(Color.white.opacity(0.03))
+                                .background(.ultraThinMaterial.opacity(0.4))
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 48, style: .continuous)
+                                        .stroke(.white.opacity(0.1), lineWidth: 1)
+                                }
                         }
                     }
-                    .padding(.bottom, 16)
-                }
-                
-                // Error Message
-                if let error = authManager.errorMessage {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(error)
-                            .font(.system(size: 13))
-                            .foregroundStyle(.red)
-                            .lineLimit(3)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(12)
-                    .background(Color.red.opacity(0.1))
-                    .clipShape(.rect(cornerRadius: 8))
-                }
-                
-                // Sign Up Button
-                Button(action: handleSignup) {
-                    if authManager.isLoading {
-                        ProgressView()
-                            .tint(.white)
-                    } else {
-                        Text("Create Account")
-                            .font(.system(size: 16, weight: .semibold))
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 44)
-                .foregroundStyle(.white)
-                .background(!isFormValid || authManager.isLoading ? Color.gray : Color.blue)
-                .clipShape(.rect(cornerRadius: 8))
-                .disabled(!isFormValid || authManager.isLoading)
-                
-                Divider()
-                    .padding(.vertical, 8)
-                
-                // OAuth Buttons
-                VStack(spacing: 12) {
-                    Button(action: {}) {
-                        HStack {
-                            Image(systemName: "g.circle.fill")
-                                .font(.system(size: 20))
-                            
-                            Text("Sign up with Google")
-                                .font(.system(size: 16, weight: .semibold))
-                            
-                            Spacer()
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 44)
-                    .foregroundStyle(.primary)
-                    .background(Color(.secondarySystemBackground))
-                    .clipShape(.rect(cornerRadius: 8))
+                    .padding(.horizontal, 24)
+                    .opacity(appeared ? 1 : 0)
+                    .offset(y: appeared ? 0 : 40)
                     
-                    Button(action: {}) {
-                        HStack {
-                            Image(systemName: "apple.logo")
-                                .font(.system(size: 18))
-                            
-                            Text("Sign up with Apple")
-                                .font(.system(size: 16, weight: .semibold))
-                            
-                            Spacer()
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 44)
-                    .foregroundStyle(.primary)
-                    .background(Color(.secondarySystemBackground))
-                    .clipShape(.rect(cornerRadius: 8))
+                    Spacer(minLength: 40)
                 }
-                
-                Spacer()
-                
-                // Login Link
-                HStack {
-                    Text("Already have an account?")
-                        .foregroundStyle(.secondary)
-                    
-                    Button("Sign in") {
-                        dismiss()
-                    }
-                    .foregroundStyle(.blue)
-                }
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.bottom, 24)
             }
-            .padding(.horizontal, 20)
         }
-        .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(false)
+        .scrollBounceBehavior(.basedOnSize)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .navigationBarBackButtonHidden()
+        .onAppear {
+            withAnimation(.spring(response: 0.8, dampingFraction: 0.8)) {
+                appeared = true
+            }
+        }
     }
-    
+
     private func handleSignup() {
+        Haptics.light()
         Task {
             do {
                 try await authManager.signUp(
@@ -222,8 +238,55 @@ struct SignupView: View {
                     email: email,
                     password: password
                 )
-            } catch {
-                // Error is already handled in AuthManager
+            } catch {}
+        }
+    }
+
+    private func handleGoogleSignIn() {
+        Haptics.light()
+        Task {
+            do {
+                try await authManager.initiateGoogleSignIn()
+            } catch {}
+        }
+    }
+}
+
+// MARK: - Bento Components
+
+private struct BentoInputField: View {
+    @Binding var text: String
+    let placeholder: String
+    let isSecure: Bool
+    var focused: FocusState<SignupView.Field?>.Binding
+    let field: SignupView.Field
+    var showHelpIcon: Bool = false
+    
+    var body: some View {
+        ZStack(alignment: .trailing) {
+            Group {
+                if isSecure {
+                    SecureField("", text: $text, prompt: Text(placeholder).foregroundStyle(.white.opacity(0.3)))
+                } else {
+                    TextField("", text: $text, prompt: Text(placeholder).foregroundStyle(.white.opacity(0.3)))
+                        .textInputAutocapitalization(placeholder.contains("Name") ? .words : .never)
+                        .keyboardType(placeholder.contains("Email") ? .emailAddress : .default)
+                        .autocorrectionDisabled()
+                }
+            }
+            .focused(focused, equals: field)
+            .padding(.horizontal, 20)
+            .frame(height: 60)
+            .background(Color.white.opacity(0.05))
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .foregroundStyle(.white)
+            .font(.system(size: 16))
+            
+            if showHelpIcon {
+                Image(systemName: "questionmark.circle.fill")
+                    .foregroundStyle(.white.opacity(0.2))
+                    .padding(.trailing, 14)
+                    .font(.system(size: 16))
             }
         }
     }

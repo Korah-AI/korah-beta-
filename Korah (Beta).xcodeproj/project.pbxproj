@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		2C6056C62F11FDF4009E17B8 /* ActivityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2C6056C52F11FDF4009E17B8 /* ActivityKit.framework */; };
+		2CA4E9E32F57E0ED0055DC42 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 2CA4E9E22F57E0ED0055DC42 /* GoogleSignIn */; };
+		2CA4E9E52F57E0ED0055DC42 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 2CA4E9E42F57E0ED0055DC42 /* GoogleSignInSwift */; };
 		2CAE49C12F4AEA710032236E /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 2CAE49C02F4AEA710032236E /* MarkdownUI */; };
 		2CAE49C82F4AEF1E0032236E /* LaTeXSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = 2CAE49C72F4AEF1E0032236E /* LaTeXSwiftUI */; };
 		2CE0E16D2F4C26E0006EF697 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 2CE0E16C2F4C26E0006EF697 /* FirebaseAnalytics */; };
@@ -91,11 +93,13 @@
 				2CE0E17B2F4C26E0006EF697 /* FirebaseRemoteConfig in Frameworks */,
 				2C6056C62F11FDF4009E17B8 /* ActivityKit.framework in Frameworks */,
 				2CE0E16F2F4C26E0006EF697 /* FirebaseAuth in Frameworks */,
+				2CA4E9E32F57E0ED0055DC42 /* GoogleSignIn in Frameworks */,
 				2CE0E1792F4C26E0006EF697 /* FirebaseMessaging in Frameworks */,
 				2CAE49C12F4AEA710032236E /* MarkdownUI in Frameworks */,
 				2CE0E17D2F4C26E0006EF697 /* FirebaseStorage in Frameworks */,
 				2CE0E1772F4C26E0006EF697 /* FirebaseFunctions in Frameworks */,
 				2CE0E1712F4C26E0006EF697 /* FirebaseCrashlytics in Frameworks */,
+				2CA4E9E52F57E0ED0055DC42 /* GoogleSignInSwift in Frameworks */,
 				2CE0E16D2F4C26E0006EF697 /* FirebaseAnalytics in Frameworks */,
 				2CE0E1752F4C26E0006EF697 /* FirebaseFirestore in Frameworks */,
 				2CE0E1732F4C26E0006EF697 /* FirebaseDatabase in Frameworks */,
@@ -184,6 +188,8 @@
 				2CE0E1782F4C26E0006EF697 /* FirebaseMessaging */,
 				2CE0E17A2F4C26E0006EF697 /* FirebaseRemoteConfig */,
 				2CE0E17C2F4C26E0006EF697 /* FirebaseStorage */,
+				2CA4E9E22F57E0ED0055DC42 /* GoogleSignIn */,
+				2CA4E9E42F57E0ED0055DC42 /* GoogleSignInSwift */,
 			);
 			productName = "Korah (Beta)";
 			productReference = 2C98C8C32EFE4F0800BF141B /* Korah.app */;
@@ -271,6 +277,7 @@
 				2CAE49BF2F4AEA710032236E /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
 				2CAE49C62F4AEF1E0032236E /* XCRemoteSwiftPackageReference "LaTeXSwiftUI" */,
 				2CE0E16B2F4C26E0006EF697 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				2CA4E9E12F57E0ED0055DC42 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 2C98C8C42EFE4F0800BF141B /* Products */;
@@ -500,6 +507,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_BUNDLE_IDENTIFIER = com.korah.korah;
 				PRODUCT_NAME = Korah;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -545,6 +553,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_BUNDLE_IDENTIFIER = com.korah.korah;
 				PRODUCT_NAME = Korah;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -683,6 +692,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		2CA4E9E12F57E0ED0055DC42 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.1.0;
+			};
+		};
 		2CAE49BF2F4AEA710032236E /* XCRemoteSwiftPackageReference "swift-markdown-ui" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/gonzalezreal/swift-markdown-ui.git";
@@ -710,6 +727,16 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		2CA4E9E22F57E0ED0055DC42 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2CA4E9E12F57E0ED0055DC42 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		2CA4E9E42F57E0ED0055DC42 /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2CA4E9E12F57E0ED0055DC42 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
+		};
 		2CAE49C02F4AEA710032236E /* MarkdownUI */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 2CAE49BF2F4AEA710032236E /* XCRemoteSwiftPackageReference "swift-markdown-ui" */;

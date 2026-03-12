@@ -102,7 +102,7 @@ struct OnboardingView: View {
     }
     
     private func completeOnboarding() {
-        withAnimation {
+        withAnimation(.easeInOut(duration: 0.4)) {
             isOnboardingComplete = true
         }
     }
