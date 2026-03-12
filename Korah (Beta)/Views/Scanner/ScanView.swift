@@ -1,4 +1,5 @@
 import SwiftUI
+import LaTeXSwiftUI
 import UIKit
 import AVFoundation
 import Foundation
@@ -944,7 +945,7 @@ struct ScanView: View {
                             ScanAnswerView(formatted: formatted, timestamp: message.timestamp)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         } else {
-                            LatexMarkdownView(content: message.content, isStreaming: isStreaming)
+                            KorahLatexView(content: message.content, isStreaming: isStreaming)
                                 .textSelection(.enabled)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .padding(Spacing.md)
@@ -1658,9 +1659,10 @@ extension ScanView {
         - Use bullet points with - or * for lists
         - Use ## for section headers when organizing longer explanations
         - Use ### for sub-headers within sections
-        - For math equations, use LaTeX syntax:
-          * Inline math: $x^2 + y^2 = z^2$
-          * Display math: $$\\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$$
+        - For math equations, use LaTeX syntax. CRITICAL RULE: always place LaTeX on its own separate line with a blank line before and after it. NEVER write LaTeX inline within a sentence of regular text — doing so breaks rendering.
+          * Display math (for standalone equations): always on its own line, e.g.: $$\\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$$
+          * Inline math
+          * When describing math concepts in prose, spell them out in plain text rather than mixing LaTeX into the sentence
         - Keep it visually organized and easy to scan
         """
 
@@ -1694,7 +1696,7 @@ extension ScanView {
         
         // Create placeholder assistant message
         let messageId = UUID()
-        let placeholderMessage = ScanMessage(id: messageId, role: "assistant", content: "", timestamp: Date(), image: nil)
+        let placeholderMessage = (ScanMessage(id: messageId, role: "assistant", content: "", timestamp: Date(), image: nil))
         messages.append(placeholderMessage)
         let messageIndex = messages.count - 1
         streamingMessageIndex = messageIndex
