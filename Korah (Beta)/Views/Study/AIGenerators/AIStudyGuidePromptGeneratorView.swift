@@ -274,23 +274,10 @@ Rules:
                         return
                     }
                     
-                    // Save to UserDefaults
-                    var existing: [StudyGuide] = []
-                    if let existingData = UserDefaults.standard.data(forKey: "StudyGuides"),
-                       let decoded = try? JSONDecoder().decode([StudyGuide].self, from: existingData) {
-                        existing = decoded
-                    }
-                    
                     let newGuide = StudyGuide(title: trimmedTitle, content: jsonString)
-                    existing.append(newGuide)
-                    
-                    if let encoded = try? JSONEncoder().encode(existing) {
-                        UserDefaults.standard.set(encoded, forKey: "StudyGuides")
-                        DispatchQueue.main.async {
-                            showSuccessAlert = true
-                        }
-                    } else {
-                        DispatchQueue.main.async { errorMessage = "Failed to save study guide" }
+                    try? FirestoreStudyService.shared.addStudyGuide(newGuide)
+                    DispatchQueue.main.async {
+                        showSuccessAlert = true
                     }
                     return
                 }

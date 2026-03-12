@@ -3,8 +3,8 @@ import SwiftUI
 struct AIGeneratePracticeTestFromGuideView: View {
     @Environment(\.dismiss) private var dismiss
     
-    @State private var studyGuides: [StudyGuide] = []
     @State private var selectedGuideIndex: Int = 0
+    private var studyGuides: [StudyGuide] { FirestoreStudyService.shared.studyGuides }
     @State private var isGenerating: Bool = false
     @State private var errorMessage: String? = nil
     @State private var successMessage: String? = nil
@@ -135,15 +135,6 @@ struct AIGeneratePracticeTestFromGuideView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .preferredColorScheme(.dark)
-        .onAppear { loadStudyGuides() }
-    }
-    
-    private func loadStudyGuides() {
-        if let data = UserDefaults.standard.data(forKey: "StudyGuides"),
-           let decoded = try? JSONDecoder().decode([StudyGuide].self, from: data) {
-            studyGuides = decoded
-            selectedGuideIndex = min(selectedGuideIndex, max(0, studyGuides.count - 1))
-        }
     }
     
     private func generatePracticeTest() {
@@ -275,21 +266,11 @@ Rules:
                             return
                         }
                         
-                        var existing: [PracticeTest] = []
-                        if let existingData = UserDefaults.standard.data(forKey: "PracticeTests"),
-                           let decoded = try? JSONDecoder().decode([PracticeTest].self, from: existingData) {
-                            existing = decoded
-                        }
-                        
                         let newTest = PracticeTest(
                             title: "Practice Test from \(guide.title)",
                             questions: questions
                         )
-                        existing.append(newTest)
-                        
-                        if let encoded = try? JSONEncoder().encode(existing) {
-                            UserDefaults.standard.set(encoded, forKey: "PracticeTests")
-                        }
+                        try? FirestoreStudyService.shared.addPracticeTest(newTest)
                         
                         DispatchQueue.main.async {
                             self.successMessage = "Practice test generated successfully!"

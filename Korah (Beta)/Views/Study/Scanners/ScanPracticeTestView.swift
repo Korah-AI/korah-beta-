@@ -415,21 +415,11 @@ Rules:
                             return
                         }
                         
-                        var existing: [PracticeTest] = []
-                        if let existingData = UserDefaults.standard.data(forKey: "PracticeTests"),
-                           let decoded = try? JSONDecoder().decode([PracticeTest].self, from: existingData) {
-                            existing = decoded
-                        }
-                        
                         let newTest = PracticeTest(
                             title: "Practice Test from Scan",
                             questions: questions
                         )
-                        existing.append(newTest)
-                        
-                        if let encoded = try? JSONEncoder().encode(existing) {
-                            UserDefaults.standard.set(encoded, forKey: "PracticeTests")
-                        }
+                        try? FirestoreStudyService.shared.addPracticeTest(newTest)
                         
                         DispatchQueue.main.async {
                             successMessage = "Practice test created successfully!"

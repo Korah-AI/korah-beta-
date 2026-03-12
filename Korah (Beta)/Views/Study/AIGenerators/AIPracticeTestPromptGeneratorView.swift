@@ -304,23 +304,10 @@ Rules:
                             return
                         }
                         
-                        // Save to UserDefaults
-                        var existing: [PracticeTest] = []
-                        if let existingData = UserDefaults.standard.data(forKey: "PracticeTests"),
-                           let decoded = try? JSONDecoder().decode([PracticeTest].self, from: existingData) {
-                            existing = decoded
-                        }
-                        
                         let newTest = PracticeTest(title: trimmedTitle, questions: questions)
-                        existing.append(newTest)
-                        
-                        if let encoded = try? JSONEncoder().encode(existing) {
-                            UserDefaults.standard.set(encoded, forKey: "PracticeTests")
-                            DispatchQueue.main.async {
-                                showSuccessAlert = true
-                            }
-                        } else {
-                            DispatchQueue.main.async { errorMessage = "Failed to save practice test" }
+                        try? FirestoreStudyService.shared.addPracticeTest(newTest)
+                        DispatchQueue.main.async {
+                            showSuccessAlert = true
                         }
                         return
                     }

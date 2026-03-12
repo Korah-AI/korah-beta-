@@ -17,8 +17,8 @@ fileprivate func extractJSONObject(from text: String) -> String? {
 struct AIGenerateStudyGuideFromFlashcardsView: View {
     @Environment(\.dismiss) private var dismiss
     
-    @State private var flashcardSets: [FlashcardSet] = []
     @State private var selectedSetIndex: Int = 0
+    private var flashcardSets: [FlashcardSet] { FirestoreStudyService.shared.flashcardSets }
     @State private var isGenerating: Bool = false
     @State private var errorMessage: String? = nil
     @State private var successMessage: String? = nil
@@ -149,15 +149,6 @@ struct AIGenerateStudyGuideFromFlashcardsView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .preferredColorScheme(.dark)
-        .onAppear { loadFlashcardSets() }
-    }
-    
-    private func loadFlashcardSets() {
-        if let data = UserDefaults.standard.data(forKey: "FlashcardSets"),
-           let decoded = try? JSONDecoder().decode([FlashcardSet].self, from: data) {
-            flashcardSets = decoded
-            selectedSetIndex = min(selectedSetIndex, max(0, flashcardSets.count - 1))
-        }
     }
     
     private func generateStudyGuide() {
@@ -262,21 +253,11 @@ Instructions:
                         return
                     }
                     
-                    var existing: [StudyGuide] = []
-                    if let existingData = UserDefaults.standard.data(forKey: "StudyGuides"),
-                       let decoded = try? JSONDecoder().decode([StudyGuide].self, from: existingData) {
-                        existing = decoded
-                    }
-                    
                     let newGuide = StudyGuide(
                         title: "Study Guide: \(set.title)",
                         content: jsonString
                     )
-                    existing.append(newGuide)
-                    
-                    if let encoded = try? JSONEncoder().encode(existing) {
-                        UserDefaults.standard.set(encoded, forKey: "StudyGuides")
-                    }
+                    try? FirestoreStudyService.shared.addStudyGuide(newGuide)
                     
                     DispatchQueue.main.async {
                         successMessage = "Study guide generated successfully!"

@@ -12,7 +12,7 @@ struct AIChatResponse: Decodable {
 }
 
 struct AIPracticeTestGeneratorView: View {
-    @State private var flashcardSets: [FlashcardSet] = []
+    private var flashcardSets: [FlashcardSet] { FirestoreStudyService.shared.flashcardSets }
     @State private var selectedSetIndex: Int = 0
     @State private var numberOfQuestions: Int = 1
     @State private var customTitle: String = ""
@@ -231,28 +231,17 @@ struct AIPracticeTestGeneratorView: View {
             .background(Color.clear)
             .korahGradientBackground()
             .preferredColorScheme(.dark)
-            .onAppear(perform: loadFlashcardSets)
         }
     }
     
     private func updateNumberOfQuestionsLimit() {
+        guard !flashcardSets.isEmpty, selectedSetIndex < flashcardSets.count else { return }
         let maxCount = flashcardSets[selectedSetIndex].cards.count
         if numberOfQuestions > maxCount {
             numberOfQuestions = maxCount
         }
         if numberOfQuestions < 1 {
             numberOfQuestions = 1
-        }
-    }
-    
-    private func loadFlashcardSets() {
-        if let data = UserDefaults.standard.data(forKey: "FlashcardSets"),
-           let sets = try? JSONDecoder().decode([FlashcardSet].self, from: data) {
-            self.flashcardSets = sets
-            if !sets.isEmpty {
-                selectedSetIndex = 0
-                updateNumberOfQuestionsLimit()
-            }
         }
     }
     
@@ -349,20 +338,10 @@ struct AIPracticeTestGeneratorView: View {
     }
     
     private func savePracticeTest(_ test: PracticeTest) {
-        var existingTests: [PracticeTest] = []
-        if let data = UserDefaults.standard.data(forKey: "PracticeTests"),
-           let decoded = try? JSONDecoder().decode([PracticeTest].self, from: data) {
-            existingTests = decoded
-        }
-        existingTests.append(test)
-        if let encoded = try? JSONEncoder().encode(existingTests) {
-            UserDefaults.standard.set(encoded, forKey: "PracticeTests")
-            self.successMessage = "Practice test \"\(test.title)\" saved successfully."
-            self.progressText = ""
-            self.errorMessage = nil
-        } else {
-            self.errorMessage = "Failed to save practice test."
-        }
+        try? FirestoreStudyService.shared.addPracticeTest(test)
+        self.successMessage = "Practice test \"\(test.title)\" saved successfully."
+        self.progressText = ""
+        self.errorMessage = nil
     }
     
     private func stripCodeFences(from string: String) -> String {

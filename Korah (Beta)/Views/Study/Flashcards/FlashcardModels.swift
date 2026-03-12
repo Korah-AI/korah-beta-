@@ -69,6 +69,7 @@ struct FlashcardSet: Identifiable, Codable, Equatable {
     var cards: [Flashcard] = []
     var lastOpenedAt: Date? = nil
     var createdAt: Date = Date()
+    var updatedAt: Date = Date()
 }
 
 extension FlashcardSet {

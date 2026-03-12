@@ -5,9 +5,11 @@ struct ConversationHistoryView: View {
     let onSelectConversation: (Conversation) -> Void
     let onDismiss: () -> Void
     
-    @State private var conversations: [Conversation] = []
+    @Environment(FirestoreConversationService.self) private var conversationService
     @State private var showDeleteAlert = false
     @State private var conversationToDelete: Conversation?
+
+    private var conversations: [Conversation] { conversationService.conversations(ofType: type) }
     
     var body: some View {
         NavigationView {
@@ -61,9 +63,6 @@ struct ConversationHistoryView: View {
         }
         .korahGradientBackground()
         .preferredColorScheme(.dark)
-        .onAppear {
-            loadConversations()
-        }
         .alert("Delete Conversation", isPresented: $showDeleteAlert) {
             Button("Delete", role: .destructive) {
                 if let conversation = conversationToDelete {
@@ -76,13 +75,8 @@ struct ConversationHistoryView: View {
         }
     }
     
-    private func loadConversations() {
-        conversations = ConversationManager.shared.listConversations(type: type)
-    }
-    
     private func deleteConversation(_ conversation: Conversation) {
-        try? ConversationManager.shared.deleteConversation(id: conversation.id, type: type)
-        loadConversations()
+        Task { try? await conversationService.deleteConversation(id: conversation.id) }
     }
 }
 

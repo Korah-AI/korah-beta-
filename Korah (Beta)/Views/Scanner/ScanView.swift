@@ -252,9 +252,7 @@ struct ScanView: View {
             
             NavigationLink(isActive: Binding(get: { navigateToGuideID != nil }, set: { if !$0 { navigateToGuideID = nil } })) {
                 if let id = navigateToGuideID,
-                   let data = UserDefaults.standard.data(forKey: "StudyGuides"),
-                   let guides = try? JSONDecoder().decode([StudyGuide].self, from: data),
-                   let guide = guides.first(where: { $0.id == id }) {
+                   let guide = FirestoreStudyService.shared.studyGuides.first(where: { $0.id == id }) {
                     StudyGuideDetailView(guide: guide)
                 } else {
                     EmptyView()
@@ -1220,15 +1218,7 @@ struct ScanView: View {
                         let flashcards = pairs.map { Flashcard(front: $0.0, back: $0.1) }
                         let newSet = FlashcardSet(title: title, cards: flashcards)
 
-                        var savedSets: [FlashcardSet] = []
-                        if let data = UserDefaults.standard.data(forKey: "FlashcardSets"),
-                           let decoded = try? JSONDecoder().decode([FlashcardSet].self, from: data) {
-                            savedSets = decoded
-                        }
-                        savedSets.append(newSet)
-                        if let encoded = try? JSONEncoder().encode(savedSets) {
-                            UserDefaults.standard.set(encoded, forKey: "FlashcardSets")
-                        }
+                        try? FirestoreStudyService.shared.addFlashcardSet(newSet)
 
                         DispatchQueue.main.async {
                             self.selectedFlashcardSetID = newSet.id
@@ -1345,15 +1335,7 @@ struct ScanView: View {
                     if let formatted = trimmed.decodeScanKorahFormatted() {
                         let guide = StudyGuide(title: formatted.title ?? "Study Guide", content: trimmed)
                         
-                        var savedGuides: [StudyGuide] = []
-                        if let existingData = UserDefaults.standard.data(forKey: "StudyGuides"),
-                           let decodedGuides = try? JSONDecoder().decode([StudyGuide].self, from: existingData) {
-                            savedGuides = decodedGuides
-                        }
-                        savedGuides.append(guide)
-                        if let encoded = try? JSONEncoder().encode(savedGuides) {
-                            UserDefaults.standard.set(encoded, forKey: "StudyGuides")
-                        }
+                        try? FirestoreStudyService.shared.addStudyGuide(guide)
                         
                         DispatchQueue.main.async {
                             self.navigateToGuideID = guide.id
@@ -1606,7 +1588,7 @@ struct ScanView: View {
             existing.messages = conversationMessages
             existing.updatedAt = Date()
             currentConversation = existing
-            ConversationManager.shared.autoSaveConversation(existing)
+            try? FirestoreConversationService.shared.saveConversation(existing)
         } else {
             // Create new conversation
             let title = ConversationManager.shared.generateTitle(from: messages.first?.content ?? "Scan")
@@ -1629,7 +1611,7 @@ struct ScanView: View {
             var updatedConversation = newConversation
             updatedConversation.messages = conversationMessages
             currentConversation = updatedConversation
-            ConversationManager.shared.autoSaveConversation(updatedConversation)
+            try? FirestoreConversationService.shared.saveConversation(updatedConversation)
         }
     }
 }

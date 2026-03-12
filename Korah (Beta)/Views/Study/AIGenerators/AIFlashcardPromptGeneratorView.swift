@@ -276,24 +276,11 @@ Rules:
                             return
                         }
                         
-                        // Save to UserDefaults
-                        var existing: [FlashcardSet] = []
-                        if let existingData = UserDefaults.standard.data(forKey: "FlashcardSets"),
-                           let decoded = try? JSONDecoder().decode([FlashcardSet].self, from: existingData) {
-                            existing = decoded
-                        }
-                        
                         let newSet = FlashcardSet(title: trimmedTitle, cards: newCards)
-                        existing.append(newSet)
-                        
-                        if let encoded = try? JSONEncoder().encode(existing) {
-                            UserDefaults.standard.set(encoded, forKey: "FlashcardSets")
-                            DispatchQueue.main.async {
-                                generatedCards = newCards
-                                showSuccessAlert = true
-                            }
-                        } else {
-                            DispatchQueue.main.async { errorMessage = "Failed to save flashcards" }
+                        try? FirestoreStudyService.shared.addFlashcardSet(newSet)
+                        DispatchQueue.main.async {
+                            generatedCards = newCards
+                            showSuccessAlert = true
                         }
                         return
                     }
