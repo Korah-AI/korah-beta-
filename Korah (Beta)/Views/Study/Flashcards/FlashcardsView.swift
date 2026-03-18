@@ -247,13 +247,6 @@ struct FlashcardSetStudyView: View {
     @ViewBuilder
     private var header: some View {
         HStack {
-            Button(action: onBack) {
-                Image(systemName: "chevron.left")
-                    .font(.headline.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 40, height: 40)
-                    .background(Circle().fill(Color.white.opacity(0.1)))
-            }
             Spacer()
             Menu {
                 Button(role: .destructive) {
@@ -269,6 +262,7 @@ struct FlashcardSetStudyView: View {
                     .background(Circle().fill(Color.white.opacity(0.1)))
             }
         }
+        .frame(maxWidth: .infinity, alignment: .trailing)
         .padding()
     }
 

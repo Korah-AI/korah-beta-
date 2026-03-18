@@ -778,12 +778,12 @@ struct ScanView: View {
                         onPhotoCaptured: { image in
                             selectedImage = image
                             withAnimation(.easeInOut(duration: 0.3)) {
-                                showCameraMode = false
+                                if showCameraMode { showCameraMode = false }
                             }
                         },
                         onDismiss: {
                             withAnimation(.easeInOut(duration: 0.3)) {
-                                showCameraMode = false
+                                if showCameraMode { showCameraMode = false }
                             }
                         }
                     )
@@ -859,8 +859,38 @@ struct ScanView: View {
         }
         .tint(Color.adaptive(light: .Light.accent, dark: .Dark.accent))
         .onAppear {
-            // Default to camera mode when view appears
-            showCameraMode = true
+            // Pre-warm audio session to avoid device lock contention when camera starts
+            do {
+                let session = AVAudioSession.sharedInstance()
+                try session.setCategory(.playAndRecord, mode: .videoRecording, options: [.defaultToSpeaker, .allowBluetooth])
+                try session.setActive(true, options: [])
+            } catch {
+                print("AVAudioSession prewarm error: \(error)")
+            }
+
+            // Request camera access (if needed) and open camera as soon as we're authorized.
+            requestCameraAccessIfNeeded { granted in
+                guard granted else { return }
+                // Small async hop ensures SwiftUI has finished initial layout to avoid a frozen preview
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        showCameraMode = true
+                    }
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            // If user hasn't started a chat yet and camera should be visible, ensure it is shown
+            if messages.isEmpty {
+                requestCameraAccessIfNeeded { granted in
+                    guard granted else { return }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showCameraMode = true
+                        }
+                    }
+                }
+            }
         }
     }
     
@@ -1807,15 +1837,16 @@ extension ScanView {
         let status = AVCaptureDevice.authorizationStatus(for: .video)
         switch status {
         case .authorized:
-            completion(true)
+            DispatchQueue.main.async { completion(true) }
         case .notDetermined:
             AVCaptureDevice.requestAccess(for: .video) { granted in
                 DispatchQueue.main.async { completion(granted) }
             }
         case .denied, .restricted:
-            completion(false)
+            DispatchQueue.main.async { completion(false) }
+            // Optionally, you could present an alert guiding the user to Settings here.
         @unknown default:
-            completion(false)
+            DispatchQueue.main.async { completion(false) }
         }
     }
     
