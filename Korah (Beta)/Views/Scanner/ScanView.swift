@@ -871,11 +871,9 @@ struct ScanView: View {
             // Request camera access (if needed) and open camera as soon as we're authorized.
             requestCameraAccessIfNeeded { granted in
                 guard granted else { return }
-                // Small async hop ensures SwiftUI has finished initial layout to avoid a frozen preview
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        showCameraMode = true
-                    }
+                // Show camera immediately - CustomCameraView handles its own initialization timing
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    showCameraMode = true
                 }
             }
         }
@@ -884,10 +882,9 @@ struct ScanView: View {
             if messages.isEmpty {
                 requestCameraAccessIfNeeded { granted in
                     guard granted else { return }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            showCameraMode = true
-                        }
+                    // Show camera immediately - CustomCameraView handles its own initialization timing
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showCameraMode = true
                     }
                 }
             }

@@ -2,7 +2,6 @@ import SwiftUI
 
 struct OpeningView: View {
     @State private var fadeIn = false
-    @State private var navigateToMoodCheckIn = false
     
     var body: some View {
         NavigationStack {
@@ -32,7 +31,6 @@ struct OpeningView: View {
                     Spacer()
                     
                     Button(action: {
-                        navigateToMoodCheckIn = true
                     }) {
                         Text("Get Started")
                             .font(.headline)
@@ -53,9 +51,6 @@ struct OpeningView: View {
                 }
             }
             .korahGradientBackground()
-            .fullScreenCover(isPresented: $navigateToMoodCheckIn) {
-                MoodCheckInView()
-            }
         }
         .preferredColorScheme(.dark)
         .accentColor(.purple)

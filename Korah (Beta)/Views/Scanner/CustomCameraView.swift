@@ -13,16 +13,35 @@ class CameraViewModel: NSObject {
     var isFlashOn = false
     var currentZoomFactor: CGFloat = 1.0
     var isSessionRunning = false
+    var isSessionReady = false
     var errorMessage: String?
     
     private var currentCamera: AVCaptureDevice?
     private var photoCompletion: ((UIImage?) -> Void)?
+    private var sessionSetupInProgress = false
     
     override init() {
         super.init()
     }
     
     func setupCamera() async throws {
+        // Prevent multiple simultaneous setup attempts
+        guard !sessionSetupInProgress else { return }
+        sessionSetupInProgress = true
+        defer { sessionSetupInProgress = false }
+        
+        // Clean up any existing session first
+        if let existingSession = captureSession {
+            if existingSession.isRunning {
+                existingSession.stopRunning()
+            }
+            self.captureSession = nil
+            self.photoOutput = nil
+            self.isSessionReady = false
+            // Small delay to ensure session is fully stopped
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        
         let session = AVCaptureSession()
         session.beginConfiguration()
         session.sessionPreset = .photo
@@ -48,20 +67,51 @@ class CameraViewModel: NSObject {
         
         photoOutput = output
         session.commitConfiguration()
-        captureSession = session
+        
+        // Set session before starting so preview layer can connect
+        await MainActor.run {
+            self.captureSession = session
+        }
         
         // Start session on background thread
-        Task.detached {
+        let startResult = await Task.detached(priority: .userInitiated) {
             session.startRunning()
-            await MainActor.run {
-                self.isSessionRunning = true
+            // Wait a bit for the session to actually start
+            var attempts = 0
+            while !session.isRunning && attempts < 50 {
+                try? await Task.sleep(for: .milliseconds(50))
+                attempts += 1
+            }
+            return session.isRunning
+        }.value
+        
+        await MainActor.run {
+            self.isSessionRunning = startResult
+            self.isSessionReady = startResult
+            if !startResult {
+                self.errorMessage = "Camera failed to start. Please try again."
             }
         }
     }
     
     func stopCamera() {
-        captureSession?.stopRunning()
+        if let session = captureSession {
+            if session.isRunning {
+                session.stopRunning()
+            }
+        }
         isSessionRunning = false
+        isSessionReady = false
+    }
+    
+    func restartCameraIfNeeded() async {
+        guard let session = captureSession, !session.isRunning else { return }
+        
+        do {
+            try await setupCamera()
+        } catch {
+            errorMessage = "Failed to restart camera. Please try again."
+        }
     }
     
     func capturePhoto(completion: @escaping (UIImage?) -> Void) {
@@ -130,27 +180,36 @@ extension CameraViewModel: AVCapturePhotoCaptureDelegate {
 
 struct CameraPreviewView: UIViewRepresentable {
     let session: AVCaptureSession
+    let isSessionReady: Bool
     
     func makeUIView(context: Context) -> UIView {
-        let view = UIView(frame: .zero)
+        let view = PreviewContainerView()
         view.backgroundColor = .black
         
         let previewLayer = AVCaptureVideoPreviewLayer(session: session)
         previewLayer.videoGravity = .resizeAspectFill
+        previewLayer.frame = view.bounds
         view.layer.addSublayer(previewLayer)
         
-        DispatchQueue.main.async {
-            previewLayer.frame = view.bounds
-        }
-        
         context.coordinator.previewLayer = previewLayer
+        context.coordinator.containerView = view
         
         return view
     }
     
     func updateUIView(_ uiView: UIView, context: Context) {
-        DispatchQueue.main.async {
-            context.coordinator.previewLayer?.frame = uiView.bounds
+        // Update layer frame when view bounds change
+        if let previewLayer = context.coordinator.previewLayer {
+            DispatchQueue.main.async {
+                previewLayer.frame = uiView.bounds
+            }
+        }
+        
+        // Reconnect layer if session became ready
+        if isSessionReady, let previewLayer = context.coordinator.previewLayer {
+            if previewLayer.session !== session {
+                previewLayer.session = session
+            }
         }
     }
     
@@ -160,6 +219,20 @@ struct CameraPreviewView: UIViewRepresentable {
     
     class Coordinator {
         var previewLayer: AVCaptureVideoPreviewLayer?
+        var containerView: UIView?
+    }
+    
+    // Custom UIView that handles layer layout properly
+    class PreviewContainerView: UIView {
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            // Ensure sublayers are updated
+            layer.sublayers?.forEach { sublayer in
+                if sublayer is AVCaptureVideoPreviewLayer {
+                    sublayer.frame = bounds
+                }
+            }
+        }
     }
 }
 
@@ -169,6 +242,7 @@ struct CustomCameraView: View {
     @State private var viewModel = CameraViewModel()
     @State private var showPermissionAlert = false
     @State private var isCapturing = false
+    @State private var hasAppeared = false
     
     let onPhotoCaptured: (UIImage) -> Void
     let onDismiss: () -> Void
@@ -176,12 +250,22 @@ struct CustomCameraView: View {
     var body: some View {
         ZStack {
             // Camera Preview
-            if let session = viewModel.captureSession {
-                CameraPreviewView(session: session)
+            if let session = viewModel.captureSession, viewModel.isSessionReady {
+                CameraPreviewView(session: session, isSessionReady: viewModel.isSessionReady)
                     .ignoresSafeArea()
+                    .transition(.opacity)
             } else {
-                Color.black
-                    .ignoresSafeArea()
+                // Loading state while camera initializes
+                ZStack {
+                    Color.black
+                        .ignoresSafeArea()
+                    
+                    if viewModel.errorMessage == nil {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(1.5)
+                    }
+                }
             }
             
             // Camera Controls Overlay
@@ -262,9 +346,18 @@ struct CustomCameraView: View {
             }
         }
         .task {
+            guard !hasAppeared else { return }
+            hasAppeared = true
             await requestCameraPermission()
         }
+        .onAppear {
+            // Restart camera if it was stopped but view is appearing again
+            Task {
+                await viewModel.restartCameraIfNeeded()
+            }
+        }
         .onDisappear {
+            hasAppeared = false
             viewModel.stopCamera()
         }
         .alert("Camera Access Required", isPresented: $showPermissionAlert) {
@@ -305,7 +398,13 @@ struct CustomCameraView: View {
         do {
             try await viewModel.setupCamera()
         } catch {
-            viewModel.errorMessage = "Failed to start camera. Please try again."
+            // Retry once after a short delay
+            try? await Task.sleep(for: .milliseconds(500))
+            do {
+                try await viewModel.setupCamera()
+            } catch {
+                viewModel.errorMessage = "Failed to start camera. Please try again."
+            }
         }
     }
     

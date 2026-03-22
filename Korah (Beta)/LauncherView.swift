@@ -5,7 +5,6 @@ struct LauncherView: View {
     @State private var streakManager = StreakManager.shared
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("LastMoodCheckInDate") private var lastMoodCheckInDate: Double = 0
-    @State private var showMoodCheckIn = false
     
     var body: some View {
         ZStack {
@@ -15,9 +14,6 @@ struct LauncherView: View {
                     if !appState.hasCompletedOnboarding {
                         // Show onboarding for first-time users
                         OnboardingView(isOnboardingComplete: $appState.hasCompletedOnboarding)
-                    } else if showMoodCheckIn {
-                        // Show mood check-in if needed
-                        MoodCheckInView()
                     } else {
                         // Show main app content
                         HomePageView()
@@ -42,10 +38,9 @@ struct LauncherView: View {
             NotificationManager.shared.cancelStreakReminder()
             // Schedule new streak reminder for 18 hours from now
             NotificationManager.shared.scheduleStreakReminderNotification()
-            
-            checkIfMoodCheckInNeeded()
+
         }
-        .onChange(of: scenePhase) { oldPhase, newPhase in
+        .onChange(of: scenePhase) { newPhase in
             if newPhase == .active {
                 // Track app open for streak
                 streakManager.checkAndUpdateStreak()
@@ -53,29 +48,12 @@ struct LauncherView: View {
                 NotificationManager.shared.cancelStreakReminder()
                 // Schedule new streak reminder for 18 hours from now
                 NotificationManager.shared.scheduleStreakReminderNotification()
-                
-                // Check again when app becomes active
-                checkIfMoodCheckInNeeded()
             }
         }
-        .onChange(of: lastMoodCheckInDate) {
-            // When mood is selected, hide the mood check-in view
-            if showMoodCheckIn {
-                showMoodCheckIn = false
-            }
-        }
+
     }
     
-    private func checkIfMoodCheckInNeeded() {
-        guard appState.hasCompletedOnboarding else { return }
-        guard !appState.shouldShowLaunchAnimation else { return }
-        
-        let lastCheckIn = Date(timeIntervalSince1970: lastMoodCheckInDate)
-        let hoursSinceLastCheckIn = Date().timeIntervalSince(lastCheckIn) / 3600
-        
-        // Show mood check-in if more than 24 hours have passed or never checked in
-        showMoodCheckIn = (hoursSinceLastCheckIn >= 24 || lastMoodCheckInDate == 0)
-    }
+
 }
 
 #Preview {
