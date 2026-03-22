@@ -11,6 +11,7 @@ class CameraViewModel: NSObject {
     var photoOutput: AVCapturePhotoOutput?
     var previewLayer: AVCaptureVideoPreviewLayer?
     var isFlashOn = false
+    var hasTorch: Bool { currentCamera?.hasTorch ?? false }
     var currentZoomFactor: CGFloat = 1.0
     var isSessionRunning = false
     var isSessionReady = false
@@ -88,7 +89,10 @@ class CameraViewModel: NSObject {
         await MainActor.run {
             self.isSessionRunning = startResult
             self.isSessionReady = startResult
-            if !startResult {
+            if startResult {
+                self.isFlashOn = false
+                self.setTorch(on: false)
+            } else {
                 self.errorMessage = "Camera failed to start. Please try again."
             }
         }
@@ -100,6 +104,7 @@ class CameraViewModel: NSObject {
                 session.stopRunning()
             }
         }
+        setTorch(on: false)
         isSessionRunning = false
         isSessionReady = false
     }
@@ -134,6 +139,20 @@ class CameraViewModel: NSObject {
     
     func toggleFlash() {
         isFlashOn.toggle()
+        setTorch(on: isFlashOn)
+    }
+    
+    private func setTorch(on: Bool) {
+        guard let device = currentCamera else { return }
+        guard device.hasTorch else { return }
+        
+        do {
+            try device.lockForConfiguration()
+            device.torchMode = on ? .on : .off
+            device.unlockForConfiguration()
+        } catch {
+            print("Failed to set torch: \(error)")
+        }
     }
     
     func setZoom(_ factor: CGFloat) {
@@ -247,6 +266,37 @@ struct CustomCameraView: View {
     let onPhotoCaptured: (UIImage) -> Void
     let onDismiss: () -> Void
     
+    private struct CameraLoadingView: View {
+        @State private var isAnimating = false
+        
+        var body: some View {
+            ZStack {
+                Color.black
+                    .ignoresSafeArea()
+                
+                VStack(spacing: 20) {
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 60))
+                        .foregroundStyle(.white)
+                        .opacity(isAnimating ? 1.0 : 0.5)
+                        .scaleEffect(isAnimating ? 1.0 : 0.8)
+                        .animation(
+                            Animation.easeInOut(duration: 1.0)
+                                .repeatForever(autoreverses: true),
+                            value: isAnimating
+                        )
+                    
+                    Text("Initializing camera...")
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                }
+            }
+            .onAppear {
+                isAnimating = true
+            }
+        }
+    }
+    
     var body: some View {
         ZStack {
             // Camera Preview
@@ -256,16 +306,7 @@ struct CustomCameraView: View {
                     .transition(.opacity)
             } else {
                 // Loading state while camera initializes
-                ZStack {
-                    Color.black
-                        .ignoresSafeArea()
-                    
-                    if viewModel.errorMessage == nil {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .scaleEffect(1.5)
-                    }
-                }
+                CameraLoadingView()
             }
             
             // Camera Controls Overlay
@@ -274,23 +315,26 @@ struct CustomCameraView: View {
                 
                 // Bottom Controls
                 HStack(spacing: Spacing.xxl) {
-                    // Flash Toggle
-                    Button(action: {
-                        Haptics.selection()
-                        viewModel.toggleFlash()
-                    }) {
-                        Image(systemName: viewModel.isFlashOn ? "bolt.fill" : "bolt.slash.fill")
-                            .font(.system(size: 24))
-                            .foregroundStyle(.white)
-                            .frame(width: 56, height: 56)
-                            .background(
-                                Circle()
-                                    .fill(Color.white.opacity(0.2))
-                                    .overlay(
-                                        Circle()
-                                            .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                                    )
-                            )
+                    if viewModel.hasTorch {
+                        // Flash Toggle
+                        Button(action: {
+                            Haptics.selection()
+                            viewModel.toggleFlash()
+                        }) {
+                            Image(systemName: viewModel.isFlashOn ? "bolt.fill" : "bolt.slash.fill")
+                                .font(.system(size: 24))
+                                .foregroundStyle(.white)
+                                .frame(width: 56, height: 56)
+                                .background(
+                                    Circle()
+                                        .fill(Color.white.opacity(0.2))
+                                        .overlay(
+                                            Circle()
+                                                .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                                        )
+                                )
+                        }
+                        .disabled(!viewModel.isSessionReady)
                     }
                     
                     // Capture Button
