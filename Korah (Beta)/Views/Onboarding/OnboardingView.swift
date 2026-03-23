@@ -44,9 +44,9 @@ struct OnboardingView: View {
             color: .cyan
         ),
         OnboardingPage(
-            imageName: "lock.shield.fill",
-            title: "Your Data, Your Device",
-            description: "This beta version is completely accountless. All your data is saved locally on your phone—no internet required, no servers involved.",
+            imageName: "safari",
+            title: "Use The Website",
+            description: "Go to www.Korah.app to use the web version of Korah. Thank you for downloading!",
             color: .indigo
         )
     ]
