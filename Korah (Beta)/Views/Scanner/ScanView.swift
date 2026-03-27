@@ -150,6 +150,7 @@ struct ScanView: View {
     @State private var navigateToGuideID: UUID? = nil
     
     @State private var showCameraMode = false
+    @State private var cameraIsReady = false
 
     @State private var messages: [ScanMessage] = []
     @State private var userInput: String = ""
@@ -267,14 +268,8 @@ struct ScanView: View {
     
     private var headerBar: some View {
         VStack(spacing: Spacing.sm) {
-            // Top bar with back button and actions
+            // Top bar with actions
             HStack {
-                Button(action: { hideKeyboard(); navigateToHome = true }) {
-                    Image(systemName: "chevron.left")
-                        .font(.headline)
-                        .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-                }
-                
                 Spacer()
                 
                 if !showCameraMode {
@@ -302,7 +297,7 @@ struct ScanView: View {
                 }
             }
             .padding(.horizontal, Spacing.md)
-            .padding(.top, Spacing.xl)
+            .padding(.top, 8)
             
             // Mode Toggle
             HStack(spacing: Spacing.sm) {
@@ -444,7 +439,7 @@ struct ScanView: View {
             HStack(spacing: Spacing.sm) {
                 TextField("Ask anything...", text: $userInput, axis: .vertical)
                     .font(.kBody)
-                    .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                    .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Light.textPrimary))
                     .lineLimit(1...4)
                     .onSubmit {
                         if !userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -785,13 +780,33 @@ struct ScanView: View {
                             withAnimation(.easeInOut(duration: 0.3)) {
                                 if showCameraMode { showCameraMode = false }
                             }
+                        },
+                        onCameraReady: { isReady in
+                            cameraIsReady = isReady
                         }
                     )
                     .ignoresSafeArea()
                     
                     modeToggle
-                        .padding(.top, Spacing.xl + 44)
+                        .padding(.top, 8)
                         .padding(.horizontal, Spacing.md)
+                        .opacity(0.8)
+                    
+                    // Crosshair in center
+                    if cameraIsReady {
+                        VStack {
+                            Spacer()
+                            HStack {
+                                Spacer()
+                                Image("crosshare")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 50, height: 50)
+                                Spacer()
+                            }
+                            Spacer()
+                        }
+                    }
                 }
                 .transition(.opacity)
             }
@@ -855,6 +870,11 @@ struct ScanView: View {
                     userInput = ""
                 }
                 sendMessage()
+            }
+        }
+        .onChange(of: showCameraMode) { isShowing in
+            if isShowing {
+                cameraIsReady = false
             }
         }
         .tint(Color.adaptive(light: .Light.accent, dark: .Dark.accent))

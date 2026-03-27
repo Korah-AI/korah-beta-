@@ -265,34 +265,19 @@ struct CustomCameraView: View {
     
     let onPhotoCaptured: (UIImage) -> Void
     let onDismiss: () -> Void
+    let onCameraReady: (Bool) -> Void
     
     private struct CameraLoadingView: View {
-        @State private var isAnimating = false
-        
         var body: some View {
             ZStack {
                 Color.black
                     .ignoresSafeArea()
                 
                 VStack(spacing: 20) {
-                    Image(systemName: "camera.fill")
-                        .font(.system(size: 60))
-                        .foregroundStyle(.white)
-                        .opacity(isAnimating ? 1.0 : 0.5)
-                        .scaleEffect(isAnimating ? 1.0 : 0.8)
-                        .animation(
-                            Animation.easeInOut(duration: 1.0)
-                                .repeatForever(autoreverses: true),
-                            value: isAnimating
-                        )
-                    
-                    Text("Initializing camera...")
+                    Text("Starting Camera")
                         .font(.headline)
                         .foregroundStyle(.white)
                 }
-            }
-            .onAppear {
-                isAnimating = true
             }
         }
     }
@@ -345,7 +330,7 @@ struct CustomCameraView: View {
                                 .frame(width: 72, height: 72)
                             
                             Circle()
-                                .fill(isCapturing ? Color.white.opacity(0.5) : Color.white)
+                                .fill(isCapturing ? Color.adaptive(light: .Light.accent, dark: .Dark.accent).opacity(0.5) : Color.adaptive(light: .Light.accent, dark: .Dark.accent).opacity(0.8))
                                 .frame(width: 60, height: 60)
                         }
                     }
@@ -403,6 +388,9 @@ struct CustomCameraView: View {
         .onDisappear {
             hasAppeared = false
             viewModel.stopCamera()
+        }
+        .onChange(of: viewModel.isSessionReady) { newValue in
+            onCameraReady(newValue)
         }
         .alert("Camera Access Required", isPresented: $showPermissionAlert) {
             Button("Settings") {
