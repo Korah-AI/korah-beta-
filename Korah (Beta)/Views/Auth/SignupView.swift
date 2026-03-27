@@ -1,8 +1,8 @@
 import SwiftUI
 
 struct SignupView: View {
+    @State private var username = ""
     @State private var firstName = ""
-    @State private var lastName = ""
     @State private var email = ""
     @State private var password = ""
     @State private var confirmPassword = ""
@@ -11,7 +11,7 @@ struct SignupView: View {
     @FocusState private var focusedField: Field?
     @State private var appeared = false
 
-    enum Field { case firstName, lastName, email, password, confirmPassword }
+    enum Field { case username, firstName, email, password, confirmPassword }
 
     private var hasMinLength: Bool { password.count >= 8 }
     private var hasUppercase: Bool { password.contains(where: \.isUppercase) }
@@ -19,7 +19,9 @@ struct SignupView: View {
     private var hasNumber: Bool { password.contains(where: \.isNumber) }
     private var passwordsMatch: Bool { !confirmPassword.isEmpty && password == confirmPassword }
 
+    // Email validation only applies when the user has entered something.
     private var isEmailFormatValid: Bool {
+        guard !email.isEmpty else { return true }
         let parts = email.split(separator: "@", maxSplits: 1)
         return parts.count == 2 && parts[1].contains(".")
     }
@@ -29,7 +31,7 @@ struct SignupView: View {
     }
 
     private var isFormValid: Bool {
-        !firstName.isEmpty && !lastName.isEmpty && isEmailFormatValid && isPasswordValid
+        !username.isEmpty && !firstName.isEmpty && isEmailFormatValid && isPasswordValid
     }
 
     var body: some View {
@@ -63,28 +65,26 @@ struct SignupView: View {
                         
                         // Form Fields
                         VStack(spacing: 16) {
-                            HStack(spacing: 12) {
-                                BentoInputField(
-                                    text: $firstName,
-                                    placeholder: "First Name",
-                                    isSecure: false,
-                                    focused: $focusedField,
-                                    field: .firstName
-                                )
-                                
-                                BentoInputField(
-                                    text: $lastName,
-                                    placeholder: "Last Name",
-                                    isSecure: false,
-                                    focused: $focusedField,
-                                    field: .lastName
-                                )
-                            }
-                            
+                            BentoInputField(
+                                text: $username,
+                                placeholder: "Username",
+                                isSecure: false,
+                                focused: $focusedField,
+                                field: .username
+                            )
+
+                            BentoInputField(
+                                text: $firstName,
+                                placeholder: "First Name",
+                                isSecure: false,
+                                focused: $focusedField,
+                                field: .firstName
+                            )
+
                             VStack(alignment: .leading, spacing: 6) {
                                 BentoInputField(
                                     text: $email,
-                                    placeholder: "Email",
+                                    placeholder: "Email (optional)",
                                     isSecure: false,
                                     focused: $focusedField,
                                     field: .email
@@ -233,9 +233,9 @@ struct SignupView: View {
         Task {
             do {
                 try await authManager.signUp(
+                    username: username,
                     firstName: firstName,
-                    lastName: lastName,
-                    email: email,
+                    email: email.isEmpty ? nil : email,
                     password: password
                 )
             } catch {}

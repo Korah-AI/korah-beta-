@@ -8,66 +8,132 @@ import GoogleSignIn
 @MainActor
 final class AuthManager {
     static let shared = AuthManager()
-    
+
     var currentUser: User?
     var isAuthenticated = false
     var isLoading = false
     var errorMessage: String?
-    
+
     private var db: Firestore {
         Firestore.firestore()
     }
-    
+
     private init() {}
-    
-    // MARK: - Email/Password Authentication
-    
-    func signUp(firstName: String, lastName: String, email: String, password: String) async throws {
+
+    // MARK: - Username/Password Authentication
+
+    /// Signs up a new user with a unique username.
+    /// Firebase Auth requires an email, so we use the synthetic address
+    /// `{username}@korah.app` internally. The user's real email (if provided)
+    /// is stored only in the private `users/{uid}` document.
+    func signUp(
+        username: String,
+        firstName: String,
+        lastName: String? = nil,
+        email: String? = nil,
+        password: String
+    ) async throws {
         isLoading = true
         errorMessage = nil
-        
+
+        let normalizedUsername = username.lowercased()
+        let authEmail = "\(normalizedUsername)@korah.app"
+
         do {
-            // Create Firebase Auth user
-            let result = try await Auth.auth().createUser(withEmail: email, password: password)
-            
-            // Create user profile in Firestore
+            // 1. Check username availability (pre-auth read — allowed by rules).
+            let usernameDoc = try await db
+                .collection("usernames")
+                .document(normalizedUsername)
+                .getDocument()
+
+            if usernameDoc.exists {
+                isLoading = false
+                let usernameError = NSError(
+                    domain: "AuthManager",
+                    code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: "That username is already taken."]
+                )
+                errorMessage = usernameError.localizedDescription
+                throw usernameError
+            }
+
+            // 2. Create Firebase Auth account using the synthetic email.
+            let result = try await Auth.auth().createUser(withEmail: authEmail, password: password)
+
+            // 3. Reserve the username (create is blocked by rules if the doc already exists).
+            try await db.collection("usernames").document(normalizedUsername).setData([
+                "uid": result.user.uid,
+                "authEmail": authEmail
+            ])
+
+            // 4. Write the user profile.
             let user = User(
                 id: result.user.uid,
+                username: normalizedUsername,
                 firstName: firstName,
                 lastName: lastName,
-                email: email,
-                createdAt: Date()
+                email: email
             )
-            
-            try db.collection("users").document(user.id).setData(from: user)
-            
+            try await db.collection("users").document(user.id).setData(from: user)
+
             self.currentUser = user
             self.isAuthenticated = true
             isLoading = false
         } catch {
             isLoading = false
-            errorMessage = error.localizedDescription
+            if errorMessage == nil {
+                errorMessage = error.localizedDescription
+            }
             throw error
         }
     }
-    
-    func login(email: String, password: String) async throws {
+
+    /// Signs in using a username and password.
+    /// Resolves the username to the internal synthetic auth email, then
+    /// authenticates with Firebase Auth.
+    func login(username: String, password: String) async throws {
         isLoading = true
         errorMessage = nil
-        
+
+        let normalizedUsername = username.lowercased()
+
         do {
-            let result = try await Auth.auth().signIn(withEmail: email, password: password)
-            
-            // Fetch user profile from Firestore
-            let snapshot = try await db.collection("users").document(result.user.uid).getDocument()
+            // 1. Look up the auth email for this username.
+            let usernameDoc = try await db
+                .collection("usernames")
+                .document(normalizedUsername)
+                .getDocument()
+
+            guard usernameDoc.exists,
+                  let authEmail = usernameDoc.data()?["authEmail"] as? String else {
+                let notFoundError = NSError(
+                    domain: "AuthManager",
+                    code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: "No account found for that username."]
+                )
+                isLoading = false
+                errorMessage = notFoundError.localizedDescription
+                throw notFoundError
+            }
+
+            // 2. Sign in with Firebase Auth.
+            let result = try await Auth.auth().signIn(withEmail: authEmail, password: password)
+
+            // 3. Fetch the user profile.
+            let snapshot = try await db
+                .collection("users")
+                .document(result.user.uid)
+                .getDocument()
             let user = try snapshot.data(as: User.self)
-            
+
             self.currentUser = user
             self.isAuthenticated = true
             isLoading = false
         } catch {
             isLoading = false
-            errorMessage = error.localizedDescription
+            if errorMessage == nil {
+                errorMessage = error.localizedDescription
+            }
             throw error
         }
     }
@@ -123,10 +189,10 @@ final class AuthManager {
                 
                 let user = User(
                     id: result.user.uid,
+                    username: "",
                     firstName: first.isEmpty ? "User" : first,
-                    lastName: last,
-                    email: result.user.email ?? "",
-                    createdAt: Date()
+                    lastName: last.isEmpty ? nil : last,
+                    email: result.user.email
                 )
                 
                 try db.collection("users").document(user.id).setData(from: user)

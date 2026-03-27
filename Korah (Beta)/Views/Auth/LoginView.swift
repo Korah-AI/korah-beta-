@@ -1,14 +1,14 @@
 import SwiftUI
 
 struct LoginView: View {
-    @State private var email = ""
+    @State private var username = ""
     @State private var password = ""
     @Environment(AuthManager.self) private var authManager
     @FocusState private var focusedField: Field?
     @State private var appeared = false
     @State private var rotation: Double = 0
 
-    enum Field { case email, password }
+    enum Field { case username, password }
 
     var body: some View {
         ZStack {
@@ -44,11 +44,11 @@ struct LoginView: View {
                         // Form Fields
                         VStack(spacing: 20) {
                             BentoInputField(
-                                text: $email,
-                                placeholder: "Email",
+                                text: $username,
+                                placeholder: "Username",
                                 isSecure: false,
                                 focused: $focusedField,
-                                field: .email
+                                field: .username
                             )
                             
                             BentoInputField(
@@ -79,7 +79,7 @@ struct LoginView: View {
                                 .font(.system(size: 18, weight: .medium))
                             }
                             .buttonStyle(BentoGlowingButtonStyle())
-                            .disabled(email.isEmpty || password.isEmpty || authManager.isLoading)
+                            .disabled(username.isEmpty || password.isEmpty || authManager.isLoading)
                             
                             Button(action: handleGoogleSignIn) {
                                 HStack(spacing: 12) {
@@ -165,7 +165,7 @@ struct LoginView: View {
         Haptics.light()
         Task {
             do {
-                try await authManager.login(email: email, password: password)
+                try await authManager.login(username: username, password: password)
             } catch {}
         }
     }
@@ -197,8 +197,8 @@ private struct BentoInputField: View {
                     SecureField("", text: $text, prompt: Text(placeholder).foregroundStyle(.white.opacity(0.3)))
                 } else {
                     TextField("", text: $text, prompt: Text(placeholder).foregroundStyle(.white.opacity(0.3)))
-                        .textInputAutocapitalization(.never)
-                        .keyboardType(placeholder.contains("Email") ? .emailAddress : .default)
+                    .textInputAutocapitalization(.never)
+                        .keyboardType(.default)
                         .autocorrectionDisabled()
                 }
             }
