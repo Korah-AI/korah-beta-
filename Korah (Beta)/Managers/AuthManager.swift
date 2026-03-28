@@ -11,6 +11,7 @@ final class AuthManager {
 
     var currentUser: User?
     var isAuthenticated = false
+    var isGuestSession = false
     var isLoading = false
     var errorMessage: String?
 
@@ -78,6 +79,7 @@ final class AuthManager {
 
             self.currentUser = user
             self.isAuthenticated = true
+            self.isGuestSession = false
             isLoading = false
         } catch {
             isLoading = false
@@ -128,6 +130,44 @@ final class AuthManager {
 
             self.currentUser = user
             self.isAuthenticated = true
+            self.isGuestSession = false
+            isLoading = false
+        } catch {
+            isLoading = false
+            if errorMessage == nil {
+                errorMessage = error.localizedDescription
+            }
+            throw error
+        }
+    }
+
+    // MARK: - Anonymous Authentication
+
+    func continueAsGuest() async throws {
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            let result = try await Auth.auth().signInAnonymously()
+            let guestUser = User(
+                id: result.user.uid,
+                username: "guest_\(result.user.uid.prefix(6))",
+                firstName: "Guest"
+            )
+
+            try await db.collection("users").document(guestUser.id).setData([
+                "id": guestUser.id,
+                "username": guestUser.username,
+                "firstName": guestUser.firstName,
+                "lastName": NSNull(),
+                "email": NSNull(),
+                "createdAt": Timestamp(date: guestUser.createdAt),
+                "isGuest": true
+            ], merge: true)
+
+            self.currentUser = guestUser
+            self.isAuthenticated = true
+            self.isGuestSession = true
             isLoading = false
         } catch {
             isLoading = false
@@ -181,6 +221,7 @@ final class AuthManager {
             if snapshot.exists {
                 let user = try snapshot.data(as: User.self)
                 self.currentUser = user
+                self.isGuestSession = false
             } else {
                 // Create new user profile
                 let names = (result.user.displayName ?? "").split(separator: " ")
@@ -197,6 +238,7 @@ final class AuthManager {
                 
                 try db.collection("users").document(user.id).setData(from: user)
                 self.currentUser = user
+                self.isGuestSession = false
             }
             
             self.isAuthenticated = true
@@ -212,18 +254,61 @@ final class AuthManager {
     
     func checkAuthenticationState() async {
         if let firebaseUser = Auth.auth().currentUser {
+            if firebaseUser.isAnonymous {
+                do {
+                    let snapshot = try await db.collection("users").document(firebaseUser.uid).getDocument()
+
+                    if snapshot.exists, let user = try? snapshot.data(as: User.self) {
+                        self.currentUser = user
+                    } else {
+                        let guestUser = User(
+                            id: firebaseUser.uid,
+                            username: "guest_\(firebaseUser.uid.prefix(6))",
+                            firstName: "Guest"
+                        )
+
+                        try await db.collection("users").document(guestUser.id).setData([
+                            "id": guestUser.id,
+                            "username": guestUser.username,
+                            "firstName": guestUser.firstName,
+                            "lastName": NSNull(),
+                            "email": NSNull(),
+                            "createdAt": Timestamp(date: guestUser.createdAt),
+                            "isGuest": true
+                        ], merge: true)
+
+                        self.currentUser = guestUser
+                    }
+
+                    self.isAuthenticated = true
+                    self.isGuestSession = true
+                    self.errorMessage = nil
+                } catch {
+                    errorMessage = error.localizedDescription
+                    self.isAuthenticated = false
+                    self.currentUser = nil
+                    self.isGuestSession = false
+                }
+                return
+            }
+
             do {
                 let snapshot = try await db.collection("users").document(firebaseUser.uid).getDocument()
                 let user = try snapshot.data(as: User.self)
                 self.currentUser = user
                 self.isAuthenticated = true
+                self.isGuestSession = false
+                self.errorMessage = nil
             } catch {
                 errorMessage = error.localizedDescription
                 self.isAuthenticated = false
+                self.currentUser = nil
+                self.isGuestSession = false
             }
         } else {
             self.isAuthenticated = false
             self.currentUser = nil
+            self.isGuestSession = false
         }
     }
     
@@ -232,6 +317,7 @@ final class AuthManager {
             try Auth.auth().signOut()
             self.currentUser = nil
             self.isAuthenticated = false
+            self.isGuestSession = false
             self.errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
