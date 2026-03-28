@@ -118,6 +118,7 @@ struct StudyGuidesView: View {
         self.openGeneratorOnAppear = openGeneratorOnAppear
     }
 
+    @Environment(FirestoreStudyService.self) private var studyService
     @State private var inputText: String = ""
     @State private var guideTitle: String = ""
     @State private var generatedMarkdown: String = ""
@@ -125,42 +126,15 @@ struct StudyGuidesView: View {
     @State private var errorMessage: String? = nil
     @State private var networkMonitor = NetworkMonitor.shared
 
-    @State private var savedGuides: [StudyGuide] = []
-    private let saveKey = "StudyGuides"
-
-    @State private var flashcardSets: [FlashcardSet] = []
     @State private var selectedSetIndex: Int = 0
     @State private var navigateToGenerator: Bool = false
     @State private var showManualCreate: Bool = false
 
-    private func loadGuides() {
-        if let data = UserDefaults.standard.data(forKey: saveKey),
-           let decoded = try? JSONDecoder().decode([StudyGuide].self, from: data) {
-            savedGuides = decoded
-        }
-    }
-    private func persistGuides() {
-        if let encoded = try? JSONEncoder().encode(savedGuides) {
-            UserDefaults.standard.set(encoded, forKey: saveKey)
-        }
-    }
+    private var savedGuides: [StudyGuide] { studyService.studyGuides }
+    private var flashcardSets: [FlashcardSet] { studyService.flashcardSets }
 
-    private func deleteGuides(at offsets: IndexSet) {
-        let sorted = savedGuides.sorted(by: { $0.createdAt > $1.createdAt })
-        var mutable = sorted
-        mutable.remove(atOffsets: offsets)
-        savedGuides = mutable
-        persistGuides()
-    }
-
-    private func loadFlashcardSets() {
-        if let data = UserDefaults.standard.data(forKey: "FlashcardSets"),
-           let decoded = try? JSONDecoder().decode([FlashcardSet].self, from: data) {
-            flashcardSets = decoded
-            selectedSetIndex = min(selectedSetIndex, max(0, flashcardSets.count - 1))
-        } else {
-            flashcardSets = []
-        }
+    private func deleteGuide(_ guide: StudyGuide) {
+        Task { try? await studyService.deleteStudyGuide(id: guide.id) }
     }
 
     private func generateStudyGuideFromSelectedSet() {
@@ -268,16 +242,14 @@ Rules:
                     let title = "Study Guide: \(set.title)"
                     let guide = StudyGuide(title: title, content: jsonString)
                     DispatchQueue.main.async {
-                        self.savedGuides.append(guide)
-                        self.persistGuides()
+                        try? self.studyService.addStudyGuide(guide)
                     }
                 } else {
                     let guideJSON = try JSONDecoder().decode(GeneratedStudyGuide.self, from: jsonData)
                     let title = guideJSON.meta.title.isEmpty ? "Study Guide: \(set.title)" : guideJSON.meta.title
                     let guide = StudyGuide(title: title, content: jsonString)
                     DispatchQueue.main.async {
-                        self.savedGuides.append(guide)
-                        self.persistGuides()
+                        try? self.studyService.addStudyGuide(guide)
                     }
                 }
             } catch {
@@ -413,8 +385,7 @@ Rules:
                     let title = self.guideTitle.isEmpty ? "Study Guide" : self.guideTitle
                     let guide = StudyGuide(title: title, content: jsonString)
                     DispatchQueue.main.async {
-                        self.savedGuides.append(guide)
-                        self.persistGuides()
+                        try? self.studyService.addStudyGuide(guide)
                         self.inputText = ""
                         self.guideTitle = ""
                     }
@@ -423,8 +394,7 @@ Rules:
                     let title = guideJSON.meta.title.isEmpty ? (self.guideTitle.isEmpty ? "Study Guide" : self.guideTitle) : guideJSON.meta.title
                     let guide = StudyGuide(title: title, content: jsonString)
                     DispatchQueue.main.async {
-                        self.savedGuides.append(guide)
-                        self.persistGuides()
+                        try? self.studyService.addStudyGuide(guide)
                         self.inputText = ""
                         self.guideTitle = ""
                     }
@@ -459,11 +429,8 @@ Rules:
                 }
                 .padding(.vertical, 16)
             }
-            .background(Color.clear)
-            .refreshable {
-                loadGuides()
-                loadFlashcardSets()
-            }
+        .background(Color.clear)
+        .refreshable { }
             .korahGradientBackground()
             .overlay {
                 loadingOverlay
@@ -482,17 +449,11 @@ Rules:
         .accentColor(.purple)
         .preferredColorScheme(.dark)
         .onAppear {
-            loadGuides()
-            loadFlashcardSets()
             if openGeneratorOnAppear {
                 if !flashcardSets.isEmpty { selectedSetIndex = 0 }
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-            loadGuides()
-            loadFlashcardSets()
-        }
-        .sheet(isPresented: $showManualCreate, onDismiss: { loadFlashcardSets() }) {
+        .sheet(isPresented: $showManualCreate) {
             NavigationStack { ManualFlashcardSetCreateView() }
                 .accentColor(.purple)
         }
@@ -741,12 +702,9 @@ Rules:
                                         subtitle: guide.createdAt.formattedCreatedAt()
                                     )
                                 }
-                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                     Button(role: .destructive) {
-                                        if let index = savedGuides.firstIndex(where: { $0.id == guide.id }) {
-                                            savedGuides.remove(at: index)
-                                            persistGuides()
-                                        }
+                                        deleteGuide(guide)
                                     } label: {
                                         Label("Delete", systemImage: "trash")
                                     }
@@ -1008,15 +966,7 @@ struct StudyGuideDetailView: View {
     }
 
     private func deleteCurrentGuide() {
-        var guides: [StudyGuide] = []
-        if let data = UserDefaults.standard.data(forKey: "StudyGuides"),
-           let decoded = try? JSONDecoder().decode([StudyGuide].self, from: data) {
-            guides = decoded
-        }
-        guides.removeAll { $0.id == guide.id }
-        if let encoded = try? JSONEncoder().encode(guides) {
-            UserDefaults.standard.set(encoded, forKey: "StudyGuides")
-        }
+        Task { try? await FirestoreStudyService.shared.deleteStudyGuide(id: guide.id) }
         dismiss()
     }
 

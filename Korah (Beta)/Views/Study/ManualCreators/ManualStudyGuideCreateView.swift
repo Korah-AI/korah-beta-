@@ -8,7 +8,7 @@ struct ManualStudyGuideCreateView: View {
     @State private var content: String = ""
     @State private var errorMessage: String? = nil
     
-    @State private var flashcardSets: [FlashcardSet] = []
+    private var flashcardSets: [FlashcardSet] { FirestoreStudyService.shared.flashcardSets }
     @State private var selectedSetIndex: Int = 0
     @State private var isGenerating: Bool = false
     @State private var showSetSelectionSection: Bool = false
@@ -201,17 +201,6 @@ struct ManualStudyGuideCreateView: View {
         .background(Color.clear)
         .korahGradientBackground()
         .preferredColorScheme(.dark)
-        .onAppear { loadFlashcardSets() }
-    }
-    
-    private func loadFlashcardSets() {
-        if let data = UserDefaults.standard.data(forKey: "FlashcardSets"),
-           let decoded = try? JSONDecoder().decode([FlashcardSet].self, from: data) {
-            flashcardSets = decoded
-            selectedSetIndex = min(selectedSetIndex, max(0, flashcardSets.count - 1))
-        } else {
-            flashcardSets = []
-        }
     }
     
     private func generateGuideFromFlashcards() {
@@ -333,19 +322,8 @@ Instructions:
             return
         }
         
-        var existing: [StudyGuide] = []
-        if let data = UserDefaults.standard.data(forKey: "StudyGuides"),
-           let decoded = try? JSONDecoder().decode([StudyGuide].self, from: data) {
-            existing = decoded
-        }
-        
         let newGuide = StudyGuide(title: guideTitle, content: guideContent)
-        existing.append(newGuide)
-        
-        if let encoded = try? JSONEncoder().encode(existing) {
-            UserDefaults.standard.set(encoded, forKey: "StudyGuides")
-        }
-        
+        try? FirestoreStudyService.shared.addStudyGuide(newGuide)
         dismiss()
     }
 }

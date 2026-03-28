@@ -10,7 +10,7 @@ struct FlashcardsView: View {
         self.openAddSetOnAppear = openAddSetOnAppear
         self.selectedSetID = selectedSetID
     }
-    @State private var sets: [FlashcardSet] = []
+    @Environment(FirestoreStudyService.self) private var studyService
     @State private var selectedSet: FlashcardSet? = nil
     @State private var showingAddSet = false
     @State private var newSetTitle: String = ""
@@ -37,14 +37,10 @@ struct FlashcardsView: View {
             }
         }
         .onAppear {
-            loadSets()
             if openAddSetOnAppear { showingAddSet = true }
             if selectedSet == nil, let targetID = selectedSetID {
-                selectedSet = sets.first(where: { $0.id == targetID })
+                selectedSet = studyService.flashcardSets.first(where: { $0.id == targetID })
             }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-            loadSets()
         }
         .sheet(isPresented: $showingAddSet) { addSetSheet }
         .sheet(item: $setToEdit) { editable in
@@ -77,20 +73,20 @@ struct FlashcardsView: View {
 
     @ViewBuilder
     private var content: some View {
-        if sets.isEmpty {
+        if studyService.flashcardSets.isEmpty {
             emptyStateView
         } else if let set = selectedSet {
             FlashcardSetStudyView(set: set, onBack: { selectedSet = nil })
         } else {
             FlashcardSetListView(
-                sets: sets,
+                sets: studyService.flashcardSets,
                 onSelect: { selectedSet = $0 },
                 onEdit: { set in setToEdit = set },
                 onDelete: { set in
                     selectedSetForDeletion = set
                     showDeleteConfirm = true
                 },
-                onRefresh: { loadSets() }
+                onRefresh: { }
             )
         }
     }
@@ -211,49 +207,25 @@ struct FlashcardsView: View {
         let title = newSetTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else { return }
         let new = FlashcardSet(title: title, cards: [])
-        sets.append(new)
-        saveSets()
+        try? studyService.addFlashcardSet(new)
         newSetTitle = ""
         showingAddSet = false
     }
 
-    private func delete(at offsets: IndexSet) {
-        sets.remove(atOffsets: offsets)
-        saveSets()
-    }
-
     private func updateSet(_ updated: FlashcardSet) {
-        if let idx = sets.firstIndex(where: { $0.id == updated.id }) {
-            sets[idx] = updated
-            saveSets()
-        }
+        try? studyService.updateFlashcardSet(updated)
     }
 
     private func deleteSet(_ set: FlashcardSet) {
-        sets.removeAll { $0.id == set.id }
-        saveSets()
-    }
-
-    private func saveSets() {
-        if let data = try? JSONEncoder().encode(sets) {
-            UserDefaults.standard.set(data, forKey: "FlashcardSets")
-        }
-    }
-
-    private func loadSets() {
-        if let data = UserDefaults.standard.data(forKey: "FlashcardSets"),
-           let decoded = try? JSONDecoder().decode([FlashcardSet].self, from: data) {
-            sets = decoded
-        } else {
-            sets = []
-        }
+        Task { try? await studyService.deleteFlashcardSet(id: set.id) }
     }
 }
 
 struct FlashcardSetStudyView: View {
     let set: FlashcardSet
     let onBack: () -> Void
-    
+
+    @Environment(FirestoreStudyService.self) private var studyService
     @State private var currentCardIndex: Int = 0
     @State private var showBack: Bool = false
     @State private var dragOffset: CGFloat = 0
@@ -275,13 +247,6 @@ struct FlashcardSetStudyView: View {
     @ViewBuilder
     private var header: some View {
         HStack {
-            Button(action: onBack) {
-                Image(systemName: "chevron.left")
-                    .font(.headline.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 40, height: 40)
-                    .background(Circle().fill(Color.white.opacity(0.1)))
-            }
             Spacer()
             Menu {
                 Button(role: .destructive) {
@@ -297,6 +262,7 @@ struct FlashcardSetStudyView: View {
                     .background(Circle().fill(Color.white.opacity(0.1)))
             }
         }
+        .frame(maxWidth: .infinity, alignment: .trailing)
         .padding()
     }
 
@@ -427,13 +393,7 @@ struct FlashcardSetStudyView: View {
     }
     
     private func deleteCurrentSet() {
-        if let data = UserDefaults.standard.data(forKey: "FlashcardSets"),
-           var sets = try? JSONDecoder().decode([FlashcardSet].self, from: data) {
-            sets.removeAll { $0.id == set.id }
-            if let encoded = try? JSONEncoder().encode(sets) {
-                UserDefaults.standard.set(encoded, forKey: "FlashcardSets")
-            }
-        }
+        Task { try? await studyService.deleteFlashcardSet(id: set.id) }
         onBack()
     }
     
@@ -459,28 +419,13 @@ struct FlashcardSetStudyView: View {
         switch result {
         case .success(let questions):
             let test = PracticeTest(title: "Test: \(set.title)", questions: questions)
-            
-            if let data = UserDefaults.standard.data(forKey: "PracticeTests"),
-               var existing = try? JSONDecoder().decode([PracticeTest].self, from: data) {
-                existing.append(test)
-                if let encoded = try? JSONEncoder().encode(existing) {
-                    UserDefaults.standard.set(encoded, forKey: "PracticeTests")
-                    showTestOptions = false
-                    generatedTest = test
-                } else {
-                    errorMessage = "Failed to save practice test. Please try again."
-                    showErrorAlert = true
-                }
-            } else {
-                let newList = [test]
-                if let encoded = try? JSONEncoder().encode(newList) {
-                    UserDefaults.standard.set(encoded, forKey: "PracticeTests")
-                    showTestOptions = false
-                    generatedTest = test
-                } else {
-                    errorMessage = "Failed to save practice test. Please try again."
-                    showErrorAlert = true
-                }
+            do {
+                try studyService.addPracticeTest(test)
+                showTestOptions = false
+                generatedTest = test
+            } catch {
+                errorMessage = "Failed to save practice test. Please try again."
+                showErrorAlert = true
             }
             
         case .failure(let error):
@@ -619,18 +564,10 @@ Create 5-10 questions mixing direct flashcard content with related conceptual qu
                             }
                         }
                         
-                        if !questions.isEmpty {
+            if !questions.isEmpty {
                             let test = PracticeTest(title: "AI Test: \(self.set.title)", questions: questions)
-                            var existing: [PracticeTest] = []
-                            if let tdata = UserDefaults.standard.data(forKey: "PracticeTests"),
-                               let decoded = try? JSONDecoder().decode([PracticeTest].self, from: tdata) {
-                                existing = decoded
-                            }
-                            existing.append(test)
-                            if let encoded = try? JSONEncoder().encode(existing) {
-                                UserDefaults.standard.set(encoded, forKey: "PracticeTests")
-                                self.generatedTest = test
-                            }
+                            try? self.studyService.addPracticeTest(test)
+                            self.generatedTest = test
                         } else {
                             self.errorMessage = "No valid questions generated."
                             self.showErrorAlert = true
@@ -775,24 +712,11 @@ Rules:
                     if let _ = jsonString.data(using: .utf8) {
                         let title = "Study Guide: \(set.title)"
                         let guide = StudyGuide(title: title, content: jsonString)
-
-                        var existing: [StudyGuide] = []
-                        if let gdata = UserDefaults.standard.data(forKey: "StudyGuides"),
-                           let decodedGuides = try? JSONDecoder().decode([StudyGuide].self, from: gdata) {
-                            existing = decodedGuides
-                        }
-                        existing.append(guide)
-                        if let encoded = try? JSONEncoder().encode(existing) {
-                            UserDefaults.standard.set(encoded, forKey: "StudyGuides")
-                            DispatchQueue.main.async {
-                                self.generationMessage = "Saved to Study Guides."
-                                self.showGenerationAlert = true
-                            }
-                        } else {
-                            DispatchQueue.main.async {
-                                self.generationMessage = "Failed to save Study Guide."
-                                self.showGenerationAlert = true
-                            }
+                        try? self.studyService.addStudyGuide(guide)
+                        DispatchQueue.main.async {
+                            self.generatedGuide = guide
+                            self.generationMessage = "Saved to Study Guides."
+                            self.showGenerationAlert = true
                         }
                     } else {
                         DispatchQueue.main.async {
@@ -819,6 +743,7 @@ struct FlashcardSetDetailView: View {
     var onSave: (FlashcardSet) -> Void
     var onDelete: (FlashcardSet) -> Void
 
+    @Environment(FirestoreStudyService.self) private var studyService
     @State private var showingAddCard = false
     @State private var newFront = ""
     @State private var newBack = ""
@@ -1049,11 +974,11 @@ struct FlashcardSetDetailView: View {
     }
 
     private func deleteAllPracticeTests() {
-        UserDefaults.standard.removeObject(forKey: "PracticeTests")
+        studyService.deleteAllPracticeTests()
     }
 
     private func deleteAllStudyGuides() {
-        UserDefaults.standard.removeObject(forKey: "StudyGuides")
+        studyService.deleteAllStudyGuides()
     }
 
     private func generatePracticeTestFromSet() {
@@ -1068,24 +993,11 @@ struct FlashcardSetDetailView: View {
         switch result {
         case .success(let questions):
             let test = PracticeTest(title: "Practice Test from \(set.title)", questions: questions)
-            
-            if let data = UserDefaults.standard.data(forKey: "PracticeTests"),
-               var existing = try? JSONDecoder().decode([PracticeTest].self, from: data) {
-                existing.append(test)
-                if let encoded = try? JSONEncoder().encode(existing) {
-                    UserDefaults.standard.set(encoded, forKey: "PracticeTests")
-                    generationMessage = "Saved to Practice Tests."
-                } else {
-                    generationMessage = "Failed to save Practice Test."
-                }
-            } else {
-                let newList = [test]
-                if let encoded = try? JSONEncoder().encode(newList) {
-                    UserDefaults.standard.set(encoded, forKey: "PracticeTests")
-                    generationMessage = "Saved to Practice Tests."
-                } else {
-                    generationMessage = "Failed to save Practice Test."
-                }
+            do {
+                try studyService.addPracticeTest(test)
+                generationMessage = "Saved to Practice Tests."
+            } catch {
+                generationMessage = "Failed to save Practice Test."
             }
             
         case .failure(let error):
@@ -1223,24 +1135,10 @@ Rules:
                     if let _ = jsonString.data(using: .utf8) {
                         let title = "Study Guide: \(set.title)"
                         let guide = StudyGuide(title: title, content: jsonString)
-
-                        var existing: [StudyGuide] = []
-                        if let gdata = UserDefaults.standard.data(forKey: "StudyGuides"),
-                           let decodedGuides = try? JSONDecoder().decode([StudyGuide].self, from: gdata) {
-                            existing = decodedGuides
-                        }
-                        existing.append(guide)
-                        if let encoded = try? JSONEncoder().encode(existing) {
-                            UserDefaults.standard.set(encoded, forKey: "StudyGuides")
-                            DispatchQueue.main.async {
-                                self.generationMessage = "Saved to Study Guides."
-                                self.showGenerationAlert = true
-                            }
-                        } else {
-                            DispatchQueue.main.async {
-                                self.generationMessage = "Failed to save Study Guide."
-                                self.showGenerationAlert = true
-                            }
+                        try? self.studyService.addStudyGuide(guide)
+                        DispatchQueue.main.async {
+                            self.generationMessage = "Saved to Study Guides."
+                            self.showGenerationAlert = true
                         }
                     } else {
                         DispatchQueue.main.async {

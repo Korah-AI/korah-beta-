@@ -6,7 +6,6 @@ struct HomePageView: View {
     @State private var showMoodSettings: Bool = false
     @State private var showTimerCelebration = false
     @State private var editingTask: StudyTask? = nil
-    @State private var showFeedback = false
     @State private var showSettings = false
 
     @Environment(AuthManager.self) private var authManager
@@ -25,457 +24,439 @@ struct HomePageView: View {
             return MoodHelpers.getSortedTasks(for: userMood, tasks: dataManager.tasks)
         }
     }
-
-    var body: some View {
-        ZStack {
-        TabView(selection: $selectedTab) {
-            NavigationStack {
-                ScrollView {
-                    VStack(spacing: 20) {
-                        // Hero Welcome Card
-                        VStack(spacing: 16) {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Hello, \(authManager.currentUser?.firstName ?? "Student")! 👋")
-                                        .font(.title)
-                                        .fontWeight(.bold)
-                                        .foregroundColor(.white)
-                                    
-                                    Text(greetingMessage())
-                                        .font(.subheadline)
-                                        .foregroundColor(.secondary)
-                                }
-                                Spacer()
-                            }
-                            
-                            // Stats Grid
-                            HStack(spacing: 12) {
-                                StatCard(icon: "checkmark.circle.fill", value: "\(dataManager.tasks.count)", label: "Tasks")
-                                StatCard(icon: "book.fill", value: "\(dataManager.recentStudyItems.count)", label: "Study Items")
-                                StatCard(icon: "flame.fill", value: "\(streakManager.getCurrentStreak())", label: "Day Streak")
-                            }
-                        }
-                        .padding()
-                        .kGlassEffect(cornerRadius: CornerRadius.xl)
-                        .kShadowGlow()
-                        .padding(.horizontal)
-                        .padding(.top, 20)
-                        
-                        // Quick Actions Grid
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Quick Actions")
-                                .font(.title3)
+    
+    private var homeMainContent: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                // Hero Welcome Card
+                VStack(spacing: 16) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Hello, \(authManager.currentUser?.firstName ?? "Student")! 👋")
+                                .font(.title)
                                 .fontWeight(.bold)
                                 .foregroundColor(.white)
-                                .padding(.horizontal)
                             
-                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                                QuickActionButton(icon: "plus.circle.fill", title: "New Task", color: .purple) {
-                                    selectedTab = 1
-                                }
-                                QuickActionButton(icon: "camera.viewfinder", title: "Scan", color: .blue) {
-                                    selectedTab = 2
-                                }
-                                QuickActionButton(icon: "message.fill", title: "Chat", color: .green) {
-                                    selectedTab = 2
-                                }
-                                QuickActionButton(icon: "timer", title: "Focus Timer", color: .orange) {
-                                    selectedTab = 3
-                                }
-                            }
-                            .padding(.horizontal)
-                        }
-                        .padding(.vertical)
-
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack {
-                            HStack(spacing: 8) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.purple)
-                                    .font(.title3)
-                                Text("Recommended for You")
-                                    .font(.title3)
-                                    .foregroundColor(.white)
-                                    .bold()
-                            }
-
-                            Spacer()
-
-                            Button(action: {
-                                showMoodPicker = true
-                            }) {
-                                Text(userMood.isEmpty ? "🟢" : userMood)
-                                    .font(.largeTitle)
-                            }
-                        }
-                        
-                        // Mood-based recommendation message
-                        if !userMood.isEmpty {
-                            let recommendedCount = recommendedTasks.filter { MoodHelpers.isTaskRecommended(task: $0, for: userMood) }.count
-                            Text(MoodHelpers.getRecommendationMessage(for: userMood, recommendedCount: recommendedCount, totalCount: recommendedTasks.count))
+                            Text(greetingMessage())
                                 .font(.subheadline)
-                                .foregroundColor(.yellow.opacity(0.9))
-                                .padding(.bottom, 4)
+                                .foregroundColor(.secondary)
                         }
-
-                        if recommendedTasks.isEmpty && !userMood.isEmpty && userMood == "🔴" {
-                            // Show exercises when no easy tasks and mood is low
-                            VStack(alignment: .leading, spacing: 12) {
-                                ForEach(MoodHelpers.getSuggestedExercises(for: userMood).prefix(2)) { exercise in
-                                    HStack(spacing: 12) {
-                                        Image(systemName: exercise.icon)
-                                            .font(.title3)
-                                            .foregroundColor(.purple)
-                                            .frame(width: 40, height: 40)
-                                            .background(Color.purple.opacity(0.15))
-                                            .clipShape(Circle())
-                                        
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(exercise.title)
-                                                .font(.subheadline)
-                                                .foregroundColor(.white)
-                                            Text(exercise.duration)
-                                                .font(.caption)
-                                                .foregroundColor(.secondary)
-                                        }
-                                        Spacer()
-                                    }
-                                    .padding(12)
-                                    .background(Color.white.opacity(0.1))
-                                    .cornerRadius(10)
-                                }
-                            }
-                        } else if dataManager.tasks.isEmpty {
-                            VStack(spacing: 12) {
-                                Image(systemName: "checkmark.circle")
-                                    .font(.system(size: 40))
-                                    .foregroundColor(.purple.opacity(0.6))
-                                Text("No upcoming tasks")
-                                    .foregroundColor(.gray)
-                                    .font(.subheadline)
-                                Text("Tap Tasks tab to create your first task")
-                                    .foregroundColor(.secondary)
-                                    .font(.caption)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 20)
-                        } else {
-                            ForEach(recommendedTasks.prefix(3)) { task in
-                                Button(action: {
-                                    editingTask = task
-                                }) {
-                                    HStack(spacing: 12) {
-                                        VStack(alignment: .leading, spacing: 6) {
-                                            HStack {
-                                                Text(task.title)
-                                                    .font(.headline)
-                                                    .foregroundColor(.white)
-                                                Spacer()
-                                                HStack(spacing: 4) {
-                                                    Text(task.difficulty.emoji)
-                                                    Text(task.difficulty.rawValue)
-                                                        .font(.caption)
-                                                        .fontWeight(.medium)
-                                                }
-                                                .padding(.horizontal, 6)
-                                                .padding(.vertical, 3)
-                                                .background(Color.purple.opacity(0.2))
-                                                .foregroundColor(.purple)
-                                                .cornerRadius(6)
-                                            }
-
-                                            if !task.description.isEmpty {
-                                                Text(task.description)
-                                                    .font(.subheadline)
-                                                    .foregroundColor(.gray)
-                                                    .lineLimit(1)
-                                            }
-
-                                            HStack(spacing: 4) {
-                                                Image(systemName: "calendar")
-                                                    .font(.caption)
-                                                Text(task.dueDate.formatted(date: .abbreviated, time: .shortened))
-                                                    .font(.caption)
-                                            }
-                                            .foregroundColor(.purple.opacity(0.8))
-                                        }
-                                        
-                                        Image(systemName: "chevron.right")
-                                            .font(.caption)
-                                            .foregroundColor(.gray)
-                                    }
-                                    .padding(12)
-                                    .background(Color.white.opacity(0.1))
-                                    .cornerRadius(10)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
+                        Spacer()
                     }
-                    .padding()
-                    .kGlassEffect(cornerRadius: CornerRadius.lg)
-                    .kShadowSubtle()
-                    .padding(.horizontal)
-
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "book.fill")
-                                .foregroundColor(.purple)
-                                .font(.title3)
-                            Text("Study it again")
-                                .font(.title3)
-                                .foregroundColor(.white)
-                                .bold()
-                        }
+                    
+                    // Stats Grid
+                    HStack(spacing: 12) {
+                        StatCard(icon: "checkmark.circle.fill", value: "\(dataManager.tasks.count)", label: "Tasks")
+                        StatCard(icon: "book.fill", value: "\(dataManager.recentStudyItems.count)", label: "Study Items")
+                        StatCard(icon: "flame.fill", value: "\(streakManager.getCurrentStreak())", label: "Day Streak")
+                    }
+                }
+                .padding()
+                .kGlassEffect(cornerRadius: CornerRadius.xl)
+                .kShadowGlow()
+                .padding(.horizontal)
+                .padding(.top, 20)
+                
+                // Quick Actions Grid
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Quick Actions")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
                         .padding(.horizontal)
-
-                        if dataManager.recentStudyItems.isEmpty {
-                            VStack(spacing: 12) {
-                                Image(systemName: "book.closed")
-                                    .font(.system(size: 40))
-                                    .foregroundColor(.purple.opacity(0.6))
-                                Text("No recent study items")
-                                    .foregroundColor(.gray)
-                                    .font(.subheadline)
-                                Text("Create flashcards, guides, or tests to see them here")
-                                    .foregroundColor(.secondary)
-                                    .font(.caption)
-                                    .multilineTextAlignment(.center)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 20)
-                            .padding(.horizontal)
-                        } else {
-                            ForEach(dataManager.recentStudyItems.prefix(3)) { item in
-                                NavigationLink(destination: homeDestination(for: item.id, kind: item.kind)) {
-                                    HStack {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(item.title)
-                                                .font(.headline)
-                                                .foregroundColor(.white)
-                                            Text(item.kind)
-                                                .font(.caption2)
-                                                .bold()
-                                                .padding(.horizontal, 8)
-                                                .padding(.vertical, 2)
-                                                .background(Color.purple.opacity(0.2))
-                                                .foregroundColor(.purple)
-                                                .cornerRadius(8)
-                                        }
-                                        Spacer()
-                                    }
-                                    .padding(10)
-                                    .background(Color.white.opacity(0.1))
-                                    .cornerRadius(10)
-                                    .padding(.horizontal)
-                                }
-                            }
+                    
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                        QuickActionButton(icon: "plus.circle.fill", title: "New Task", color: .purple) {
+                            selectedTab = 1
                         }
-
+                        QuickActionButton(icon: "camera.viewfinder", title: "Scan", color: .blue) {
+                            selectedTab = 2
+                        }
+                        QuickActionButton(icon: "message.fill", title: "Chat", color: .green) {
+                            selectedTab = 2
+                        }
+                        QuickActionButton(icon: "timer", title: "Focus Timer", color: .orange) {
+                            selectedTab = 3
+                        }
                     }
-                    .padding()
-                    .kGlassEffect(cornerRadius: CornerRadius.lg)
-                    .kShadowSubtle()
                     .padding(.horizontal)
-
-                    VStack(spacing: 10) {
+                }
+                .padding(.vertical)
+                
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
                         HStack(spacing: 8) {
-                            Image(systemName: "message.fill")
+                            Image(systemName: "checkmark.circle.fill")
                                 .foregroundColor(.purple)
                                 .font(.title3)
-                            Text("Start a new chat with Korah")
+                            Text("Recommended for You")
                                 .font(.title3)
                                 .foregroundColor(.white)
                                 .bold()
                         }
+
+                        Spacer()
 
                         Button(action: {
-                            selectedTab = 2
+                            showMoodPicker = true
                         }) {
-                            Text("Chat Now")
-                                .font(.kHeadline)
-                                .foregroundStyle(.white)
-                                .padding()
-                                .frame(maxWidth: .infinity)
-                                .background(
-                                    RoundedRectangle(cornerRadius: CornerRadius.button, style: .continuous)
-                                        .fill(LinearGradient.kPurpleGradient)
-                                )
-                                .kShadowGlow()
+                            Text(userMood.isEmpty ? "🟢" : userMood)
+                                .font(.largeTitle)
                         }
                     }
-                    .padding()
-                    .kGlassEffect(cornerRadius: CornerRadius.lg)
-                    .kShadowSubtle()
-                    .padding(.horizontal)
                     
-                    // Feedback Button
-                    Button(action: {
-                        showFeedback = true
-                    }) {
-                        HStack {
-                            Image(systemName: "envelope.fill")
-                                .font(.kHeadline)
-                            Text("Send Feedback")
-                                .font(.kHeadline)
-                        }
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(
-                            RoundedRectangle(cornerRadius: CornerRadius.button, style: .continuous)
-                                .fill(LinearGradient.kPurpleGradient)
-                        )
-                        .kShadowGlow()
+                    // Mood-based recommendation message
+                    if !userMood.isEmpty {
+                        let recommendedCount = recommendedTasks.filter { MoodHelpers.isTaskRecommended(task: $0, for: userMood) }.count
+                        Text(MoodHelpers.getRecommendationMessage(for: userMood, recommendedCount: recommendedCount, totalCount: recommendedTasks.count))
+                            .font(.subheadline)
+                            .foregroundColor(.yellow.opacity(0.9))
+                            .padding(.bottom, 4)
                     }
-                    .padding(.horizontal)
-                    .padding(.bottom, 12)
-                    
-                    // Settings Button
-                    Button(action: {
-                        showSettings = true
-                    }) {
-                        HStack {
-                            Image(systemName: "gearshape.fill")
-                                .font(.kHeadline)
-                            Text("Settings")
-                                .font(.kHeadline)
-                        }
-                        .foregroundStyle(.white.opacity(0.8))
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(
-                            RoundedRectangle(cornerRadius: CornerRadius.button, style: .continuous)
-                                .fill(Color.white.opacity(0.1))
-                        )
-                    }
-                    .padding(.horizontal)
-                    .padding(.bottom, 32)
 
-                    Spacer()
-                    }
-                }
-                .kBackground(withStars: true)
-                .refreshable {
-                    dataManager.refreshAll()
-                }
-                .confirmationDialog("Settings", isPresented: $showSettings, titleVisibility: .visible) {
-                    Button("Log Out", role: .destructive) {
-                        try? authManager.logout()
-                    }
-                    Button("Cancel", role: .cancel) {}
-                } message: {
-                    Text("Manage your account and preferences.")
-                }
-                .sheet(isPresented: $showMoodPicker) {
-                    NavigationStack {
-                        VStack(spacing: 24) {
-                            VStack(spacing: 8) {
-                                Image(systemName: "brain.head.profile")
-                                    .font(.system(size: 50))
-                                    .foregroundColor(.purple)
-                                Text("How are you feeling?")
-                                    .font(.title2)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(.white)
-                                Text("Help us understand your focus level")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                            }
-                            .padding(.top, 20)
-                        
-                            VStack(spacing: 14) {
-                                MoodButton(emoji: "🟢", title: "Very Focused", description: "Ready to tackle anything!", color: .green) {
-                                    userMood = "🟢"
-                                    UserDefaults.standard.set(Date(), forKey: "LastMoodCheckInDate")
-                                    showMoodPicker = false
-                                }
-                                
-                                MoodButton(emoji: "🟡", title: "Moderately Focused", description: "Somewhere in the middle", color: .yellow) {
-                                    userMood = "🟡"
-                                    UserDefaults.standard.set(Date(), forKey: "LastMoodCheckInDate")
-                                    showMoodPicker = false
-                                }
-                                
-                                MoodButton(emoji: "🔴", title: "Not Focused", description: "Having trouble concentrating", color: .red) {
-                                    userMood = "🔴"
-                                    UserDefaults.standard.set(Date(), forKey: "LastMoodCheckInDate")
-                                    showMoodPicker = false
-                                }
-                            }
-                            .padding(.horizontal)
-                            
-                            Button(action: { showMoodPicker = false }) {
-                                Text("Cancel")
-                                    .font(.headline)
-                                    .foregroundColor(.purple)
-                                    .frame(maxWidth: .infinity)
-                                    .padding()
-                                    .background(Color.white.opacity(0.1))
-                                    .cornerRadius(12)
-                            }
-                            .padding(.horizontal)
-                            .padding(.top, 8)
-                            
-                            Spacer()
-                        }
-                        .padding()
-                        .korahGradientBackground()
-                        .toolbar {
-                            ToolbarItem(placement: .navigationBarTrailing) {
-                                Button(action: {
-                                    showMoodSettings = true
-                                }) {
-                                    Image(systemName: "gearshape")
+                    if recommendedTasks.isEmpty && !userMood.isEmpty && userMood == "🔴" {
+                        // Show exercises when no easy tasks and mood is low
+                        VStack(alignment: .leading, spacing: 12) {
+                            ForEach(MoodHelpers.getSuggestedExercises(for: userMood).prefix(2)) { exercise in
+                                HStack(spacing: 12) {
+                                    Image(systemName: exercise.icon)
+                                        .font(.title3)
                                         .foregroundColor(.purple)
+                                        .frame(width: 40, height: 40)
+                                        .background(Color.purple.opacity(0.15))
+                                        .clipShape(Circle())
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(exercise.title)
+                                            .font(.subheadline)
+                                            .foregroundColor(.white)
+                                        Text(exercise.duration)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Spacer()
                                 }
+                                .padding(12)
+                                .background(Color.white.opacity(0.1))
+                                .cornerRadius(10)
                             }
+                        }
+                    } else if dataManager.tasks.isEmpty {
+                        VStack(spacing: 12) {
+                            Image(systemName: "checkmark.circle")
+                                .font(.system(size: 40))
+                                .foregroundColor(.purple.opacity(0.6))
+                            Text("No upcoming tasks")
+                                .foregroundColor(.gray)
+                                .font(.subheadline)
+                            Text("Tap Tasks tab to create your first task")
+                                .foregroundColor(.secondary)
+                                .font(.caption)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 20)
+                    } else {
+                        ForEach(recommendedTasks.prefix(3)) { task in
+                            Button(action: {
+                                editingTask = task
+                            }) {
+                                HStack(spacing: 12) {
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        HStack {
+                                            Text(task.title)
+                                                .font(.headline)
+                                                .foregroundColor(.white)
+                                            Spacer()
+                                            HStack(spacing: 4) {
+                                                Text(task.difficulty.emoji)
+                                                Text(task.difficulty.rawValue)
+                                                    .font(.caption)
+                                                    .fontWeight(.medium)
+                                            }
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 3)
+                                            .background(Color.purple.opacity(0.2))
+                                            .foregroundColor(.purple)
+                                            .cornerRadius(6)
+                                        }
+
+                                        if !task.description.isEmpty {
+                                            Text(task.description)
+                                                .font(.subheadline)
+                                                .foregroundColor(.gray)
+                                                .lineLimit(1)
+                                        }
+
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "calendar")
+                                                .font(.caption)
+                                            Text(task.dueDate.formatted(date: .abbreviated, time: .shortened))
+                                                .font(.caption)
+                                        }
+                                        .foregroundColor(.purple.opacity(0.8))
+                                    }
+                                    
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption)
+                                        .foregroundColor(.gray)
+                                }
+                                .padding(12)
+                                .background(Color.white.opacity(0.1))
+                                .cornerRadius(10)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
-            }
-            .tabItem {
-                Label("Home", systemImage: "house.fill")
-            }
-            .tag(0)
+                .padding()
+                .kGlassEffect(cornerRadius: CornerRadius.lg)
+                .kShadowSubtle()
+                .padding(.horizontal)
+                
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "book.fill")
+                            .foregroundColor(.purple)
+                            .font(.title3)
+                        Text("Study it again")
+                            .font(.title3)
+                            .foregroundColor(.white)
+                            .bold()
+                    }
+                    .padding(.horizontal)
 
-            ToDoListView()
-                .tabItem {
-                    Label("Tasks", systemImage: "checklist")
-                }
-                .tag(1)
+                    if dataManager.recentStudyItems.isEmpty {
+                        VStack(spacing: 12) {
+                            Image(systemName: "book.closed")
+                                .font(.system(size: 40))
+                                .foregroundColor(.purple.opacity(0.6))
+                            Text("No recent study items")
+                                .foregroundColor(.gray)
+                                .font(.subheadline)
+                            Text("Create flashcards, guides, or tests to see them here")
+                                .foregroundColor(.secondary)
+                                .font(.caption)
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 20)
+                        .padding(.horizontal)
+                    } else {
+                        ForEach(dataManager.recentStudyItems.prefix(3)) { item in
+                            NavigationLink(destination: homeDestination(for: item.id, kind: item.kind)) {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(item.title)
+                                            .font(.headline)
+                                            .foregroundColor(.white)
+                                        Text(item.kind)
+                                            .font(.caption2)
+                                            .bold()
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 2)
+                                            .background(Color.purple.opacity(0.2))
+                                            .foregroundColor(.purple)
+                                            .cornerRadius(8)
+                                    }
+                                    Spacer()
+                                }
+                                .padding(10)
+                                .background(Color.white.opacity(0.1))
+                                .cornerRadius(10)
+                                .padding(.horizontal)
+                            }
+                        }
+                    }
 
-            ScanView()
-                .tabItem {
-                    Label("Scan", systemImage: "camera.viewfinder")
                 }
-                .tag(2)
+                .padding()
+                .kGlassEffect(cornerRadius: CornerRadius.lg)
+                .kShadowSubtle()
+                .padding(.horizontal)
+                
+                VStack(spacing: 10) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "message.fill")
+                            .foregroundColor(.purple)
+                            .font(.title3)
+                        Text("Start a new chat with Korah")
+                            .font(.title3)
+                            .foregroundColor(.white)
+                            .bold()
+                    }
 
-            NavigationStack {
-                FocusTimerView()
-                    .navigationBarTitleDisplayMode(.inline)
-            }
-                .tabItem {
-                    Label("Focus", systemImage: "timer")
+                    Button(action: {
+                        selectedTab = 2
+                    }) {
+                        Text("Chat Now")
+                            .font(.kHeadline)
+                            .foregroundStyle(.white)
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(
+                                RoundedRectangle(cornerRadius: CornerRadius.button, style: .continuous)
+                                    .fill(LinearGradient.kPurpleGradient)
+                            )
+                            .kShadowGlow()
+                    }
                 }
-                .tag(3)
+                .padding()
+                .kGlassEffect(cornerRadius: CornerRadius.lg)
+                .kShadowSubtle()
+                .padding(.horizontal)
+                
+                // Settings Button
+                Button(action: {
+                    showSettings = true
+                }) {
+                    HStack {
+                        Image(systemName: "gearshape.fill")
+                            .font(.kHeadline)
+                        Text("Settings")
+                            .font(.kHeadline)
+                    }
+                    .foregroundStyle(.white.opacity(0.8))
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(
+                        RoundedRectangle(cornerRadius: CornerRadius.button, style: .continuous)
+                            .fill(Color.white.opacity(0.1))
+                    )
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 32)
 
-            StudyHomeView()
-                .tabItem {
-                    Label("Study", systemImage: "book.closed")
-                }
-                .tag(4)
-        }
-        
-        VStack {
-            Spacer()
-            HStack {
-                FloatingTimerIndicator()
-                    .padding(.leading, 20)
-                    .padding(.bottom, 100) 
                 Spacer()
             }
         }
+    }
+
+    var body: some View {
+        ZStack {
+            TabView(selection: $selectedTab) {
+                NavigationStack {
+                    homeMainContent
+                        .kBackground(withStars: true)
+                        .refreshable {
+                            dataManager.refreshAll()
+                        }
+                        .confirmationDialog("Settings", isPresented: $showSettings, titleVisibility: .visible) {
+                            Button("Log Out", role: .destructive) {
+                                try? authManager.logout()
+                            }
+                            Button("Cancel", role: .cancel) {}
+                        } message: {
+                            Text("Manage your account and preferences.")
+                        }
+                        .sheet(isPresented: $showMoodPicker) {
+                            NavigationStack {
+                                VStack(spacing: 24) {
+                                    VStack(spacing: 8) {
+                                        Image(systemName: "brain.head.profile")
+                                            .font(.system(size: 50))
+                                            .foregroundColor(.purple)
+                                        Text("How are you feeling?")
+                                            .font(.title2)
+                                            .fontWeight(.bold)
+                                            .foregroundColor(.white)
+                                        Text("Help us understand your focus level")
+                                            .font(.subheadline)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .padding(.top, 20)
+                                
+                                    VStack(spacing: 14) {
+                                        MoodButton(emoji: "🟢", title: "Very Focused", description: "Ready to tackle anything!", color: .green) {
+                                            userMood = "🟢"
+                                            UserDefaults.standard.set(Date(), forKey: "LastMoodCheckInDate")
+                                            showMoodPicker = false
+                                        }
+                                        
+                                        MoodButton(emoji: "🟡", title: "Moderately Focused", description: "Somewhere in the middle", color: .yellow) {
+                                            userMood = "🟡"
+                                            UserDefaults.standard.set(Date(), forKey: "LastMoodCheckInDate")
+                                            showMoodPicker = false
+                                        }
+                                        
+                                        MoodButton(emoji: "🔴", title: "Not Focused", description: "Having trouble concentrating", color: .red) {
+                                            userMood = "🔴"
+                                            UserDefaults.standard.set(Date(), forKey: "LastMoodCheckInDate")
+                                            showMoodPicker = false
+                                        }
+                                    }
+                                    .padding(.horizontal)
+                                    
+                                    Button(action: { showMoodPicker = false }) {
+                                        Text("Cancel")
+                                            .font(.headline)
+                                            .foregroundColor(.purple)
+                                            .frame(maxWidth: .infinity)
+                                            .padding()
+                                            .background(Color.white.opacity(0.1))
+                                            .cornerRadius(12)
+                                    }
+                                    .padding(.horizontal)
+                                    .padding(.top, 8)
+                                    
+                                    Spacer()
+                                }
+                                .padding()
+                                .korahGradientBackground()
+                                .toolbar {
+                                    ToolbarItem(placement: .navigationBarTrailing) {
+                                        Button(action: {
+                                            showMoodSettings = true
+                                        }) {
+                                            Image(systemName: "gearshape")
+                                                .foregroundColor(.purple)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                }
+                .tabItem {
+                    Label("Home", systemImage: "house.fill")
+                }
+                .tag(0)
+
+                ToDoListView()
+                    .tabItem {
+                        Label("Tasks", systemImage: "checklist")
+                    }
+                    .tag(1)
+
+                ScanView()
+                    .tabItem {
+                        Label("Scan", systemImage: "camera.viewfinder")
+                    }
+                    .tag(2)
+
+                NavigationStack {
+                    FocusTimerView()
+                        .navigationBarTitleDisplayMode(.inline)
+                }
+                    .tabItem {
+                        Label("Focus", systemImage: "timer")
+                    }
+                    .tag(3)
+
+                StudyHomeView()
+                    .tabItem {
+                        Label("Study", systemImage: "book.closed")
+                    }
+                    .tag(4)
+            }
+            
+            VStack {
+                Spacer()
+                HStack {
+                    FloatingTimerIndicator()
+                        .padding(.leading, 20)
+                        .padding(.bottom, 100)
+                    Spacer()
+                }
+            }
         }
         .alert("Amazing Work! 🎉", isPresented: $showTimerCelebration) {
             Button("Great!") {
@@ -483,7 +464,7 @@ struct HomePageView: View {
                 timerManager.showingCompletionAlert = false
             }
         } message: {
-            Text(timerManager.selectedTasks.isEmpty 
+            Text(timerManager.selectedTasks.isEmpty
                 ? "You've completed your focus session. Time for a break!"
                 : "You focused on \(timerManager.selectedTasks.count) task\(timerManager.selectedTasks.count == 1 ? "" : "s"). Great job!")
         }
@@ -499,9 +480,7 @@ struct HomePageView: View {
         .sheet(isPresented: $showMoodSettings) {
             MoodSettingsView()
         }
-        .sheet(isPresented: $showFeedback) {
-            FeedbackView()
-        }
+
     }
     
     private func greetingMessage() -> String {

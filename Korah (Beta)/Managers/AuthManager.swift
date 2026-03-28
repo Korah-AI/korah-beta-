@@ -8,66 +8,175 @@ import GoogleSignIn
 @MainActor
 final class AuthManager {
     static let shared = AuthManager()
-    
+
     var currentUser: User?
     var isAuthenticated = false
+    var isGuestSession = false
     var isLoading = false
     var errorMessage: String?
-    
+
     private var db: Firestore {
         Firestore.firestore()
     }
-    
+
     private init() {}
-    
+
+    private func derivedUsername(from email: String?) -> String {
+        guard let email, !email.isEmpty else { return "" }
+        return email.split(separator: "@").first.map(String.init) ?? email
+    }
+
+    private func buildUser(
+        id: String,
+        email: String?,
+        firstName: String,
+        lastName: String? = nil,
+        createdAt: Date = Date(),
+        usernameOverride: String? = nil
+    ) -> User {
+        User(
+            id: id,
+            username: usernameOverride ?? derivedUsername(from: email),
+            firstName: firstName,
+            lastName: lastName,
+            email: email,
+            createdAt: createdAt
+        )
+    }
+
+    private func fetchOrCreateUserProfile(
+        firebaseUser: FirebaseAuth.User,
+        fallbackFirstName: String = "User",
+        fallbackLastName: String? = nil
+    ) async throws -> User {
+        let snapshot = try await db.collection("users").document(firebaseUser.uid).getDocument()
+
+        if snapshot.exists, let user = try? snapshot.data(as: User.self) {
+            return user
+        }
+
+        let data = snapshot.data() ?? [:]
+        let storedEmail = (data["email"] as? String) ?? firebaseUser.email
+        let storedFirstName = (data["firstName"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+        let storedLastName = (data["lastName"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+        let storedUsername = (data["username"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+
+        let createdAt: Date
+        if let timestamp = data["createdAt"] as? Timestamp {
+            createdAt = timestamp.dateValue()
+        } else {
+            createdAt = Date()
+        }
+
+        let repairedUser = buildUser(
+            id: firebaseUser.uid,
+            email: storedEmail,
+            firstName: storedFirstName ?? fallbackFirstName,
+            lastName: storedLastName ?? fallbackLastName,
+            createdAt: createdAt,
+            usernameOverride: storedUsername
+        )
+
+        try db.collection("users").document(repairedUser.id).setData(from: repairedUser, merge: true)
+        return repairedUser
+    }
+
     // MARK: - Email/Password Authentication
-    
-    func signUp(firstName: String, lastName: String, email: String, password: String) async throws {
+
+    func signUp(
+        firstName: String,
+        lastName: String? = nil,
+        email: String,
+        password: String
+    ) async throws {
         isLoading = true
         errorMessage = nil
-        
+
+        let normalizedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
         do {
-            // Create Firebase Auth user
-            let result = try await Auth.auth().createUser(withEmail: email, password: password)
-            
-            // Create user profile in Firestore
-            let user = User(
+            let result = try await Auth.auth().createUser(withEmail: normalizedEmail, password: password)
+            let user = buildUser(
                 id: result.user.uid,
+                email: normalizedEmail,
                 firstName: firstName,
                 lastName: lastName,
-                email: email,
-                createdAt: Date()
+                usernameOverride: derivedUsername(from: normalizedEmail)
             )
-            
-            try db.collection("users").document(user.id).setData(from: user)
-            
+            try await db.collection("users").document(user.id).setData(from: user)
+
             self.currentUser = user
             self.isAuthenticated = true
+            self.isGuestSession = false
             isLoading = false
         } catch {
             isLoading = false
-            errorMessage = error.localizedDescription
+            if errorMessage == nil {
+                errorMessage = error.localizedDescription
+            }
             throw error
         }
     }
-    
+
     func login(email: String, password: String) async throws {
         isLoading = true
         errorMessage = nil
-        
+
+        let normalizedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
         do {
-            let result = try await Auth.auth().signIn(withEmail: email, password: password)
-            
-            // Fetch user profile from Firestore
-            let snapshot = try await db.collection("users").document(result.user.uid).getDocument()
-            let user = try snapshot.data(as: User.self)
-            
+            let result = try await Auth.auth().signIn(withEmail: normalizedEmail, password: password)
+            let user = try await fetchOrCreateUserProfile(
+                firebaseUser: result.user,
+                fallbackFirstName: result.user.displayName?.split(separator: " ").first.map(String.init) ?? "User"
+            )
+
             self.currentUser = user
             self.isAuthenticated = true
+            self.isGuestSession = false
             isLoading = false
         } catch {
             isLoading = false
-            errorMessage = error.localizedDescription
+            if errorMessage == nil {
+                errorMessage = error.localizedDescription
+            }
+            throw error
+        }
+    }
+
+    // MARK: - Anonymous Authentication
+
+    func continueAsGuest() async throws {
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            let result = try await Auth.auth().signInAnonymously()
+            let guestUser = User(
+                id: result.user.uid,
+                username: "guest_\(result.user.uid.prefix(6))",
+                firstName: "Guest"
+            )
+
+            try await db.collection("users").document(guestUser.id).setData([
+                "id": guestUser.id,
+                "username": guestUser.username,
+                "firstName": guestUser.firstName,
+                "lastName": NSNull(),
+                "email": NSNull(),
+                "createdAt": Timestamp(date: guestUser.createdAt),
+                "isGuest": true
+            ], merge: true)
+
+            self.currentUser = guestUser
+            self.isAuthenticated = true
+            self.isGuestSession = true
+            isLoading = false
+        } catch {
+            isLoading = false
+            if errorMessage == nil {
+                errorMessage = error.localizedDescription
+            }
             throw error
         }
     }
@@ -108,31 +217,18 @@ final class AuthManager {
         do {
             let credential = GoogleAuthProvider.credential(withIDToken: idToken, accessToken: accessToken)
             let result = try await Auth.auth().signIn(with: credential)
-            
-            // Check if user exists in Firestore
-            let snapshot = try await db.collection("users").document(result.user.uid).getDocument()
-            
-            if snapshot.exists {
-                let user = try snapshot.data(as: User.self)
-                self.currentUser = user
-            } else {
-                // Create new user profile
-                let names = (result.user.displayName ?? "").split(separator: " ")
-                let first = firstName.isEmpty ? String(names.first ?? "") : firstName
-                let last = lastName.isEmpty ? String(names.dropFirst().joined(separator: " ")) : lastName
-                
-                let user = User(
-                    id: result.user.uid,
-                    firstName: first.isEmpty ? "User" : first,
-                    lastName: last,
-                    email: result.user.email ?? "",
-                    createdAt: Date()
-                )
-                
-                try db.collection("users").document(user.id).setData(from: user)
-                self.currentUser = user
-            }
-            
+
+            let names = (result.user.displayName ?? "").split(separator: " ")
+            let first = firstName.isEmpty ? String(names.first ?? "") : firstName
+            let last = lastName.isEmpty ? String(names.dropFirst().joined(separator: " ")) : lastName
+            let user = try await fetchOrCreateUserProfile(
+                firebaseUser: result.user,
+                fallbackFirstName: first.isEmpty ? "User" : first,
+                fallbackLastName: last.isEmpty ? nil : last
+            )
+
+            self.currentUser = user
+            self.isGuestSession = false
             self.isAuthenticated = true
             isLoading = false
         } catch {
@@ -146,18 +242,65 @@ final class AuthManager {
     
     func checkAuthenticationState() async {
         if let firebaseUser = Auth.auth().currentUser {
+            if firebaseUser.isAnonymous {
+                do {
+                    let snapshot = try await db.collection("users").document(firebaseUser.uid).getDocument()
+
+                    if snapshot.exists, let user = try? snapshot.data(as: User.self) {
+                        self.currentUser = user
+                    } else {
+                        let guestUser = User(
+                            id: firebaseUser.uid,
+                            username: "guest_\(firebaseUser.uid.prefix(6))",
+                            firstName: "Guest"
+                        )
+
+                        try await db.collection("users").document(guestUser.id).setData([
+                            "id": guestUser.id,
+                            "username": guestUser.username,
+                            "firstName": guestUser.firstName,
+                            "lastName": NSNull(),
+                            "email": NSNull(),
+                            "createdAt": Timestamp(date: guestUser.createdAt),
+                            "isGuest": true
+                        ], merge: true)
+
+                        self.currentUser = guestUser
+                    }
+
+                    self.isAuthenticated = true
+                    self.isGuestSession = true
+                    self.errorMessage = nil
+                } catch {
+                    errorMessage = error.localizedDescription
+                    self.isAuthenticated = false
+                    self.currentUser = nil
+                    self.isGuestSession = false
+                }
+                return
+            }
+
             do {
-                let snapshot = try await db.collection("users").document(firebaseUser.uid).getDocument()
-                let user = try snapshot.data(as: User.self)
+                let names = (firebaseUser.displayName ?? "").split(separator: " ")
+                let user = try await fetchOrCreateUserProfile(
+                    firebaseUser: firebaseUser,
+                    fallbackFirstName: String(names.first ?? "User"),
+                    fallbackLastName: names.dropFirst().isEmpty ? nil : String(names.dropFirst().joined(separator: " "))
+                )
                 self.currentUser = user
                 self.isAuthenticated = true
+                self.isGuestSession = false
+                self.errorMessage = nil
             } catch {
                 errorMessage = error.localizedDescription
                 self.isAuthenticated = false
+                self.currentUser = nil
+                self.isGuestSession = false
             }
         } else {
             self.isAuthenticated = false
             self.currentUser = nil
+            self.isGuestSession = false
         }
     }
     
@@ -166,6 +309,7 @@ final class AuthManager {
             try Auth.auth().signOut()
             self.currentUser = nil
             self.isAuthenticated = false
+            self.isGuestSession = false
             self.errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription

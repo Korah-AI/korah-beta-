@@ -385,21 +385,11 @@ Rules:
                     if let jsonData = content.data(using: .utf8),
                        (try? JSONSerialization.jsonObject(with: jsonData)) != nil {
                         
-                        var existing: [StudyGuide] = []
-                        if let existingData = UserDefaults.standard.data(forKey: "StudyGuides"),
-                           let decoded = try? JSONDecoder().decode([StudyGuide].self, from: existingData) {
-                            existing = decoded
-                        }
-                        
                         let newGuide = StudyGuide(
                             title: "Study Guide from Scan",
                             content: content
                         )
-                        existing.append(newGuide)
-                        
-                        if let encoded = try? JSONEncoder().encode(existing) {
-                            UserDefaults.standard.set(encoded, forKey: "StudyGuides")
-                        }
+                        try? FirestoreStudyService.shared.addStudyGuide(newGuide)
                         
                         DispatchQueue.main.async {
                             successMessage = "Study guide created successfully!"

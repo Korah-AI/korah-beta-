@@ -30,6 +30,8 @@ struct KorahApp: App {
     /// per session before the user reaches LoginView.
     @State private var hasSeenOnboardingThisSession = false
     private let authManager = AuthManager.shared
+    private let studyService = FirestoreStudyService.shared
+    private let conversationService = FirestoreConversationService.shared
 
     init() {
         setupNotifications()
@@ -75,13 +77,32 @@ struct KorahApp: App {
             }
             .preferredColorScheme(.dark)
             .environment(authManager)
+            .environment(studyService)
+            .environment(conversationService)
             .onOpenURL { url in
                 GIDSignIn.sharedInstance.handle(url)
             }
             .task {
                 await authManager.checkAuthenticationState()
+                if authManager.isAuthenticated, let uid = authManager.currentUser?.id {
+                    studyService.startListening(uid: uid)
+                    conversationService.startListening(uid: uid)
+                    await DataMigrationManager.shared.migrateIfNeeded(uid: uid)
+                }
                 withAnimation(.easeInOut(duration: 0.4)) {
                     authCheckComplete = true
+                }
+            }
+            .onChange(of: authManager.isAuthenticated) { _, isAuthenticated in
+                if isAuthenticated, let uid = authManager.currentUser?.id {
+                    studyService.startListening(uid: uid)
+                    conversationService.startListening(uid: uid)
+                    Task {
+                        await DataMigrationManager.shared.migrateIfNeeded(uid: uid)
+                    }
+                } else {
+                    studyService.stopListening()
+                    conversationService.stopListening()
                 }
             }
         }

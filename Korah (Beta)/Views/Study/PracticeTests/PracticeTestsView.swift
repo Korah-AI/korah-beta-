@@ -1,27 +1,4 @@
 import SwiftUI
-import Combine
-
-final class PracticeTestsStore: ObservableObject {
-    @Published var practiceTests: [PracticeTest] = [] {
-        didSet { save() }
-    }
-    private let key = "PracticeTests"
-
-    init() { load() }
-
-    private func load() {
-        if let data = UserDefaults.standard.data(forKey: key),
-           let decoded = try? JSONDecoder().decode([PracticeTest].self, from: data) {
-            practiceTests = decoded
-        }
-    }
-
-    private func save() {
-        if let encoded = try? JSONEncoder().encode(practiceTests) {
-            UserDefaults.standard.set(encoded, forKey: key)
-        }
-    }
-}
 
 struct PracticeTestsView: View {
     let openAICreationOnAppear: Bool
@@ -30,20 +7,20 @@ struct PracticeTestsView: View {
         self.openAICreationOnAppear = openAICreationOnAppear
     }
 
-    @StateObject private var store = PracticeTestsStore()
+    @Environment(FirestoreStudyService.self) private var studyService
     @State private var networkMonitor = NetworkMonitor.shared
     @State private var newTestTitle = ""
     @State private var showingAdd = false
     @State private var showDeleteAlert = false
     @State private var pendingDeleteTest: PracticeTest? = nil
 
-    @State private var flashcardSets: [FlashcardSet] = []
     @State private var selectedSetIndex: Int = 0
-
-    @State private var studyGuides: [StudyGuide] = []
     @State private var selectedGuideIndex: Int = 0
     @State private var selectedTestForNavigation: PracticeTest? = nil
     @State private var isGeneratingTest: Bool = false
+
+    private var flashcardSets: [FlashcardSet] { studyService.flashcardSets }
+    private var studyGuides: [StudyGuide] { studyService.studyGuides }
 
     var body: some View {
         NavigationStack {
@@ -97,7 +74,7 @@ struct PracticeTestsView: View {
                     }
                     .listRowBackground(Color.clear)
                     Section(header: Text("Recents")) {
-                        let recent = store.practiceTests.sorted(by: { $0.createdAt > $1.createdAt })
+                        let recent = studyService.practiceTests.sorted(by: { $0.createdAt > $1.createdAt })
                         if recent.isEmpty {
                             Text("No recent tests yet.")
                                 .foregroundColor(.secondary)
@@ -118,7 +95,7 @@ struct PracticeTestsView: View {
                     }
                     .listRowBackground(Color.clear)
                     Section(header: Text("All Practice Tests")) {
-                        ForEach(store.practiceTests) { test in
+                        ForEach(studyService.practiceTests) { test in
                             NavigationLink(destination: PracticeTestDetailView(practiceTest: binding(for: test))) {
                                 VStack(alignment: .leading) {
                                     Text(test.title)
@@ -153,11 +130,7 @@ struct PracticeTestsView: View {
                 .listStyle(.insetGrouped)
                 .scrollContentBackground(.hidden)
                 .background(Color.clear)
-                .refreshable {
-                    store.practiceTests = StudyDataManager.shared.loadPracticeTests()
-                    loadFlashcardSets()
-                    loadStudyGuides()
-                }
+                .refreshable { }
                 .navigationTitle("Practice Tests")
                 .toolbar {
                     ToolbarItem(placement: .navigationBarLeading) {
@@ -190,62 +163,35 @@ struct PracticeTestsView: View {
             Text("Are you sure you want to delete this practice test?")
         }
         .onAppear {
-            loadFlashcardSets()
-            loadStudyGuides()
-            if openAICreationOnAppear {
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-            store.practiceTests = StudyDataManager.shared.loadPracticeTests()
-            loadFlashcardSets()
-            loadStudyGuides()
+            if openAICreationOnAppear { }
         }
     }
 
     private func binding(for test: PracticeTest) -> Binding<PracticeTest> {
-        guard let index = store.practiceTests.firstIndex(where: { $0.id == test.id }) else {
-            // Return a temporary binding if test not found (shouldn't happen, but prevents crash)
-            return .constant(test)
-        }
-        return $store.practiceTests[index]
+        Binding(
+            get: { studyService.practiceTests.first(where: { $0.id == test.id }) ?? test },
+            set: { updated in Task { try? await studyService.updatePracticeTest(updated) } }
+        )
     }
 
     private func addTest() {
         let title = newTestTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else { return }
         let new = PracticeTest(title: title, questions: [])
-        store.practiceTests.append(new)
+        try? studyService.addPracticeTest(new)
         newTestTitle = ""
     }
 
     private func deleteTests(at offsets: IndexSet) {
-        store.practiceTests.remove(atOffsets: offsets)
+        let tests = studyService.practiceTests
+        for index in offsets {
+            let test = tests[index]
+            Task { try? await studyService.deletePracticeTest(id: test.id) }
+        }
     }
 
     private func delete(test: PracticeTest) {
-        if let index = store.practiceTests.firstIndex(where: { $0.id == test.id }) {
-            store.practiceTests.remove(at: index)
-        }
-    }
-
-    private func loadFlashcardSets() {
-        if let data = UserDefaults.standard.data(forKey: "FlashcardSets"),
-           let decoded = try? JSONDecoder().decode([FlashcardSet].self, from: data) {
-            flashcardSets = decoded
-            selectedSetIndex = min(selectedSetIndex, max(0, flashcardSets.count - 1))
-        } else {
-            flashcardSets = []
-        }
-    }
-
-    private func loadStudyGuides() {
-        if let data = UserDefaults.standard.data(forKey: "StudyGuides"),
-           let decoded = try? JSONDecoder().decode([StudyGuide].self, from: data) {
-            studyGuides = decoded
-            selectedGuideIndex = min(selectedGuideIndex, max(0, studyGuides.count - 1))
-        } else {
-            studyGuides = []
-        }
+        Task { try? await studyService.deletePracticeTest(id: test.id) }
     }
 
     private func createTestFromSelectedSet() {
@@ -267,11 +213,11 @@ struct PracticeTestsView: View {
                     customTitle: newTestTitle
                 )
                 let test = PracticeTest(title: title, questions: questions)
-                store.practiceTests.append(test)
+                try? studyService.addPracticeTest(test)
                 newTestTitle = ""
                 
                 DispatchQueue.main.async {
-                    selectedTestForNavigation = store.practiceTests.last
+                    selectedTestForNavigation = studyService.practiceTests.last
                 }
                 
             case .failure(let error):
@@ -333,11 +279,11 @@ struct PracticeTestsView: View {
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             self.isGeneratingTest = false
-            store.practiceTests.append(test)
+            try? studyService.addPracticeTest(test)
             newTestTitle = ""
             
             DispatchQueue.main.async {
-                selectedTestForNavigation = store.practiceTests.last
+                selectedTestForNavigation = studyService.practiceTests.last
             }
         }
     }
@@ -348,6 +294,7 @@ struct PracticeTestDetailView: View {
     @State private var showingAddQuestionSheet = false
     @State private var editingQuestion: PracticeTestQuestion? = nil
     @Environment(\.dismiss) private var dismiss
+    @Environment(FirestoreStudyService.self) private var studyService
     @State private var showDeleteTestAlert = false
 
     var body: some View {
@@ -451,16 +398,10 @@ struct PracticeTestDetailView: View {
     }
 
     private func deleteThisPracticeTest() {
-        var tests: [PracticeTest] = []
-        if let data = UserDefaults.standard.data(forKey: "PracticeTests"),
-           let decoded = try? JSONDecoder().decode([PracticeTest].self, from: data) {
-            tests = decoded
+        Task {
+            try? await studyService.deletePracticeTest(id: practiceTest.id)
+            await MainActor.run { dismiss() }
         }
-        tests.removeAll { $0.id == practiceTest.id }
-        if let encoded = try? JSONEncoder().encode(tests) {
-            UserDefaults.standard.set(encoded, forKey: "PracticeTests")
-        }
-        dismiss()
     }
 }
 

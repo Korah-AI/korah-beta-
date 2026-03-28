@@ -43,6 +43,7 @@ final class ChatViewModel {
     private var updateBuffer: String = ""
     private var lastUpdateTime: Date = Date()
     private let updateThrottle: TimeInterval = 0.05 // 50ms throttle
+    private var currentConversation: Conversation?
     
     // MARK: - Computed Properties
     
@@ -133,6 +134,7 @@ final class ChatViewModel {
         messages.removeAll()
         suggestions = ChatSuggestion.starters
         errorMessage = nil
+        currentConversation = nil
         Haptics.medium()
     }
     
@@ -252,6 +254,7 @@ final class ChatViewModel {
                     isLoading = false
                     isStreaming = false
                     updateSuggestions()
+                    persistConversation()
                 }
                 
             } catch {
@@ -326,6 +329,39 @@ final class ChatViewModel {
         handleError(message)
     }
     
+    // MARK: - Conversation Persistence
+
+    private func persistConversation() {
+        let conversationMessages = messages.compactMap { msg -> ConversationMessage? in
+            guard msg.state == .complete || msg.role == .user else { return nil }
+            return ConversationMessage(
+                id: msg.id,
+                role: msg.role.rawValue,
+                content: msg.content,
+                timestamp: Date(),
+                imageFileName: nil
+            )
+        }
+        guard !conversationMessages.isEmpty else { return }
+
+        if var existing = currentConversation {
+            existing.messages = conversationMessages
+            existing.updatedAt = Date()
+            currentConversation = existing
+            try? FirestoreConversationService.shared.saveConversation(existing)
+        } else {
+            let firstUserContent = messages.first(where: { $0.role == .user })?.content ?? "Chat"
+            let title = String(firstUserContent.prefix(50))
+            let conversation = Conversation(
+                title: title,
+                type: .chat,
+                messages: conversationMessages
+            )
+            currentConversation = conversation
+            try? FirestoreConversationService.shared.saveConversation(conversation)
+        }
+    }
+
     private func updateSuggestions() {
         guard let lastMessage = messages.last(where: { $0.role == .assistant }) else {
             suggestions = ChatSuggestion.starters

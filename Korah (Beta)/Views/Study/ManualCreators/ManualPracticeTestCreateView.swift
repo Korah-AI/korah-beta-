@@ -6,7 +6,7 @@ struct ManualPracticeTestCreateView: View {
     @State private var title: String = ""
     @State private var errorMessage: String? = nil
     
-    @State private var studyGuides: [StudyGuide] = []
+    private var studyGuides: [StudyGuide] { FirestoreStudyService.shared.studyGuides }
     @State private var selectedGuideIndex: Int = 0
     @State private var isGenerating: Bool = false
     @State private var showGuideSelectionSection: Bool = false
@@ -143,17 +143,6 @@ struct ManualPracticeTestCreateView: View {
         .background(Color.clear)
         .korahGradientBackground()
         .preferredColorScheme(.dark)
-        .onAppear { loadStudyGuides() }
-    }
-    
-    private func loadStudyGuides() {
-        if let data = UserDefaults.standard.data(forKey: "StudyGuides"),
-           let decoded = try? JSONDecoder().decode([StudyGuide].self, from: data) {
-            studyGuides = decoded
-            selectedGuideIndex = min(selectedGuideIndex, max(0, studyGuides.count - 1))
-        } else {
-            studyGuides = []
-        }
     }
     
     private func generateTestFromGuide() {
@@ -342,19 +331,8 @@ Rules:
             return
         }
         
-        var existing: [PracticeTest] = []
-        if let data = UserDefaults.standard.data(forKey: "PracticeTests"),
-           let decoded = try? JSONDecoder().decode([PracticeTest].self, from: data) {
-            existing = decoded
-        }
-        
         let newTest = PracticeTest(title: testTitle, questions: validQuestions)
-        existing.append(newTest)
-        
-        if let encoded = try? JSONEncoder().encode(existing) {
-            UserDefaults.standard.set(encoded, forKey: "PracticeTests")
-        }
-        
+        try? FirestoreStudyService.shared.addPracticeTest(newTest)
         dismiss()
     }
 }

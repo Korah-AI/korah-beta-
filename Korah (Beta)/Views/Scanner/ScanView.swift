@@ -1,4 +1,5 @@
 import SwiftUI
+import LaTeXSwiftUI
 import UIKit
 import AVFoundation
 import Foundation
@@ -149,6 +150,7 @@ struct ScanView: View {
     @State private var navigateToGuideID: UUID? = nil
     
     @State private var showCameraMode = false
+    @State private var cameraIsReady = false
 
     @State private var messages: [ScanMessage] = []
     @State private var userInput: String = ""
@@ -252,9 +254,7 @@ struct ScanView: View {
             
             NavigationLink(isActive: Binding(get: { navigateToGuideID != nil }, set: { if !$0 { navigateToGuideID = nil } })) {
                 if let id = navigateToGuideID,
-                   let data = UserDefaults.standard.data(forKey: "StudyGuides"),
-                   let guides = try? JSONDecoder().decode([StudyGuide].self, from: data),
-                   let guide = guides.first(where: { $0.id == id }) {
+                   let guide = FirestoreStudyService.shared.studyGuides.first(where: { $0.id == id }) {
                     StudyGuideDetailView(guide: guide)
                 } else {
                     EmptyView()
@@ -268,14 +268,8 @@ struct ScanView: View {
     
     private var headerBar: some View {
         VStack(spacing: Spacing.sm) {
-            // Top bar with back button and actions
+            // Top bar with actions
             HStack {
-                Button(action: { hideKeyboard(); navigateToHome = true }) {
-                    Image(systemName: "chevron.left")
-                        .font(.headline)
-                        .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-                }
-                
                 Spacer()
                 
                 if !showCameraMode {
@@ -303,7 +297,7 @@ struct ScanView: View {
                 }
             }
             .padding(.horizontal, Spacing.md)
-            .padding(.top, Spacing.xl)
+            .padding(.top, 8)
             
             // Mode Toggle
             HStack(spacing: Spacing.sm) {
@@ -445,7 +439,7 @@ struct ScanView: View {
             HStack(spacing: Spacing.sm) {
                 TextField("Ask anything...", text: $userInput, axis: .vertical)
                     .font(.kBody)
-                    .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
+                    .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Light.textPrimary))
                     .lineLimit(1...4)
                     .onSubmit {
                         if !userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -779,20 +773,40 @@ struct ScanView: View {
                         onPhotoCaptured: { image in
                             selectedImage = image
                             withAnimation(.easeInOut(duration: 0.3)) {
-                                showCameraMode = false
+                                if showCameraMode { showCameraMode = false }
                             }
                         },
                         onDismiss: {
                             withAnimation(.easeInOut(duration: 0.3)) {
-                                showCameraMode = false
+                                if showCameraMode { showCameraMode = false }
                             }
+                        },
+                        onCameraReady: { isReady in
+                            cameraIsReady = isReady
                         }
                     )
                     .ignoresSafeArea()
                     
                     modeToggle
-                        .padding(.top, Spacing.xl + 44)
+                        .padding(.top, 8)
                         .padding(.horizontal, Spacing.md)
+                        .opacity(0.8)
+                    
+                    // Crosshair in center
+                    if cameraIsReady {
+                        VStack {
+                            Spacer()
+                            HStack {
+                                Spacer()
+                                Image("crosshare")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 50, height: 50)
+                                Spacer()
+                            }
+                            Spacer()
+                        }
+                    }
                 }
                 .transition(.opacity)
             }
@@ -858,10 +872,42 @@ struct ScanView: View {
                 sendMessage()
             }
         }
+        .onChange(of: showCameraMode) { isShowing in
+            if isShowing {
+                cameraIsReady = false
+            }
+        }
         .tint(Color.adaptive(light: .Light.accent, dark: .Dark.accent))
         .onAppear {
-            // Default to camera mode when view appears
-            showCameraMode = true
+            // Pre-warm audio session to avoid device lock contention when camera starts
+            do {
+                let session = AVAudioSession.sharedInstance()
+                try session.setCategory(.playAndRecord, mode: .videoRecording, options: [.defaultToSpeaker, .allowBluetooth])
+                try session.setActive(true, options: [])
+            } catch {
+                print("AVAudioSession prewarm error: \(error)")
+            }
+
+            // Request camera access (if needed) and open camera as soon as we're authorized.
+            requestCameraAccessIfNeeded { granted in
+                guard granted else { return }
+                // Show camera immediately - CustomCameraView handles its own initialization timing
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    showCameraMode = true
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            // If user hasn't started a chat yet and camera should be visible, ensure it is shown
+            if messages.isEmpty {
+                requestCameraAccessIfNeeded { granted in
+                    guard granted else { return }
+                    // Show camera immediately - CustomCameraView handles its own initialization timing
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showCameraMode = true
+                    }
+                }
+            }
         }
     }
     
@@ -946,7 +992,7 @@ struct ScanView: View {
                             ScanAnswerView(formatted: formatted, timestamp: message.timestamp)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         } else {
-                            LatexMarkdownView(content: message.content, isStreaming: isStreaming)
+                            KorahLatexView(content: message.content, isStreaming: isStreaming)
                                 .textSelection(.enabled)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .padding(Spacing.md)
@@ -1220,15 +1266,7 @@ struct ScanView: View {
                         let flashcards = pairs.map { Flashcard(front: $0.0, back: $0.1) }
                         let newSet = FlashcardSet(title: title, cards: flashcards)
 
-                        var savedSets: [FlashcardSet] = []
-                        if let data = UserDefaults.standard.data(forKey: "FlashcardSets"),
-                           let decoded = try? JSONDecoder().decode([FlashcardSet].self, from: data) {
-                            savedSets = decoded
-                        }
-                        savedSets.append(newSet)
-                        if let encoded = try? JSONEncoder().encode(savedSets) {
-                            UserDefaults.standard.set(encoded, forKey: "FlashcardSets")
-                        }
+                        try? FirestoreStudyService.shared.addFlashcardSet(newSet)
 
                         DispatchQueue.main.async {
                             self.selectedFlashcardSetID = newSet.id
@@ -1345,15 +1383,7 @@ struct ScanView: View {
                     if let formatted = trimmed.decodeScanKorahFormatted() {
                         let guide = StudyGuide(title: formatted.title ?? "Study Guide", content: trimmed)
                         
-                        var savedGuides: [StudyGuide] = []
-                        if let existingData = UserDefaults.standard.data(forKey: "StudyGuides"),
-                           let decodedGuides = try? JSONDecoder().decode([StudyGuide].self, from: existingData) {
-                            savedGuides = decodedGuides
-                        }
-                        savedGuides.append(guide)
-                        if let encoded = try? JSONEncoder().encode(savedGuides) {
-                            UserDefaults.standard.set(encoded, forKey: "StudyGuides")
-                        }
+                        try? FirestoreStudyService.shared.addStudyGuide(guide)
                         
                         DispatchQueue.main.async {
                             self.navigateToGuideID = guide.id
@@ -1606,7 +1636,7 @@ struct ScanView: View {
             existing.messages = conversationMessages
             existing.updatedAt = Date()
             currentConversation = existing
-            ConversationManager.shared.autoSaveConversation(existing)
+            try? FirestoreConversationService.shared.saveConversation(existing)
         } else {
             // Create new conversation
             let title = ConversationManager.shared.generateTitle(from: messages.first?.content ?? "Scan")
@@ -1629,7 +1659,7 @@ struct ScanView: View {
             var updatedConversation = newConversation
             updatedConversation.messages = conversationMessages
             currentConversation = updatedConversation
-            ConversationManager.shared.autoSaveConversation(updatedConversation)
+            try? FirestoreConversationService.shared.saveConversation(updatedConversation)
         }
     }
 }
@@ -1676,9 +1706,10 @@ extension ScanView {
         - Use bullet points with - or * for lists
         - Use ## for section headers when organizing longer explanations
         - Use ### for sub-headers within sections
-        - For math equations, use LaTeX syntax:
-          * Inline math: $x^2 + y^2 = z^2$
-          * Display math: $$\\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$$
+        - For math equations, use LaTeX syntax. CRITICAL RULE: always place LaTeX on its own separate line with a blank line before and after it. NEVER write LaTeX inline within a sentence of regular text — doing so breaks rendering.
+          * Display math (for standalone equations): always on its own line, e.g.: $$\\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$$
+          * Inline math
+          * When describing math concepts in prose, spell them out in plain text rather than mixing LaTeX into the sentence
         - Keep it visually organized and easy to scan
         """
 
@@ -1712,7 +1743,7 @@ extension ScanView {
         
         // Create placeholder assistant message
         let messageId = UUID()
-        let placeholderMessage = ScanMessage(id: messageId, role: "assistant", content: "", timestamp: Date(), image: nil)
+        let placeholderMessage = (ScanMessage(id: messageId, role: "assistant", content: "", timestamp: Date(), image: nil))
         messages.append(placeholderMessage)
         let messageIndex = messages.count - 1
         streamingMessageIndex = messageIndex
@@ -1823,15 +1854,16 @@ extension ScanView {
         let status = AVCaptureDevice.authorizationStatus(for: .video)
         switch status {
         case .authorized:
-            completion(true)
+            DispatchQueue.main.async { completion(true) }
         case .notDetermined:
             AVCaptureDevice.requestAccess(for: .video) { granted in
                 DispatchQueue.main.async { completion(granted) }
             }
         case .denied, .restricted:
-            completion(false)
+            DispatchQueue.main.async { completion(false) }
+            // Optionally, you could present an alert guiding the user to Settings here.
         @unknown default:
-            completion(false)
+            DispatchQueue.main.async { completion(false) }
         }
     }
     

@@ -3,8 +3,8 @@ import SwiftUI
 struct AIGenerateFlashcardsFromGuideView: View {
     @Environment(\.dismiss) private var dismiss
     
-    @State private var studyGuides: [StudyGuide] = []
     @State private var selectedGuideIndex: Int = 0
+    private var studyGuides: [StudyGuide] { FirestoreStudyService.shared.studyGuides }
     @State private var isGenerating: Bool = false
     @State private var errorMessage: String? = nil
     @State private var successMessage: String? = nil
@@ -135,15 +135,6 @@ struct AIGenerateFlashcardsFromGuideView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .preferredColorScheme(.dark)
-        .onAppear { loadStudyGuides() }
-    }
-    
-    private func loadStudyGuides() {
-        if let data = UserDefaults.standard.data(forKey: "StudyGuides"),
-           let decoded = try? JSONDecoder().decode([StudyGuide].self, from: data) {
-            studyGuides = decoded
-            selectedGuideIndex = min(selectedGuideIndex, max(0, studyGuides.count - 1))
-        }
     }
     
     private func generateFlashcards() {
@@ -241,19 +232,9 @@ Rules:
                    let parsed = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
                    let cardList = parsed["cards"] as? [[String: String]] {
                     
-                    var existing: [FlashcardSet] = []
-                    if let existingData = UserDefaults.standard.data(forKey: "FlashcardSets"),
-                       let decoded = try? JSONDecoder().decode([FlashcardSet].self, from: existingData) {
-                        existing = decoded
-                    }
-                    
                     let newCards = cardList.map { Flashcard(front: $0["term"] ?? "", back: $0["definition"] ?? "") }
                     let newSet = FlashcardSet(title: "Flashcards from \(guide.title)", cards: newCards)
-                    existing.append(newSet)
-                    
-                    if let encoded = try? JSONEncoder().encode(existing) {
-                        UserDefaults.standard.set(encoded, forKey: "FlashcardSets")
-                    }
+                    try? FirestoreStudyService.shared.addFlashcardSet(newSet)
                     
                     DispatchQueue.main.async {
                         self.successMessage = "Flashcards generated successfully!"

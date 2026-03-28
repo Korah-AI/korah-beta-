@@ -12,7 +12,7 @@ struct RecentStudyItem: Identifiable, Codable, Hashable {
 }
 
 struct StudyHomeView: View {
-    @State private var recentStudyItems: [RecentStudyItem] = []
+    @Environment(FirestoreStudyService.self) private var studyService
     @State private var startStudyGuidesCreation = false
 
     @State private var showAddSetSheet = false
@@ -21,16 +21,6 @@ struct StudyHomeView: View {
     @State private var showPracticeTestsCreator = false
     @State private var showManualStudyGuideCreate = false
     @State private var showManualPracticeTestCreate = false
-
-    @State private var flashcardsCount: Int = 0
-    @State private var guidesCount: Int = 0
-    @State private var testsCount: Int = 0
-    
-    // State arrays to trigger view updates
-    @State private var allFlashcards: [StudyItemRow] = []
-    @State private var allStudyGuides: [StudyItemRow] = []
-    @State private var allPracticeTests: [StudyItemRow] = []
-    @State private var refreshTrigger = false
 
     @State private var navigateToFlashcards = false
     @State private var navigateToStudyGuides = false
@@ -291,19 +281,17 @@ struct StudyHomeView: View {
                     .padding(.vertical)
                 }
                 .background(Color.clear)
-                .refreshable {
-                    loadRecentStudy()
-                }
+                .refreshable { }
 
                 Spacer(minLength: 0)
             }
-            .sheet(isPresented: $showManualFlashcardsView, onDismiss: { loadRecentStudy() }) {
+            .sheet(isPresented: $showManualFlashcardsView) {
                 NavigationStack { ManualFlashcardSetCreateView() }
             }
-            .sheet(isPresented: $showManualStudyGuideCreate, onDismiss: { loadRecentStudy() }) {
+            .sheet(isPresented: $showManualStudyGuideCreate) {
                 NavigationStack { ManualStudyGuideCreateView() }
             }
-            .sheet(isPresented: $showManualPracticeTestCreate, onDismiss: { loadRecentStudy() }) {
+            .sheet(isPresented: $showManualPracticeTestCreate) {
                 NavigationStack { ManualPracticeTestCreateView() }
             }
             .sheet(isPresented: $showFlashcardGenerationOptions) {
@@ -320,10 +308,10 @@ struct StudyHomeView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
             }
-            .sheet(isPresented: $showAIFlashcardPromptGenerator, onDismiss: { loadRecentStudy() }) {
+            .sheet(isPresented: $showAIFlashcardPromptGenerator) {
                 NavigationStack { AIFlashcardPromptGeneratorView() }
             }
-            .sheet(isPresented: $showAIGenerateFlashcardsFromGuide, onDismiss: { loadRecentStudy() }) {
+            .sheet(isPresented: $showAIGenerateFlashcardsFromGuide) {
                 NavigationStack { AIGenerateFlashcardsFromGuideView() }
             }
             .sheet(isPresented: $showStudyGuideGenerationOptions) {
@@ -340,10 +328,10 @@ struct StudyHomeView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
             }
-            .sheet(isPresented: $showAIStudyGuidePromptGenerator, onDismiss: { loadRecentStudy() }) {
+            .sheet(isPresented: $showAIStudyGuidePromptGenerator) {
                 NavigationStack { AIStudyGuidePromptGeneratorView() }
             }
-            .sheet(isPresented: $showAIGenerateStudyGuideFromFlashcards, onDismiss: { loadRecentStudy() }) {
+            .sheet(isPresented: $showAIGenerateStudyGuideFromFlashcards) {
                 NavigationStack { AIGenerateStudyGuideFromFlashcardsView() }
             }
             .sheet(isPresented: $showPracticeTestGenerationOptions) {
@@ -360,28 +348,28 @@ struct StudyHomeView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
             }
-            .sheet(isPresented: $showAIPracticeTestPromptGenerator, onDismiss: { loadRecentStudy() }) {
+            .sheet(isPresented: $showAIPracticeTestPromptGenerator) {
                 NavigationStack { AIPracticeTestPromptGeneratorView() }
             }
-            .sheet(isPresented: $showAIGeneratePracticeTestFromGuide, onDismiss: { loadRecentStudy() }) {
+            .sheet(isPresented: $showAIGeneratePracticeTestFromGuide) {
                 NavigationStack { AIGeneratePracticeTestFromGuideView() }
             }
-            .sheet(isPresented: $showScanFlashcards, onDismiss: { loadRecentStudy() }) {
+            .sheet(isPresented: $showScanFlashcards) {
                 NavigationStack { ScanFlashcardsView() }
             }
-            .sheet(isPresented: $showScanStudyGuide, onDismiss: { loadRecentStudy() }) {
+            .sheet(isPresented: $showScanStudyGuide) {
                 NavigationStack { ScanStudyGuideView() }
             }
-            .sheet(isPresented: $showScanPracticeTest, onDismiss: { loadRecentStudy() }) {
+            .sheet(isPresented: $showScanPracticeTest) {
                 NavigationStack { ScanPracticeTestView() }
             }
-            .sheet(isPresented: $navigateToFlashcards, onDismiss: { loadRecentStudy() }) {
+            .sheet(isPresented: $navigateToFlashcards) {
                 NavigationStack { FlashcardsView(openAddSetOnAppear: startFlashcardsCreation) }
             }
-            .sheet(isPresented: $navigateToStudyGuides, onDismiss: { loadRecentStudy() }) {
+            .sheet(isPresented: $navigateToStudyGuides) {
                 NavigationStack { StudyGuidesView(openGeneratorOnAppear: startStudyGuidesCreation) }
             }
-            .sheet(isPresented: $navigateToPracticeTests, onDismiss: { loadRecentStudy() }) {
+            .sheet(isPresented: $navigateToPracticeTests) {
                 NavigationStack { PracticeTestsView(openAICreationOnAppear: startPracticeTestsCreation) }
             }
             .sheet(isPresented: $showCreationTemplate) {
@@ -415,10 +403,6 @@ struct StudyHomeView: View {
             .kBackground(withStars: true)
         }
         .tint(.purple)
-        .onAppear(perform: loadRecentStudy)
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-            loadRecentStudy()
-        }
     }
 
     private func openedText(_ date: Date?) -> String {
@@ -427,23 +411,46 @@ struct StudyHomeView: View {
 
     struct StudyItemRow: Identifiable { let id: UUID; let title: String; let kind: String; let lastOpenedAt: Date? }
 
+    private var recentStudyItems: [RecentStudyItem] {
+        let flashcardsItems = studyService.flashcardSets.map {
+            RecentStudyItem(id: $0.id, title: $0.title, kind: RecentStudyItem.flashcardsKind, createdAt: $0.createdAt)
+        }
+        let guideItems = studyService.studyGuides.map {
+            RecentStudyItem(id: $0.id, title: $0.title, kind: RecentStudyItem.studyGuideKind, createdAt: $0.createdAt)
+        }
+        let testItems = studyService.practiceTests.map {
+            RecentStudyItem(id: $0.id, title: $0.title, kind: RecentStudyItem.practiceTestKind, createdAt: $0.createdAt)
+        }
+        return (flashcardsItems + guideItems + testItems).sorted { $0.createdAt > $1.createdAt }
+    }
+
+    private var allFlashcards: [StudyItemRow] {
+        studyService.flashcardSets.map {
+            StudyItemRow(id: $0.id, title: $0.title, kind: RecentStudyItem.flashcardsKind, lastOpenedAt: $0.lastOpenedAt)
+        }.sorted { ($0.lastOpenedAt ?? .distantPast) > ($1.lastOpenedAt ?? .distantPast) }
+    }
+
+    private var allStudyGuides: [StudyItemRow] {
+        studyService.studyGuides.map {
+            StudyItemRow(id: $0.id, title: $0.title, kind: RecentStudyItem.studyGuideKind, lastOpenedAt: $0.lastOpenedAt)
+        }.sorted { ($0.lastOpenedAt ?? .distantPast) > ($1.lastOpenedAt ?? .distantPast) }
+    }
+
+    private var allPracticeTests: [StudyItemRow] {
+        studyService.practiceTests.map {
+            StudyItemRow(id: $0.id, title: $0.title, kind: RecentStudyItem.practiceTestKind, lastOpenedAt: $0.lastOpenedAt)
+        }.sorted { ($0.lastOpenedAt ?? .distantPast) > ($1.lastOpenedAt ?? .distantPast) }
+    }
+
     private func allItemsSortedByOpened() -> [StudyItemRow] {
-        (flashcardItemsSorted() + studyGuideItemsSorted() + practiceTestItemsSorted()).sorted { (a, b) in
+        (allFlashcards + allStudyGuides + allPracticeTests).sorted { (a, b) in
             (a.lastOpenedAt ?? .distantPast) > (b.lastOpenedAt ?? .distantPast)
         }
     }
 
-    private func flashcardItemsSorted() -> [StudyItemRow] {
-        return allFlashcards
-    }
-
-    private func studyGuideItemsSorted() -> [StudyItemRow] {
-        return allStudyGuides
-    }
-
-    private func practiceTestItemsSorted() -> [StudyItemRow] {
-        return allPracticeTests
-    }
+    private func flashcardItemsSorted() -> [StudyItemRow] { allFlashcards }
+    private func studyGuideItemsSorted() -> [StudyItemRow] { allStudyGuides }
+    private func practiceTestItemsSorted() -> [StudyItemRow] { allPracticeTests }
 
     @ViewBuilder
     private func destination(for kind: String) -> some View {
@@ -459,26 +466,20 @@ struct StudyHomeView: View {
     private func destination(for id: UUID, kind: String) -> some View {
         switch kind {
         case RecentStudyItem.flashcardsKind:
-            if let data = UserDefaults.standard.data(forKey: "FlashcardSets"),
-               let sets = try? JSONDecoder().decode([FlashcardSet].self, from: data),
-               let set = sets.first(where: { $0.id == id }) {
+            if let set = studyService.flashcardSets.first(where: { $0.id == id }) {
                 FlashcardsView(selectedSetID: set.id)
             } else {
                 FlashcardsView()
             }
         case RecentStudyItem.studyGuideKind:
-            if let data = UserDefaults.standard.data(forKey: "StudyGuides"),
-               let guides = try? JSONDecoder().decode([StudyGuide].self, from: data),
-               let guide = guides.first(where: { $0.id == id }) {
+            if let guide = studyService.studyGuides.first(where: { $0.id == id }) {
                 StudyGuideDetailView(guide: guide)
             } else {
                 StudyGuidesView()
             }
         case RecentStudyItem.practiceTestKind:
-            if let data = UserDefaults.standard.data(forKey: "PracticeTests"),
-               let tests = try? JSONDecoder().decode([PracticeTest].self, from: data),
-               let test = tests.first(where: { $0.id == id }) {
-                PracticeTestDetailLoaderView(testID: test.id)
+            if studyService.practiceTests.first(where: { $0.id == id }) != nil {
+                PracticeTestDetailLoaderView(testID: id)
             } else {
                 PracticeTestsView()
             }
@@ -615,110 +616,24 @@ struct StudyHomeView: View {
     private func addSet() {
         let title = newSetTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else { return }
-        var sets: [FlashcardSet] = []
-        if let data = UserDefaults.standard.data(forKey: "FlashcardSets"),
-           let decoded = try? JSONDecoder().decode([FlashcardSet].self, from: data) {
-            sets = decoded
-        }
         let new = FlashcardSet(title: title, cards: [])
-        sets.append(new)
-        if let encoded = try? JSONEncoder().encode(sets) {
-            UserDefaults.standard.set(encoded, forKey: "FlashcardSets")
-        }
+        try? studyService.addFlashcardSet(new)
         newSetTitle = ""
         showAddSetSheet = false
-        loadRecentStudy()
     }
 
     private func deleteItem(id: UUID, kind: String) {
-        switch kind {
-        case RecentStudyItem.flashcardsKind:
-            if let data = UserDefaults.standard.data(forKey: "FlashcardSets"),
-               var sets = try? JSONDecoder().decode([FlashcardSet].self, from: data) {
-                sets.removeAll { $0.id == id }
-                if let encoded = try? JSONEncoder().encode(sets) {
-                    UserDefaults.standard.set(encoded, forKey: "FlashcardSets")
-                }
+        Task {
+            switch kind {
+            case RecentStudyItem.flashcardsKind:
+                try? await studyService.deleteFlashcardSet(id: id)
+            case RecentStudyItem.studyGuideKind:
+                try? await studyService.deleteStudyGuide(id: id)
+            case RecentStudyItem.practiceTestKind:
+                try? await studyService.deletePracticeTest(id: id)
+            default: break
             }
-        case RecentStudyItem.studyGuideKind:
-            if let data = UserDefaults.standard.data(forKey: "StudyGuides"),
-               var guides = try? JSONDecoder().decode([StudyGuide].self, from: data) {
-                guides.removeAll { $0.id == id }
-                if let encoded = try? JSONEncoder().encode(guides) {
-                    UserDefaults.standard.set(encoded, forKey: "StudyGuides")
-                }
-            }
-        case RecentStudyItem.practiceTestKind:
-            if let data = UserDefaults.standard.data(forKey: "PracticeTests"),
-               var tests = try? JSONDecoder().decode([PracticeTest].self, from: data) {
-                tests.removeAll { $0.id == id }
-                if let encoded = try? JSONEncoder().encode(tests) {
-                    UserDefaults.standard.set(encoded, forKey: "PracticeTests")
-                }
-            }
-        default:
-            break
         }
-        loadRecentStudy()
-        HomeDataManager.shared.loadRecentStudyItems()
-    }
-    
-    private func loadRecentStudy() {
-        var allItems: [RecentStudyItem] = []
-        let decoder = JSONDecoder()
-
-        // Load flashcards
-        if let flashcardData = UserDefaults.standard.data(forKey: "FlashcardSets"),
-           let flashcardSets = try? decoder.decode([FlashcardSet].self, from: flashcardData) {
-            let flashcardsItems = flashcardSets.map {
-                RecentStudyItem(id: $0.id, title: $0.title, kind: RecentStudyItem.flashcardsKind, createdAt: $0.createdAt)
-            }
-            allItems.append(contentsOf: flashcardsItems)
-            allFlashcards = flashcardSets.map { 
-                StudyItemRow(id: $0.id, title: $0.title, kind: RecentStudyItem.flashcardsKind, lastOpenedAt: $0.lastOpenedAt) 
-            }.sorted { ($0.lastOpenedAt ?? .distantPast) > ($1.lastOpenedAt ?? .distantPast) }
-        } else {
-            allFlashcards = []
-        }
-
-        // Load study guides
-        if let guidesData = UserDefaults.standard.data(forKey: "StudyGuides"),
-           let studyGuides = try? decoder.decode([StudyGuide].self, from: guidesData) {
-            let guideItems = studyGuides.map {
-                RecentStudyItem(id: $0.id, title: $0.title, kind: RecentStudyItem.studyGuideKind, createdAt: $0.createdAt)
-            }
-            allItems.append(contentsOf: guideItems)
-            allStudyGuides = studyGuides.map { 
-                StudyItemRow(id: $0.id, title: $0.title, kind: RecentStudyItem.studyGuideKind, lastOpenedAt: $0.lastOpenedAt) 
-            }.sorted { ($0.lastOpenedAt ?? .distantPast) > ($1.lastOpenedAt ?? .distantPast) }
-        } else {
-            allStudyGuides = []
-        }
-
-        // Load practice tests
-        if let testsData = UserDefaults.standard.data(forKey: "PracticeTests"),
-           let practiceTests = try? decoder.decode([PracticeTest].self, from: testsData) {
-            let testItems = practiceTests.map {
-                RecentStudyItem(id: $0.id, title: $0.title, kind: RecentStudyItem.practiceTestKind, createdAt: $0.createdAt)
-            }
-            allItems.append(contentsOf: testItems)
-            allPracticeTests = practiceTests.map { 
-                StudyItemRow(id: $0.id, title: $0.title, kind: RecentStudyItem.practiceTestKind, lastOpenedAt: $0.lastOpenedAt) 
-            }.sorted { ($0.lastOpenedAt ?? .distantPast) > ($1.lastOpenedAt ?? .distantPast) }
-        } else {
-            allPracticeTests = []
-        }
-
-        flashcardsCount = allItems.filter { $0.kind == RecentStudyItem.flashcardsKind }.count
-        guidesCount = allItems.filter { $0.kind == RecentStudyItem.studyGuideKind }.count
-        testsCount = allItems.filter { $0.kind == RecentStudyItem.practiceTestKind }.count
-
-        recentStudyItems = allItems.sorted(by: { $0.createdAt > $1.createdAt })
-        
-        // Toggle refresh trigger to force view update
-        refreshTrigger.toggle()
-        
-        HomeDataManager.shared.loadRecentStudyItems()
     }
 }
 
@@ -883,13 +798,13 @@ struct StudyCard<Destination: View>: View {
 
 struct PracticeTestDetailLoaderView: View {
     let testID: UUID
-    @State private var store = PracticeTestsStore()
+    @Environment(FirestoreStudyService.self) private var studyService
 
     var body: some View {
-        if let index = store.practiceTests.firstIndex(where: { $0.id == testID }) {
+        if let test = studyService.practiceTests.first(where: { $0.id == testID }) {
             PracticeTestDetailView(practiceTest: Binding(
-                get: { store.practiceTests[index] },
-                set: { store.practiceTests[index] = $0 }
+                get: { studyService.practiceTests.first(where: { $0.id == testID }) ?? test },
+                set: { updated in Task { try? await studyService.updatePracticeTest(updated) } }
             ))
         } else {
             PracticeTestsView()
