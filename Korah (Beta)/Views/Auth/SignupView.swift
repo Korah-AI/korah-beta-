@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct SignupView: View {
-    @State private var username = ""
     @State private var firstName = ""
     @State private var email = ""
     @State private var password = ""
@@ -11,7 +10,7 @@ struct SignupView: View {
     @FocusState private var focusedField: Field?
     @State private var appeared = false
 
-    enum Field { case username, firstName, email, password, confirmPassword }
+    enum Field { case firstName, email, password, confirmPassword }
 
     private var hasMinLength: Bool { password.count >= 8 }
     private var hasUppercase: Bool { password.contains(where: \.isUppercase) }
@@ -31,7 +30,7 @@ struct SignupView: View {
     }
 
     private var isFormValid: Bool {
-        !username.isEmpty && !firstName.isEmpty && isEmailFormatValid && isPasswordValid
+        !firstName.isEmpty && !email.isEmpty && isEmailFormatValid && isPasswordValid
     }
 
     var body: some View {
@@ -66,14 +65,6 @@ struct SignupView: View {
                         // Form Fields
                         VStack(spacing: 16) {
                             BentoInputField(
-                                text: $username,
-                                placeholder: "Username",
-                                isSecure: false,
-                                focused: $focusedField,
-                                field: .username
-                            )
-
-                            BentoInputField(
                                 text: $firstName,
                                 placeholder: "First Name",
                                 isSecure: false,
@@ -84,7 +75,7 @@ struct SignupView: View {
                             VStack(alignment: .leading, spacing: 6) {
                                 BentoInputField(
                                     text: $email,
-                                    placeholder: "Email (optional)",
+                                    placeholder: "Email",
                                     isSecure: false,
                                     focused: $focusedField,
                                     field: .email
@@ -244,9 +235,8 @@ struct SignupView: View {
         Task {
             do {
                 try await authManager.signUp(
-                    username: username,
                     firstName: firstName,
-                    email: email.isEmpty ? nil : email,
+                    email: email,
                     password: password
                 )
             } catch {}

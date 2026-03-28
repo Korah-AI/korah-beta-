@@ -21,59 +21,87 @@ final class AuthManager {
 
     private init() {}
 
-    // MARK: - Username/Password Authentication
+    private func derivedUsername(from email: String?) -> String {
+        guard let email, !email.isEmpty else { return "" }
+        return email.split(separator: "@").first.map(String.init) ?? email
+    }
 
-    /// Signs up a new user with a unique username.
-    /// Firebase Auth requires an email, so we use the synthetic address
-    /// `{username}@korah.app` internally. The user's real email (if provided)
-    /// is stored only in the private `users/{uid}` document.
-    func signUp(
-        username: String,
+    private func buildUser(
+        id: String,
+        email: String?,
         firstName: String,
         lastName: String? = nil,
-        email: String? = nil,
+        createdAt: Date = Date(),
+        usernameOverride: String? = nil
+    ) -> User {
+        User(
+            id: id,
+            username: usernameOverride ?? derivedUsername(from: email),
+            firstName: firstName,
+            lastName: lastName,
+            email: email,
+            createdAt: createdAt
+        )
+    }
+
+    private func fetchOrCreateUserProfile(
+        firebaseUser: FirebaseAuth.User,
+        fallbackFirstName: String = "User",
+        fallbackLastName: String? = nil
+    ) async throws -> User {
+        let snapshot = try await db.collection("users").document(firebaseUser.uid).getDocument()
+
+        if snapshot.exists, let user = try? snapshot.data(as: User.self) {
+            return user
+        }
+
+        let data = snapshot.data() ?? [:]
+        let storedEmail = (data["email"] as? String) ?? firebaseUser.email
+        let storedFirstName = (data["firstName"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+        let storedLastName = (data["lastName"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+        let storedUsername = (data["username"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+
+        let createdAt: Date
+        if let timestamp = data["createdAt"] as? Timestamp {
+            createdAt = timestamp.dateValue()
+        } else {
+            createdAt = Date()
+        }
+
+        let repairedUser = buildUser(
+            id: firebaseUser.uid,
+            email: storedEmail,
+            firstName: storedFirstName ?? fallbackFirstName,
+            lastName: storedLastName ?? fallbackLastName,
+            createdAt: createdAt,
+            usernameOverride: storedUsername
+        )
+
+        try db.collection("users").document(repairedUser.id).setData(from: repairedUser, merge: true)
+        return repairedUser
+    }
+
+    // MARK: - Email/Password Authentication
+
+    func signUp(
+        firstName: String,
+        lastName: String? = nil,
+        email: String,
         password: String
     ) async throws {
         isLoading = true
         errorMessage = nil
 
-        let normalizedUsername = username.lowercased()
-        let authEmail = "\(normalizedUsername)@korah.app"
+        let normalizedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
         do {
-            // 1. Check username availability (pre-auth read — allowed by rules).
-            let usernameDoc = try await db
-                .collection("usernames")
-                .document(normalizedUsername)
-                .getDocument()
-
-            if usernameDoc.exists {
-                isLoading = false
-                let usernameError = NSError(
-                    domain: "AuthManager",
-                    code: -1,
-                    userInfo: [NSLocalizedDescriptionKey: "That username is already taken."]
-                )
-                errorMessage = usernameError.localizedDescription
-                throw usernameError
-            }
-
-            // 2. Create Firebase Auth account using the synthetic email.
-            let result = try await Auth.auth().createUser(withEmail: authEmail, password: password)
-
-            // 3. Reserve the username (create is blocked by rules if the doc already exists).
-            try await db.collection("usernames").document(normalizedUsername).setData([
-                "uid": result.user.uid,
-                "authEmail": authEmail
-            ])
-
-            // 4. Write the user profile.
-            let user = User(
+            let result = try await Auth.auth().createUser(withEmail: normalizedEmail, password: password)
+            let user = buildUser(
                 id: result.user.uid,
-                username: normalizedUsername,
+                email: normalizedEmail,
                 firstName: firstName,
                 lastName: lastName,
-                email: email
+                usernameOverride: derivedUsername(from: normalizedEmail)
             )
             try await db.collection("users").document(user.id).setData(from: user)
 
@@ -90,43 +118,18 @@ final class AuthManager {
         }
     }
 
-    /// Signs in using a username and password.
-    /// Resolves the username to the internal synthetic auth email, then
-    /// authenticates with Firebase Auth.
-    func login(username: String, password: String) async throws {
+    func login(email: String, password: String) async throws {
         isLoading = true
         errorMessage = nil
 
-        let normalizedUsername = username.lowercased()
+        let normalizedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
         do {
-            // 1. Look up the auth email for this username.
-            let usernameDoc = try await db
-                .collection("usernames")
-                .document(normalizedUsername)
-                .getDocument()
-
-            guard usernameDoc.exists,
-                  let authEmail = usernameDoc.data()?["authEmail"] as? String else {
-                let notFoundError = NSError(
-                    domain: "AuthManager",
-                    code: -1,
-                    userInfo: [NSLocalizedDescriptionKey: "No account found for that username."]
-                )
-                isLoading = false
-                errorMessage = notFoundError.localizedDescription
-                throw notFoundError
-            }
-
-            // 2. Sign in with Firebase Auth.
-            let result = try await Auth.auth().signIn(withEmail: authEmail, password: password)
-
-            // 3. Fetch the user profile.
-            let snapshot = try await db
-                .collection("users")
-                .document(result.user.uid)
-                .getDocument()
-            let user = try snapshot.data(as: User.self)
+            let result = try await Auth.auth().signIn(withEmail: normalizedEmail, password: password)
+            let user = try await fetchOrCreateUserProfile(
+                firebaseUser: result.user,
+                fallbackFirstName: result.user.displayName?.split(separator: " ").first.map(String.init) ?? "User"
+            )
 
             self.currentUser = user
             self.isAuthenticated = true
@@ -214,33 +217,18 @@ final class AuthManager {
         do {
             let credential = GoogleAuthProvider.credential(withIDToken: idToken, accessToken: accessToken)
             let result = try await Auth.auth().signIn(with: credential)
-            
-            // Check if user exists in Firestore
-            let snapshot = try await db.collection("users").document(result.user.uid).getDocument()
-            
-            if snapshot.exists {
-                let user = try snapshot.data(as: User.self)
-                self.currentUser = user
-                self.isGuestSession = false
-            } else {
-                // Create new user profile
-                let names = (result.user.displayName ?? "").split(separator: " ")
-                let first = firstName.isEmpty ? String(names.first ?? "") : firstName
-                let last = lastName.isEmpty ? String(names.dropFirst().joined(separator: " ")) : lastName
-                
-                let user = User(
-                    id: result.user.uid,
-                    username: "",
-                    firstName: first.isEmpty ? "User" : first,
-                    lastName: last.isEmpty ? nil : last,
-                    email: result.user.email
-                )
-                
-                try db.collection("users").document(user.id).setData(from: user)
-                self.currentUser = user
-                self.isGuestSession = false
-            }
-            
+
+            let names = (result.user.displayName ?? "").split(separator: " ")
+            let first = firstName.isEmpty ? String(names.first ?? "") : firstName
+            let last = lastName.isEmpty ? String(names.dropFirst().joined(separator: " ")) : lastName
+            let user = try await fetchOrCreateUserProfile(
+                firebaseUser: result.user,
+                fallbackFirstName: first.isEmpty ? "User" : first,
+                fallbackLastName: last.isEmpty ? nil : last
+            )
+
+            self.currentUser = user
+            self.isGuestSession = false
             self.isAuthenticated = true
             isLoading = false
         } catch {
@@ -293,8 +281,12 @@ final class AuthManager {
             }
 
             do {
-                let snapshot = try await db.collection("users").document(firebaseUser.uid).getDocument()
-                let user = try snapshot.data(as: User.self)
+                let names = (firebaseUser.displayName ?? "").split(separator: " ")
+                let user = try await fetchOrCreateUserProfile(
+                    firebaseUser: firebaseUser,
+                    fallbackFirstName: String(names.first ?? "User"),
+                    fallbackLastName: names.dropFirst().isEmpty ? nil : String(names.dropFirst().joined(separator: " "))
+                )
                 self.currentUser = user
                 self.isAuthenticated = true
                 self.isGuestSession = false
