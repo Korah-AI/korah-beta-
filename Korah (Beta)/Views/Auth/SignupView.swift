@@ -157,6 +157,23 @@ struct SignupView: View {
                             }
                             .disabled(authManager.isLoading)
 
+                            Button(action: handleAppleSignIn) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "apple.logo")
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 24, height: 24)
+                                    Text("Sign up with Apple")
+                                }
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 60)
+                                .background(Color.black.opacity(0.3))
+                                .clipShape(RoundedRectangle(cornerRadius: 30))
+                                .foregroundStyle(.white)
+                                .font(.system(size: 18, weight: .medium))
+                            }
+                            .disabled(authManager.isLoading)
+
                             Button(action: handleGuestLogin) {
                                 Text("Continue as Guest")
                                     .frame(maxWidth: .infinity)
@@ -248,6 +265,15 @@ struct SignupView: View {
         Task {
             do {
                 try await authManager.initiateGoogleSignIn()
+            } catch {}
+        }
+    }
+
+    private func handleAppleSignIn() {
+        Haptics.light()
+        Task {
+            do {
+                try await authManager.initiateAppleSignIn()
             } catch {}
         }
     }
