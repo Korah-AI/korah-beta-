@@ -17,30 +17,23 @@ DEVELOPMENT
 - Languages: Swift, JavaScript.
 - API: OpenAI; GPT-4o (will be changed for better latency). Proxied via Vercel in backend.
 
-<h1> Todo List </h1>
+<h1> Prerelease Todo List </h1>
 
 <ul>
-  <li> Update prompting to be better, longer, etc. Right now, it is too strict and concise. Render as markdown instead of JSON. </li>
+  <li> Sync user data from the website (Will have to standardize login options, or keep it as Google-only sync for now. Might add multi-login options.) </li>
+  <li> Marketing: Tiktoks, IG Posts, etc </li>
+  <li> Write a report on StudyFetch, Quizlet, and Gauth to imitate their features </li>
+  <li> Implement auto-cropping like Gauth </li>
   <li> Screen Time Features (Must request from Apple. May add "paid" tier for acceptance) </li>
   <li> Live Activities + Notifications </li>
+  <li> Go through all of the study pages and update UI</li>
+  <li> Add an SAT mode allowing users to access the OpenSAT API and practice </li>
+  <li> Remove Guest loginx</li>
+  <li> Update prompts in prompt buttons in </li>
   <li> Either update or remove Tasks section </li>
-  <li> Switch to Responses API to update model to GPT-5-Nano </li>
-  <li> Implement auto-cropping like Gauth </li>
-  <li> Add text streaming for API </li>
+  <li> Potential switch to Gemini </li>
+  <li> Fix any Latex rendering bugs </li>
   <li> Update loading screens </li>
-  <li> Take notes from StudyFetch </li>
-  <li> Take Jayden's overall feedback @feedback.md </li>
-  <li> Make .env file for the API Key in a .gitignore file to reduce latency? </li>
-  <li> Make outline for web version </li>
-  <li> Korah AP/SAT? (use webscrapers and Vapi for tailoring? </li>
 </ul>
 
-<h1>Main Priorities</h1>
-<ul>
-  <li> Update A.I. responses, speed, latency, and streaming. </li>
-  <li>Implement Screentime Features. </li>
-  <li>Begin Website Development</li>
-  <li>Update U.I. (Gauth/StudyFetch Inspired)</li>
-  <li>Update daily notifcations</li>
-</ul>
-
+<h1> What makes Korah different, worth to use? </h1>
