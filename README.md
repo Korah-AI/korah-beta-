@@ -20,6 +20,7 @@ DEVELOPMENT
 <h1> Prerelease Todo List </h1>
 
 <ul>
+  <li> Fix backend to use Vercel Blob for larger payloads (images, etc) </li>
   <li> Sync user data from the website (Will have to standardize login options, or keep it as Google-only sync for now. Might add multi-login options.) </li>
   <li> Marketing: Tiktoks, IG Posts, etc </li>
   <li> Write a report on StudyFetch, Quizlet, and Gauth to imitate their features </li>
