@@ -114,17 +114,6 @@ struct LoginView: View {
                                 .font(.system(size: 18, weight: .medium))
                             }
                             .disabled(authManager.isLoading)
-
-                            Button(action: handleGuestLogin) {
-                                Text("Continue as Guest")
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 60)
-                                    .background(Color.white.opacity(0.08))
-                                    .clipShape(RoundedRectangle(cornerRadius: 30))
-                                    .foregroundStyle(.white.opacity(0.9))
-                                    .font(.system(size: 18, weight: .medium))
-                            }
-                            .disabled(authManager.isLoading)
                         }
                         
                         if let error = authManager.errorMessage {
@@ -212,15 +201,6 @@ struct LoginView: View {
         Task {
             do {
                 try await authManager.initiateAppleSignIn()
-            } catch {}
-        }
-    }
-
-    private func handleGuestLogin() {
-        Haptics.light()
-        Task {
-            do {
-                try await authManager.continueAsGuest()
             } catch {}
         }
     }
