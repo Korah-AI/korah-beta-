@@ -32,6 +32,10 @@ export default async function handler(req, res) {
   }
 
   try {
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      return res.status(500).json({ error: 'Blob storage not configured' });
+    }
+
     const {
       filename,
       contentType,
@@ -53,6 +57,7 @@ export default async function handler(req, res) {
     const pathname = `scanner/${deviceId}/${safeMessageId}/${safeFilename}`;
 
     const clientToken = await generateClientTokenFromReadWriteToken({
+      token: process.env.BLOB_READ_WRITE_TOKEN,
       pathname,
       access: 'public',
       addRandomSuffix: true,
