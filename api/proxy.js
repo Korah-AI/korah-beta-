@@ -23,6 +23,18 @@ export default async function handler(req, res) {
     }
 
     const isStreaming = req.body.stream === true;
+    const messages = Array.isArray(req.body.messages) ? req.body.messages : [];
+    const imageMessageCount = messages.filter((message) =>
+      Array.isArray(message.content) &&
+      message.content.some((item) => item?.type === 'image_url')
+    ).length;
+
+    console.log('Proxy request received', {
+      isStreaming,
+      model: req.body.model,
+      messageCount: messages.length,
+      imageMessageCount,
+    });
 
     const upstream = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -35,6 +47,10 @@ export default async function handler(req, res) {
 
     if (!upstream.ok) {
       const errorData = await upstream.text();
+      console.error('OpenAI proxy upstream error', {
+        status: upstream.status,
+        body: errorData,
+      });
       return res.status(upstream.status).send(errorData);
     }
 
