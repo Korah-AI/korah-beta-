@@ -298,16 +298,10 @@ You are Korah, a study assistant. Analyze the provided images and extract conten
 }
 
 Rules:
-- Extract key terms and definitions from the images
-- Create 8-20 flashcard pairs depending on content
-- Make definitions clear and concise
 - Return valid JSON only. No extra text.
 """
         
-        let imageContents = selectedImages.compactMap { image -> String? in
-            guard let data = image.jpegData(compressionQuality: 0.8) else { return nil }
-            return data.base64EncodedString()
-        }
+        let imageContents = selectedImages.compactMap { $0.compressedBase64() }
         
         guard !imageContents.isEmpty else {
             errorMessage = "Failed to process images"

@@ -123,8 +123,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/colinc86/LaTeXSwiftUI",
       "state" : {
-        "revision" : "cc677f66b9cc1751e09207621d62d1cda0200675",
-        "version" : "2.0.0"
+        "branch" : "main",
+        "revision" : "cc677f66b9cc1751e09207621d62d1cda0200675"
       }
     },
     {
