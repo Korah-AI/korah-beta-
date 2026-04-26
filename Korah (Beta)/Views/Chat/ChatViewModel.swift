@@ -180,7 +180,7 @@ final class ChatViewModel {
         
         for message in messages.dropLast() { // Exclude the placeholder
             if let img = message.image,
-               let base64 = img.jpegData(compressionQuality: 0.8)?.base64EncodedString() {
+               let base64 = img.compressedBase64() {
                 var content: [[String: Any]] = []
                 if !message.content.isEmpty {
                     content.append(["type": "text", "text": message.content])

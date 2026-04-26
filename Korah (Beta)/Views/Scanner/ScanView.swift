@@ -1196,7 +1196,7 @@ struct ScanView: View {
         var apiMessages: [[String: Any]] = [["role": "system", "content": systemInstruction]]
 
         for message in messages {
-            if let img = message.image, let base64 = img.jpegData(compressionQuality: 0.8)?.base64EncodedString() {
+            if let img = message.image, let base64 = img.compressedBase64() {
                 var content: [[String: Any]] = []
                 if !message.content.isEmpty { content.append(["type": "text", "text": message.content]) }
                 content.append(["type": "image_url", "image_url": ["url": "data:image/jpeg;base64,\(base64)"]])
@@ -1324,7 +1324,7 @@ struct ScanView: View {
         var apiMessages: [[String: Any]] = [["role": "system", "content": systemInstruction]]
         
         for message in messages {
-            if let img = message.image, let base64 = img.jpegData(compressionQuality: 0.8)?.base64EncodedString() {
+            if let img = message.image, let base64 = img.compressedBase64() {
                 var content: [[String: Any]] = []
                 if !message.content.isEmpty { content.append(["type": "text", "text": message.content]) }
                 content.append(["type": "image_url", "image_url": ["url": "data:image/jpeg;base64,\(base64)"]])
@@ -1716,7 +1716,7 @@ extension ScanView {
         var apiMessages: [[String: Any]] = [["role": "system", "content": systemInstruction]]
         
         for message in messages {
-            if let img = message.image, let base64 = img.jpegData(compressionQuality: 0.8)?.base64EncodedString() {
+            if let img = message.image, let base64 = img.compressedBase64() {
                 var content: [[String: Any]] = []
                 if !message.content.isEmpty {
                     content.append(["type": "text", "text": message.content])

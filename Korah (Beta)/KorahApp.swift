@@ -62,16 +62,17 @@ struct KorahApp: App {
 
                 } else {
                     // Unauthenticated + onboarding done: show login.
-                    // TwinklingStarsBackground lives here (behind the NavigationStack)
-                    // so iOS 26's NavigationStack root-view background layer cannot
-                    // cover the stars.  LoginView and SignupView are transparent.
-                    ZStack {
-                        TwinklingStarsBackground(starCount: 80)
-                            .ignoresSafeArea()
-                        NavigationStack {
-                            LoginView()
-                        }
+                    // Make NavigationStack the container and apply star background behind it.
+                    NavigationStack {
+                        LoginView()
+                            .navigationBarTitleDisplayMode(.inline)
                     }
+                    .background(
+                        ZStack {
+                            TwinklingStarsBackground(starCount: 80)
+                                .ignoresSafeArea()
+                        }
+                    )
                     .transition(.opacity)
                 }
             }

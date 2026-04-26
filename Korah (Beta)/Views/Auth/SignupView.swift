@@ -157,14 +157,20 @@ struct SignupView: View {
                             }
                             .disabled(authManager.isLoading)
 
-                            Button(action: handleGuestLogin) {
-                                Text("Continue as Guest")
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 60)
-                                    .background(Color.white.opacity(0.08))
-                                    .clipShape(RoundedRectangle(cornerRadius: 30))
-                                    .foregroundStyle(.white.opacity(0.9))
-                                    .font(.system(size: 18, weight: .medium))
+                            Button(action: handleAppleSignIn) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "apple.logo")
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 24, height: 24)
+                                    Text("Sign up with Apple")
+                                }
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 60)
+                                .background(Color.black.opacity(0.3))
+                                .clipShape(RoundedRectangle(cornerRadius: 30))
+                                .foregroundStyle(.white)
+                                .font(.system(size: 18, weight: .medium))
                             }
                             .disabled(authManager.isLoading)
                         }
@@ -252,11 +258,11 @@ struct SignupView: View {
         }
     }
 
-    private func handleGuestLogin() {
+    private func handleAppleSignIn() {
         Haptics.light()
         Task {
             do {
-                try await authManager.continueAsGuest()
+                try await authManager.initiateAppleSignIn()
             } catch {}
         }
     }

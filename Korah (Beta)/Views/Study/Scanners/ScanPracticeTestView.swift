@@ -308,14 +308,10 @@ Rules:
 - Extract content from the images to create multiple choice questions
 - Create 8-15 practice questions
 - Ensure each question has exactly 4 options
-- correctOption is the 0-based index of the correct answer
 - Return valid JSON only. No extra text.
 """
         
-        let imageContents = selectedImages.compactMap { image -> String? in
-            guard let data = image.jpegData(compressionQuality: 0.8) else { return nil }
-            return data.base64EncodedString()
-        }
+        let imageContents = selectedImages.compactMap { $0.compressedBase64() }
         
         guard !imageContents.isEmpty else {
             errorMessage = "Failed to process images"

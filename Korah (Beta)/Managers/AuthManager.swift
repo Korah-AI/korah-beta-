@@ -3,6 +3,7 @@ import FirebaseAuth
 import FirebaseFirestore
 import CryptoKit
 import GoogleSignIn
+import AuthenticationServices
 
 @Observable
 @MainActor
@@ -227,6 +228,91 @@ final class AuthManager {
                 fallbackLastName: last.isEmpty ? nil : last
             )
 
+            self.currentUser = user
+            self.isGuestSession = false
+            self.isAuthenticated = true
+            isLoading = false
+        } catch {
+            isLoading = false
+            errorMessage = error.localizedDescription
+            throw error
+        }
+    }
+    
+    // MARK: - Apple Sign-In
+    
+    func initiateAppleSignIn() async throws {
+        isLoading = true
+        errorMessage = nil
+        
+        do {
+            let coordinator = AppleSignInCoordinator()
+            let result = try await coordinator.startSignIn()
+            try await signInWithApple(result: result)
+        } catch {
+            isLoading = false
+            errorMessage = error.localizedDescription
+            throw error
+        }
+    }
+    
+    private func signInWithApple(result: AppleSignInResult) async throws {
+        let credential = result.credential
+        
+        guard let appleIDToken = credential.identityToken,
+              let idTokenString = String(data: appleIDToken, encoding: .utf8) else {
+            isLoading = false
+            let error = AuthError.credentialError
+            errorMessage = error.localizedDescription
+            throw error
+        }
+        
+        let appleCredential = OAuthProvider.appleCredential(
+            withIDToken: idTokenString,
+            rawNonce: result.nonce,
+            fullName: credential.fullName
+        )
+        
+        if let firebaseUser: FirebaseAuth.User = Auth.auth().currentUser, !firebaseUser.isAnonymous {
+            do {
+                let linkedResult = try await firebaseUser.link(with: appleCredential)
+                let user = try await fetchOrCreateUserProfile(firebaseUser: linkedResult.user)
+                self.currentUser = user
+                self.isGuestSession = false
+                self.isAuthenticated = true
+                isLoading = false
+                return
+            } catch let error as NSError {
+                if let authError = AuthErrorCode(rawValue: error.code) {
+                    switch authError {
+                    case .credentialAlreadyInUse:
+                        errorMessage = "This Apple account is already linked to another account."
+                    case .invalidCredential:
+                        errorMessage = "The Apple credential is invalid."
+                    default:
+                        errorMessage = "Unable to link Apple account: \(error.localizedDescription)"
+                    }
+                }
+                isLoading = false
+                throw error
+            }
+        }
+        
+        do {
+            let result = try await Auth.auth().signIn(with: appleCredential)
+            let fullName = credential.fullName
+            let firstName = [fullName?.givenName, fullName?.familyName]
+                .compactMap { $0 }
+                .filter { !$0.isEmpty }
+                .first ?? "User"
+            let lastName = fullName?.familyName
+            
+            let user = try await fetchOrCreateUserProfile(
+                firebaseUser: result.user,
+                fallbackFirstName: firstName,
+                fallbackLastName: lastName
+            )
+            
             self.currentUser = user
             self.isGuestSession = false
             self.isAuthenticated = true
