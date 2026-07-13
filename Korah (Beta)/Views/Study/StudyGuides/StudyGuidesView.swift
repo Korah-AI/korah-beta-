@@ -155,7 +155,7 @@ struct StudyGuidesView: View {
         let set = flashcardSets[selectedSetIndex]
         let pairs: [[String: String]] = set.cards.map { ["term": $0.front, "definition": $0.back] }
 
-        guard let url = URL(string: OpenAIConfig.chatCompletionsURL) else {
+        guard let url = URL(string: APIConfig.chatCompletionsURL) else {
             self.errorMessage = "Invalid URL"
             self.isLoading = false
             return
@@ -204,7 +204,7 @@ Rules:
         ]
 
         let chatBody = OAChatRequest(
-            model: "gpt-4o-mini",          
+            model: APIConfig.chatModel,          
             temperature: 0.2,
             max_tokens: 1600,
             messages: messages
@@ -272,7 +272,7 @@ Rules:
         }
         let set = flashcardSets[selectedSetIndex]
 
-        guard let url = URL(string: OpenAIConfig.chatCompletionsURL) else {
+        guard let url = URL(string: APIConfig.chatCompletionsURL) else {
             self.errorMessage = "Invalid URL"
             self.isLoading = false
             return
@@ -297,7 +297,7 @@ Rules:
         let source = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !source.isEmpty else { isLoading = false; return }
 
-        guard let url = URL(string: OpenAIConfig.chatCompletionsURL) else {
+        guard let url = URL(string: APIConfig.chatCompletionsURL) else {
             self.errorMessage = "Invalid URL"
             self.isLoading = false
             return
@@ -348,7 +348,7 @@ Rules:
         ]
 
         let chatBody = OAChatRequest(
-            model: "gpt-4o-mini",
+            model: APIConfig.chatModel,
             temperature: 0.2,
             max_tokens: 1600,
             messages: messages
@@ -1030,7 +1030,7 @@ struct StudyGuideGeneratorView: View {
 
 
     func generateStudyGuide() {
-        // API key now centralized in OpenAIConfig
+        // API key now centralized in APIConfig
     }
 
     var body: some View {

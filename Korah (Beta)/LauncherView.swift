@@ -16,7 +16,7 @@ struct LauncherView: View {
                         OnboardingView(isOnboardingComplete: $appState.hasCompletedOnboarding)
                     } else {
                         // Show main app content
-                        HomePageView()
+                        MainTabView()
                     }
                 }
                 .transition(.opacity)

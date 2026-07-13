@@ -21,7 +21,7 @@ struct AIPracticeTestGeneratorView: View {
     @State private var errorMessage: String?
     @State private var successMessage: String?
     
-    private let openAIURL = URL(string: OpenAIConfig.chatCompletionsURL)!
+    private let openAIURL = URL(string: APIConfig.chatCompletionsURL)!
     
     var body: some View {
         NavigationStack {
@@ -280,7 +280,7 @@ struct AIPracticeTestGeneratorView: View {
         """
         
         let requestBody: [String: Any] = [
-            "model": "gpt-3.5-turbo",
+            "model": APIConfig.chatModel,
             "temperature": 0.2,
             "max_tokens": 1200,
             "messages": [

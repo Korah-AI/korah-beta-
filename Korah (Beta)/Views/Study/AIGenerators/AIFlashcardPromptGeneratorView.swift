@@ -173,123 +173,25 @@ struct AIFlashcardPromptGeneratorView: View {
     private func generateFlashcards() {
         errorMessage = nil
         isGenerating = true
-        
+
         let trimmedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedTitle = setTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        guard let url = URL(string: OpenAIConfig.chatCompletionsURL) else {
-            errorMessage = "Invalid URL"
-            isGenerating = false
-            return
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.addDeviceIDHeader()
-        
-        let systemPrompt = """
-You are Korah, a study assistant. Generate flashcards based on the user's prompt using PURE JSON (no code fences, no markdown) that matches this schema exactly:
 
-{
-  "cards": [
-    {"term": string, "definition": string},
-    ...
-  ]
-}
-
-Rules:
-- Generate 8-15 flashcard pairs based on the topic
-- Create clear, concise terms and definitions
-- Make them educational and useful for studying
-- Return valid JSON only. No extra text.
-"""
-        
-        let userPayload: [String: Any] = [
-            "title": trimmedTitle,
-            "prompt": trimmedPrompt
-        ]
-        
-        let userContentData = try? JSONSerialization.data(withJSONObject: userPayload, options: [.sortedKeys])
-        let userContentString = String(data: userContentData ?? Data(), encoding: .utf8) ?? "{}"
-        
-        let messages = [
-            ["role": "system", "content": systemPrompt],
-            ["role": "user", "content": userContentString]
-        ]
-        
-        let requestBody: [String: Any] = [
-            "model": "gpt-4o-mini",
-            "temperature": 0.7,
-            "max_tokens": 2000,
-            "messages": messages
-        ]
-        
-        request.httpBody = try? JSONSerialization.data(withJSONObject: requestBody)
-        
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            DispatchQueue.main.async { isGenerating = false }
-            
-            if let error = error {
-                DispatchQueue.main.async { errorMessage = "Network error: \(error.localizedDescription)" }
-                return
-            }
-            guard let data = data else {
-                DispatchQueue.main.async { errorMessage = "No data from server" }
-                return
-            }
-            
-            if let http = response as? HTTPURLResponse, http.statusCode != 200 {
-                let friendlyMessage = APIErrorHandler.handleError(statusCode: http.statusCode, data: data)
-                DispatchQueue.main.async { errorMessage = friendlyMessage }
-                return
-            }
-            
+        // /api/generate-study-item with /api/r fallback (matches web study-api.js)
+        Task {
+            defer { isGenerating = false }
             do {
-                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let choices = json["choices"] as? [[String: Any]],
-                   let firstChoice = choices.first,
-                   let message = firstChoice["message"] as? [String: Any],
-                   let content = message["content"] as? String {
-                    
-                    // Extract JSON from content
-                    let jsonString: String
-                    if let startIndex = content.firstIndex(of: "{"),
-                       let endIndex = content.lastIndex(of: "}") {
-                        jsonString = String(content[startIndex...endIndex])
-                    } else {
-                        jsonString = content
-                    }
-                    
-                    if let jsonData = jsonString.data(using: .utf8),
-                       let result = try? JSONDecoder().decode([String: [[String: String]]].self, from: jsonData),
-                       let cardList = result["cards"] {
-                        
-                        let newCards = cardList.compactMap { dict -> Flashcard? in
-                            guard let term = dict["term"], let definition = dict["definition"],
-                                  !term.isEmpty, !definition.isEmpty else { return nil }
-                            return Flashcard(front: term, back: definition)
-                        }
-                        
-                        guard !newCards.isEmpty else {
-                            DispatchQueue.main.async { errorMessage = "No valid flashcards generated" }
-                            return
-                        }
-                        
-                        let newSet = FlashcardSet(title: trimmedTitle, cards: newCards)
-                        try? FirestoreStudyService.shared.addFlashcardSet(newSet)
-                        DispatchQueue.main.async {
-                            generatedCards = newCards
-                            showSuccessAlert = true
-                        }
-                        return
-                    }
-                }
-                DispatchQueue.main.async { errorMessage = "Failed to parse AI response" }
+                let pairs = try await StudyGenerationService.shared.generateFlashcards(
+                    prompt: trimmedPrompt, title: trimmedTitle)
+                let newCards = pairs.map { Flashcard(front: $0.front, back: $0.back) }
+                let newSet = FlashcardSet(title: trimmedTitle, cards: newCards)
+                try? FirestoreStudyService.shared.addFlashcardSet(newSet)
+                generatedCards = newCards
+                showSuccessAlert = true
             } catch {
-                DispatchQueue.main.async { errorMessage = "Parse error: \(error.localizedDescription)" }
+                errorMessage = error.localizedDescription
             }
-        }.resume()
+        }
     }
 }
 

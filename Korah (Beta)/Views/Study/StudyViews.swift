@@ -391,12 +391,15 @@ struct StudyHomeView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text("Study")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.center)
-                        .minimumScaleFactor(0.7)
+                    HStack(spacing: 6) {
+                        Image("newlogo2")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: 24)
+                        Text("Study")
+                            .font(.kHeadline)
+                            .foregroundStyle(Color.kTextPrimary)
+                    }
                 }
             }
             .navigationBarTitleDisplayMode(.inline)

@@ -32,6 +32,7 @@ struct KorahApp: App {
     private let authManager = AuthManager.shared
     private let studyService = FirestoreStudyService.shared
     private let conversationService = FirestoreConversationService.shared
+    @State private var themeManager = ThemeManager.shared
 
     init() {
         setupNotifications()
@@ -76,10 +77,11 @@ struct KorahApp: App {
                     .transition(.opacity)
                 }
             }
-            .preferredColorScheme(.dark)
+            .preferredColorScheme(themeManager.colorScheme ?? .dark)
             .environment(authManager)
             .environment(studyService)
             .environment(conversationService)
+            .environment(themeManager)
             .onOpenURL { url in
                 GIDSignIn.sharedInstance.handle(url)
             }

@@ -145,7 +145,7 @@ struct AIGenerateFlashcardsFromGuideView: View {
         
         let guide = studyGuides[selectedGuideIndex]
         
-        guard let url = URL(string: OpenAIConfig.chatCompletionsURL) else {
+        guard let url = URL(string: APIConfig.chatCompletionsURL) else {
             errorMessage = "Invalid URL"
             isGenerating = false
             return
@@ -187,7 +187,7 @@ Rules:
         ]
         
         let requestBody: [String: Any] = [
-            "model": "gpt-4o-mini",
+            "model": APIConfig.chatModel,
             "temperature": 0.3,
             "max_tokens": 1500,
             "messages": messages

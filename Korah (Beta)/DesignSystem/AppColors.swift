@@ -2,95 +2,116 @@ import SwiftUI
 
 // MARK: - Color Tokens
 
-/// Semantic color tokens that adapt to light/dark mode
+/// Semantic color tokens that adapt to light/dark mode.
+/// Mirrors the web app's korah.css [data-theme] variables exactly.
 /// Usage: Color.kBackground, Color.kSurface, etc.
 extension Color {
-    
-    // MARK: - Backgrounds
-    
-    /// Primary background color (near-white in light, charcoal in dark)
+
+    // MARK: - Backgrounds (--bg / --bg2 / --bg3)
+
     static var kBackground: Color {
-        Color("kBackground", bundle: nil)
+        .adaptive(light: .Light.background, dark: .Dark.background)
     }
-    
-    /// Secondary background for elevated surfaces
+
     static var kBackgroundSecondary: Color {
-        Color("kBackgroundSecondary", bundle: nil)
+        .adaptive(light: .Light.backgroundSecondary, dark: .Dark.backgroundSecondary)
     }
-    
-    // MARK: - Surfaces
-    
-    /// Card and elevated surface background
+
+    // MARK: - Surfaces (--sf / --sf2)
+
     static var kSurface: Color {
-        Color("kSurface", bundle: nil)
+        .adaptive(light: .Light.surface, dark: .Dark.surface)
     }
-    
-    /// Elevated surface (modals, sheets)
+
     static var kSurfaceElevated: Color {
-        Color("kSurfaceElevated", bundle: nil)
+        .adaptive(light: .Light.surfaceElevated, dark: .Dark.surfaceElevated)
     }
-    
-    // MARK: - Text
-    
-    /// Primary text color
+
+    // MARK: - Text (--tx / --tx2 / --tx3)
+
     static var kTextPrimary: Color {
-        Color("kTextPrimary", bundle: nil)
+        .adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary)
     }
-    
-    /// Secondary/muted text color
+
     static var kTextSecondary: Color {
-        Color("kTextSecondary", bundle: nil)
+        .adaptive(light: .Light.textSecondary, dark: .Dark.textSecondary)
     }
-    
-    /// Tertiary/placeholder text color
+
     static var kTextTertiary: Color {
-        Color("kTextTertiary", bundle: nil)
+        .adaptive(light: .Light.textTertiary, dark: .Dark.textTertiary)
     }
-    
-    // MARK: - Accent
-    
-    /// Primary accent color (purple)
+
+    // MARK: - Accent (--p4 / --p5 / --ac)
+
     static var kAccent: Color {
-        Color("kAccent", bundle: nil)
+        .adaptive(light: .Light.accent, dark: .Dark.accent)
     }
-    
-    /// Accent color for user messages in chat
+
+    /// Lighter accent variant (--p5)
+    static var kAccentLight: Color {
+        .adaptive(light: .Light.accentLight, dark: .Dark.accentLight)
+    }
+
+    /// Pink/fuchsia accent used in gradient text (--ac)
+    static var kAccentAlt: Color {
+        .adaptive(light: Color(red: 0.635, green: 0.110, blue: 0.686),   // #a21caf
+                  dark: Color(red: 0.941, green: 0.671, blue: 0.988))    // #f0abfc
+    }
+
     static var kAccentUser: Color {
-        Color("kAccentUser", bundle: nil)
+        .adaptive(light: .Light.accentUser, dark: .Dark.accentUser)
     }
-    
-    /// Accent color for assistant messages in chat
+
     static var kAccentAssistant: Color {
-        Color("kAccentAssistant", bundle: nil)
+        .adaptive(light: .Light.accentAssistant, dark: .Dark.accentAssistant)
     }
-    
-    // MARK: - Semantic
-    
-    /// Success color (green)
+
+    // MARK: - Semantic (--grn / --gold / --red)
+
     static var kSuccess: Color {
-        Color("kSuccess", bundle: nil)
+        .adaptive(light: .Light.success, dark: .Dark.success)
     }
-    
-    /// Warning color (yellow/orange)
+
     static var kWarning: Color {
-        Color("kWarning", bundle: nil)
+        .adaptive(light: .Light.warning, dark: .Dark.warning)
     }
-    
-    /// Error/destructive color (red)
+
+    /// Gold accent (--gold), same as kWarning but named to match the web token
+    static var kGold: Color { kWarning }
+
     static var kError: Color {
-        Color("kError", bundle: nil)
+        .adaptive(light: .Light.error, dark: .Dark.error)
     }
-    
-    // MARK: - Separators & Borders
-    
-    /// Separator/divider color
+
+    // MARK: - Mood (--mg / --my / --mr)
+
+    static var kMoodGreen: Color {
+        .adaptive(light: Color(red: 0.086, green: 0.639, blue: 0.290),   // #16a34a
+                  dark: Color(red: 0.133, green: 0.773, blue: 0.369))    // #22c55e
+    }
+
+    static var kMoodYellow: Color {
+        .adaptive(light: Color(red: 0.792, green: 0.541, blue: 0.016),   // #ca8a04
+                  dark: Color(red: 0.918, green: 0.702, blue: 0.031))    // #eab308
+    }
+
+    static var kMoodRed: Color {
+        .adaptive(light: Color(red: 0.863, green: 0.149, blue: 0.149),   // #dc2626
+                  dark: Color(red: 0.937, green: 0.267, blue: 0.267))    // #ef4444
+    }
+
+    // MARK: - Separators, Borders & Glow (--bd / --bd2 / --glow)
+
     static var kSeparator: Color {
-        Color("kSeparator", bundle: nil)
+        .adaptive(light: .Light.separator, dark: .Dark.separator)
     }
-    
-    /// Border color for cards and inputs
+
     static var kBorder: Color {
-        Color("kBorder", bundle: nil)
+        .adaptive(light: .Light.border, dark: .Dark.border)
+    }
+
+    static var kGlow: Color {
+        .adaptive(light: .Light.glow, dark: .Dark.glow)
     }
 }
 
@@ -219,6 +240,43 @@ extension LinearGradient {
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
+        )
+    }
+}
+
+// MARK: - Gradient Text & Radial Glow (web .grad-text / .radial-glow-bg)
+
+extension LinearGradient {
+
+    /// Gradient used for headline text (web: linear-gradient(135deg, var(--p4), var(--ac)))
+    static var kTextGradient: LinearGradient {
+        LinearGradient(
+            colors: [Color.kAccent, Color.kAccentAlt],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+}
+
+extension View {
+
+    /// Renders text with the accent→pink gradient and a soft glow,
+    /// matching the web's `.grad-text` class.
+    func kGradientText() -> some View {
+        self
+            .foregroundStyle(LinearGradient.kTextGradient)
+            .shadow(color: Color.kGlow, radius: 12)
+    }
+
+    /// Radial purple glow backdrop, matching the web's `.radial-glow-bg`.
+    func kRadialGlowBackground(radius: CGFloat = 180) -> some View {
+        self.background(
+            RadialGradient(
+                colors: [Color.kGlow, .clear],
+                center: .center,
+                startRadius: 0,
+                endRadius: radius
+            )
         )
     }
 }

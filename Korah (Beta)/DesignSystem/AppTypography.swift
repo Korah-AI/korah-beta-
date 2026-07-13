@@ -2,78 +2,88 @@ import SwiftUI
 
 // MARK: - Typography Scale
 
-/// Typography system using SF Pro with Dynamic Type support
+/// Typography system using Plus Jakarta Sans (the web app's font) with
+/// Dynamic Type support. Falls back to the system font if the bundled
+/// variable font fails to register.
 /// Usage: .font(.kTitle), .font(.kBody), etc.
 extension Font {
-    
+
+    /// Bundled variable-font family name (registered via UIAppFonts).
+    static let kFamily = "Plus Jakarta Sans"
+
+    /// Plus Jakarta Sans at a given size, scaling relative to a text style.
+    static func jakarta(_ size: CGFloat, relativeTo style: TextStyle = .body) -> Font {
+        .custom(kFamily, size: size, relativeTo: style)
+    }
+
     // MARK: - Display
-    
+
     /// Large display text (Hero sections)
     static var kLargeTitle: Font {
-        .largeTitle.weight(.bold)
+        jakarta(34, relativeTo: .largeTitle).weight(.bold)
     }
-    
+
     // MARK: - Titles
-    
+
     /// Primary title
     static var kTitle: Font {
-        .title.weight(.bold)
+        jakarta(28, relativeTo: .title).weight(.bold)
     }
-    
+
     /// Secondary title
     static var kTitle2: Font {
-        .title2.weight(.semibold)
+        jakarta(22, relativeTo: .title2).weight(.semibold)
     }
-    
+
     /// Tertiary title
     static var kTitle3: Font {
-        .title3.weight(.semibold)
+        jakarta(20, relativeTo: .title3).weight(.semibold)
     }
-    
+
     // MARK: - Headlines
-    
+
     /// Primary headline
     static var kHeadline: Font {
-        .headline.weight(.semibold)
+        jakarta(17, relativeTo: .headline).weight(.semibold)
     }
-    
+
     /// Subheadline
     static var kSubheadline: Font {
-        .subheadline.weight(.medium)
+        jakarta(15, relativeTo: .subheadline).weight(.medium)
     }
-    
+
     // MARK: - Body
-    
+
     /// Primary body text
     static var kBody: Font {
-        .body
+        jakarta(17, relativeTo: .body)
     }
-    
+
     /// Body text with emphasis
     static var kBodyBold: Font {
-        .body.weight(.semibold)
+        jakarta(17, relativeTo: .body).weight(.semibold)
     }
-    
+
     // MARK: - Captions & Labels
-    
+
     /// Callout text
     static var kCallout: Font {
-        .callout
+        jakarta(16, relativeTo: .callout)
     }
-    
+
     /// Footnote text
     static var kFootnote: Font {
-        .footnote
+        jakarta(13, relativeTo: .footnote)
     }
-    
+
     /// Primary caption
     static var kCaption: Font {
-        .caption
+        jakarta(12, relativeTo: .caption)
     }
-    
+
     /// Secondary caption
     static var kCaption2: Font {
-        .caption2
+        jakarta(11, relativeTo: .caption2)
     }
 }
 

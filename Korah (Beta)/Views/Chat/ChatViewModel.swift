@@ -164,7 +164,7 @@ final class ChatViewModel {
         guard let assistantIndex = messages.indices.last else { return }
         
         // Build API request
-        guard let url = URL(string: OpenAIConfig.chatCompletionsURL) else {
+        guard let url = URL(string: APIConfig.chatCompletionsURL) else {
             handleError("Invalid API URL")
             return
         }
@@ -196,7 +196,7 @@ final class ChatViewModel {
         }
         
         let body: [String: Any] = [
-            "model": "gpt-4o",
+            "model": APIConfig.chatModel,
             "messages": apiMessages,
             "temperature": 0.3,
             "max_tokens": 1000,

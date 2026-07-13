@@ -176,7 +176,7 @@ struct AIStudyGuidePromptGeneratorView: View {
         let trimmedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedTitle = guideTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         
-        guard let url = URL(string: OpenAIConfig.chatCompletionsURL) else {
+        guard let url = URL(string: APIConfig.chatCompletionsURL) else {
             errorMessage = "Invalid URL"
             isGenerating = false
             return
@@ -226,7 +226,7 @@ Rules:
         ]
         
         let requestBody: [String: Any] = [
-            "model": "gpt-4o-mini",
+            "model": APIConfig.chatModel,
             "temperature": 0.3,
             "max_tokens": 2000,
             "messages": messages

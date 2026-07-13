@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		2C6056C62F11FDF4009E17B8 /* ActivityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2C6056C52F11FDF4009E17B8 /* ActivityKit.framework */; };
 		2CA4E9E32F57E0ED0055DC42 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 2CA4E9E22F57E0ED0055DC42 /* GoogleSignIn */; };
 		2CA4E9E52F57E0ED0055DC42 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 2CA4E9E42F57E0ED0055DC42 /* GoogleSignInSwift */; };
 		2CAE49C12F4AEA710032236E /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 2CAE49C02F4AEA710032236E /* MarkdownUI */; };
@@ -54,20 +53,12 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		2C6056C52F11FDF4009E17B8 /* ActivityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ActivityKit.framework; path = System/Library/Frameworks/ActivityKit.framework; sourceTree = SDKROOT; };
-		2C6056CE2F1203A6009E17B8 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
-		2C6056D02F1203A6009E17B8 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		2C98C8C32EFE4F0800BF141B /* Korah.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Korah.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2C98C8D02EFE4F0A00BF141B /* Korah (Beta)Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Korah (Beta)Tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2C98C8DA2EFE4F0A00BF141B /* Korah (Beta)UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Korah (Beta)UITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		2C6056D22F1203A6009E17B8 /* FocusTimerWidget */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = FocusTimerWidget;
-			sourceTree = "<group>";
-		};
 		2C98C8C52EFE4F0800BF141B /* Korah (Beta) */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = "Korah (Beta)";
@@ -91,7 +82,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				2CE0E17B2F4C26E0006EF697 /* FirebaseRemoteConfig in Frameworks */,
-				2C6056C62F11FDF4009E17B8 /* ActivityKit.framework in Frameworks */,
 				2CE0E16F2F4C26E0006EF697 /* FirebaseAuth in Frameworks */,
 				2CA4E9E32F57E0ED0055DC42 /* GoogleSignIn in Frameworks */,
 				2CE0E1792F4C26E0006EF697 /* FirebaseMessaging in Frameworks */,
@@ -127,9 +117,6 @@
 		2C6056C42F11FDF4009E17B8 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				2C6056C52F11FDF4009E17B8 /* ActivityKit.framework */,
-				2C6056CE2F1203A6009E17B8 /* WidgetKit.framework */,
-				2C6056D02F1203A6009E17B8 /* SwiftUI.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -140,7 +127,6 @@
 				2C98C8C52EFE4F0800BF141B /* Korah (Beta) */,
 				2C98C8D32EFE4F0A00BF141B /* Korah (Beta)Tests */,
 				2C98C8DD2EFE4F0A00BF141B /* Korah (Beta)UITests */,
-				2C6056D22F1203A6009E17B8 /* FocusTimerWidget */,
 				2C98C8C42EFE4F0800BF141B /* Products */,
 				2C6056C42F11FDF4009E17B8 /* Frameworks */,
 			);

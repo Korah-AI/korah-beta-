@@ -460,7 +460,7 @@ struct FlashcardSetStudyView: View {
         
         let pairs: [[String: String]] = set.cards.map { ["term": $0.front, "definition": $0.back] }
         
-        guard let url = URL(string: OpenAIConfig.chatCompletionsURL) else {
+        guard let url = URL(string: APIConfig.chatCompletionsURL) else {
             errorMessage = "Invalid URL"
             showErrorAlert = true
             isGeneratingTest = false
@@ -512,7 +512,7 @@ Create 5-10 questions mixing direct flashcard content with related conceptual qu
         ]
         
         let chatBody = ChatRequest(
-            model: "gpt-4o-mini",
+            model: APIConfig.chatModel,
             temperature: 0.7,
             max_tokens: 2000,
             messages: messages
@@ -606,7 +606,7 @@ Create 5-10 questions mixing direct flashcard content with related conceptual qu
         
         let pairs: [[String: String]] = set.cards.map { ["term": $0.front, "definition": $0.back] }
         
-        guard let url = URL(string: OpenAIConfig.chatCompletionsURL) else {
+        guard let url = URL(string: APIConfig.chatCompletionsURL) else {
             generationMessage = "Invalid URL"
             showGenerationAlert = true
             isGeneratingGuide = false
@@ -672,7 +672,7 @@ Rules:
         ]
         
         let chatBody = ChatRequest(
-            model: "gpt-4o-mini",
+            model: APIConfig.chatModel,
             temperature: 0.2,
             max_tokens: 1600,
             messages: messages
@@ -1031,7 +1031,7 @@ struct FlashcardSetDetailView: View {
 
         let pairs: [[String: String]] = set.cards.map { ["term": $0.front, "definition": $0.back] }
 
-        guard let url = URL(string: OpenAIConfig.chatCompletionsURL) else {
+        guard let url = URL(string: APIConfig.chatCompletionsURL) else {
             generationMessage = "Invalid URL"
             showGenerationAlert = true
             isGeneratingGuide = false
@@ -1096,7 +1096,7 @@ Rules:
         ]
 
         let chatBody = ChatRequest(
-            model: "gpt-4o-mini",
+            model: APIConfig.chatModel,
             temperature: 0.2,
             max_tokens: 1600,
             messages: messages

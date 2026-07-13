@@ -144,8 +144,6 @@ struct ScanTypingIndicator: View {
 struct ScanView: View {
     @Environment(\.dismiss) private var dismiss
 
-    @State private var navigateToHome = false
-    
     @State private var selectedFlashcardSetID: UUID? = nil
     @State private var navigateToGuideID: UUID? = nil
     
@@ -234,13 +232,6 @@ struct ScanView: View {
     
     private var navigationLinks: some View {
         Group {
-            NavigationLink(isActive: $navigateToHome) {
-                HomePageView()
-            } label: {
-                EmptyView()
-            }
-            .hidden()
-            
             NavigationLink(isActive: Binding(get: { selectedFlashcardSetID != nil }, set: { if !$0 { selectedFlashcardSetID = nil } })) {
                 if let id = selectedFlashcardSetID {
                     FlashcardsView(selectedSetID: id)
@@ -1186,7 +1177,7 @@ struct ScanView: View {
         isLoading = true
         showTypingIndicator = true
 
-        let url = URL(string: OpenAIConfig.chatCompletionsURL)!
+        let url = URL(string: APIConfig.chatCompletionsURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -1210,7 +1201,7 @@ struct ScanView: View {
         apiMessages.append(["role": "user", "content": instruction])
 
         let body: [String: Any] = [
-            "model": "gpt-4o",
+            "model": APIConfig.chatModel,
             "messages": apiMessages,
             "temperature": 0.3,
             "max_tokens": 1000,
@@ -1303,7 +1294,7 @@ struct ScanView: View {
         isLoading = true
         showTypingIndicator = true
         
-        let url = URL(string: OpenAIConfig.chatCompletionsURL)!
+        let url = URL(string: APIConfig.chatCompletionsURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -1338,7 +1329,7 @@ struct ScanView: View {
         apiMessages.append(["role": "user", "content": userInstruction])
         
         let body: [String: Any] = [
-            "model": "gpt-4o",
+            "model": APIConfig.chatModel,
             "messages": apiMessages,
             "temperature": 0.3,
             "max_tokens": 1000,
@@ -1500,7 +1491,7 @@ struct ScanView: View {
         
         let readableText = extractReadableText(from: text)
         
-        let url = URL(string: OpenAIConfig.speechURL)!
+        let url = URL(string: APIConfig.speechURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -1676,7 +1667,7 @@ private func scanFormattedResponse(_ text: String) -> String {
 
 extension ScanView {
     func fetchChatResponse(image: UIImage? = nil) {
-        guard let url = URL(string: OpenAIConfig.chatCompletionsURL) else {
+        guard let url = URL(string: APIConfig.chatCompletionsURL) else {
             showTypingIndicator = false
             isLoading = false
             messages.append(ScanMessage(role: "assistant", content: "Invalid API URL.", timestamp: Date(), image: nil))
@@ -1732,7 +1723,7 @@ extension ScanView {
         }
 
         let body: [String: Any] = [
-            "model": "gpt-4o",
+            "model": APIConfig.chatModel,
             "messages": apiMessages,
             "temperature": 0.9,
             "max_tokens": 1000,
@@ -1962,7 +1953,7 @@ extension ScanView {
     }
     
     func transcribeAudio(fileURL: URL) {
-        let url = URL(string: OpenAIConfig.transcriptionsURL)!
+        let url = URL(string: APIConfig.transcriptionsURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         
@@ -2004,7 +1995,7 @@ extension ScanView {
         isThinking = true
         showTypingIndicator = true
         
-        let url = URL(string: OpenAIConfig.chatCompletionsURL)!
+        let url = URL(string: APIConfig.chatCompletionsURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -2031,7 +2022,7 @@ extension ScanView {
             messages.map { ["role": $0.role, "content": $0.content] }
         
         let body: [String: Any] = [
-            "model": "gpt-3.5-turbo",
+            "model": APIConfig.chatModel,
             "messages": apiMessages,
             "temperature": 0.7
         ]
@@ -2064,7 +2055,7 @@ extension ScanView {
     func speakTextForVoiceMode(_ text: String, messageId: UUID) {
         isSpeaking = true
         
-        let url = URL(string: OpenAIConfig.speechURL)!
+        let url = URL(string: APIConfig.speechURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
