@@ -9,6 +9,8 @@ struct SATBankView: View {
     @State private var bank = SATBankStore.shared
     @State private var startQuery: SATQuery?
     @State private var showFilters = false
+    /// Which section dropdowns are currently expanded. English starts open.
+    @State private var expandedSections: Set<String> = ["english"]
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -20,9 +22,8 @@ struct SATBankView: View {
                         errorBanner(error)
                     }
 
-                    ForEach(SATCatalog.sections) { section in
-                        sectionCard(section)
-                    }
+                    sectionDropdown(SATCatalog.english, icon: "book.fill", tint: .satBankBlue)
+                    sectionDropdown(SATCatalog.math, icon: "x.squareroot", tint: .kSuccess)
 
                     Spacer(minLength: 110)
                 }
@@ -60,18 +61,29 @@ struct SATBankView: View {
     // MARK: - Header
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: Spacing.xxs) {
-            Text("Official College Board questions")
-                .font(.kSubheadline)
-                .foregroundStyle(Color.kTextSecondary)
-            if let stats = bank.stats {
-                Text("\(stats.totalQuestions) questions · \(bank.assessment)")
-                    .font(.kCaption)
-                    .foregroundStyle(Color.kTextTertiary)
-            } else if bank.isLoadingStats {
-                ProgressView().tint(Color.kAccent)
+        VStack(spacing: Spacing.sm) {
+            Image("newlogo3")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 72, height: 72)
+                .shadow(color: Color.kGlow, radius: 12)
+
+            VStack(spacing: Spacing.xxs) {
+                Text("Official College Board questions")
+                    .font(.kSubheadline.weight(.semibold))
+                    .foregroundStyle(Color.kTextSecondary)
+                if let stats = bank.stats {
+                    Text("\(stats.totalQuestions) questions · \(bank.assessment)")
+                        .font(.kCaption)
+                        .foregroundStyle(Color.kTextTertiary)
+                } else if bank.isLoadingStats {
+                    ProgressView().tint(Color.kAccent)
+                }
             }
+            .multilineTextAlignment(.center)
         }
+        .frame(maxWidth: .infinity)
+        .padding(.top, Spacing.xs)
     }
 
     private func errorBanner(_ message: String) -> some View {
@@ -93,38 +105,77 @@ struct SATBankView: View {
         )
     }
 
-    // MARK: - Section card
+    // MARK: - Section dropdown
 
-    private func sectionCard(_ section: SATSectionInfo) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            Button {
-                withAnimation(KAnimation.quick) { bank.toggleSection(section) }
-                Haptics.selection()
-            } label: {
-                HStack(spacing: Spacing.sm) {
+    /// A collapsible dropdown for a whole SAT section (English or Math). The
+    /// leading checkbox toggles selecting every topic in the section; the rest
+    /// of the header expands/collapses the domain + skill list.
+    private func sectionDropdown(_ section: SATSectionInfo, icon: String, tint: Color) -> some View {
+        let isExpanded = expandedSections.contains(section.key)
+        let count = bank.questionCount(forSection: section)
+
+        return VStack(alignment: .leading, spacing: Spacing.sm) {
+            HStack(spacing: Spacing.sm) {
+                Button {
+                    withAnimation(KAnimation.quick) { bank.toggleSection(section) }
+                    Haptics.selection()
+                } label: {
                     checkbox(isOn: bank.isSectionSelected(section))
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(section.label)
-                            .font(.kTitle3)
-                            .foregroundStyle(Color.kTextPrimary)
-                        let count = bank.questionCount(forSection: section)
-                        if count > 0 {
-                            Text("\(count) questions")
-                                .font(.kCaption)
-                                .foregroundStyle(Color.kTextTertiary)
-                        }
-                    }
-                    Spacer()
                 }
-            }
-            .buttonStyle(.plain)
+                .buttonStyle(.plain)
 
-            ForEach(section.domains) { domain in
-                domainGroup(section: section, domain: domain)
+                Button {
+                    withAnimation(KAnimation.quick) {
+                        if isExpanded { expandedSections.remove(section.key) }
+                        else { expandedSections.insert(section.key) }
+                    }
+                    Haptics.light()
+                } label: {
+                    HStack(spacing: Spacing.sm) {
+                        Image(systemName: icon)
+                            .font(.headline)
+                            .foregroundStyle(tint)
+                            .frame(width: 34, height: 34)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(tint.opacity(0.15))
+                            )
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(SATCatalog.sectionLabels[section.key] ?? section.label)
+                                .font(.kTitle3)
+                                .foregroundStyle(Color.kTextPrimary)
+                            if count > 0 {
+                                Text("\(count) questions")
+                                    .font(.kCaption)
+                                    .foregroundStyle(Color.kTextTertiary)
+                            }
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.down")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.kTextTertiary)
+                            .rotationEffect(.degrees(isExpanded ? 0 : -90))
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+
+            if isExpanded {
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    ForEach(section.domains) { domain in
+                        domainGroup(section: section, domain: domain)
+                    }
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
         .padding(Spacing.md)
         .kGlassEffect(cornerRadius: CornerRadius.xl)
+        .overlay(
+            RoundedRectangle(cornerRadius: CornerRadius.xl, style: .continuous)
+                .stroke(tint.opacity(isExpanded ? 0.35 : 0.0), lineWidth: 1)
+        )
     }
 
     private func domainGroup(section: SATSectionInfo, domain: SATDomainInfo) -> some View {
@@ -370,4 +421,11 @@ extension SATQuery: Hashable {
         hasher.combine(assessment)
         hasher.combine(questionIds)
     }
+}
+
+// MARK: - Bank palette
+
+private extension Color {
+    /// Blue accent used for the Reading & Writing (English) dropdown.
+    static let satBankBlue = Color(red: 0.38, green: 0.56, blue: 0.96)
 }
