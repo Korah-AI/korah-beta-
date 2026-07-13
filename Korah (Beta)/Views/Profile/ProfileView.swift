@@ -27,7 +27,7 @@ struct ProfileView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: Spacing.md) {
+                VStack(alignment: .leading, spacing: Spacing.lg) {
                     accountCard
 
                     if model.isLoading && !model.hasLoadedOnce {
@@ -224,9 +224,7 @@ struct ProfileView: View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: Spacing.sm) {
             statCard(icon: "checkmark.circle.fill", tint: .kSuccess, logo: "newlogo5",
                      value: "\(model.totals.answered)",
-                     label: model.totals.answered > 0
-                        ? "\(model.totals.correct) correct · \(model.totals.incorrect) missed"
-                        : "Questions answered")
+                     label: "Questions Answered")
             statCard(icon: "target", tint: .kAccent, logo: "newlogo10",
                      value: model.totals.answered > 0 ? "\(Int((model.totals.accuracy * 100).rounded()))%" : "—",
                      label: "Accuracy")
@@ -235,7 +233,7 @@ struct ProfileView: View {
                      label: "Level \(SATXP.level(for: model.totals.totalXP))")
             statCard(icon: "clock.fill", tint: .kAccentLight, logo: "newlogo12",
                      value: practiceTimeText,
-                     label: "All-time practice")
+                     label: "All-Time Practice")
         }
     }
 
@@ -246,21 +244,31 @@ struct ProfileView: View {
         return minutes >= 60 ? "\(minutes / 60)h \(minutes % 60)m" : "\(minutes)m"
     }
 
+    /// Mirrors `SATHomeView.statCard`: small label, large value, spacer,
+    /// icon pinned bottom-trailing — at the same fixed height so every
+    /// card in the grid lines up identically.
     private func statCard(icon: String, tint: Color, logo: String, value: String, label: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Image(systemName: icon)
-                .foregroundStyle(tint)
+            Text(label)
+                .font(.kFootnote.weight(.medium))
+                .foregroundStyle(Color.kTextSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
             Text(value)
-                .font(.kTitle2)
+                .font(.jakarta(30, relativeTo: .title).weight(.bold))
                 .foregroundStyle(Color.kTextPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
-            Text(label)
-                .font(.kCaption2)
-                .foregroundStyle(Color.kTextTertiary)
-                .lineLimit(1)
+            Spacer(minLength: 8)
+            HStack {
+                Spacer()
+                Image(systemName: icon)
+                    .font(.callout)
+                    .foregroundStyle(tint)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: 118)
         .padding(Spacing.md)
         .satCard(tint: tint, logo: logo)
     }
@@ -274,6 +282,8 @@ struct ProfileView: View {
         }
     }
 
+    /// Mirrors `SATHomeView.actionStatCard`: label, large value, spacer,
+    /// then a pill button + trailing icon pinned to the bottom.
     private func sectionCard(section: String, label: String) -> some View {
         let tint: Color = section == "english" ? .satStatBlue : .kSuccess
         let domains = model.domains.filter { $0.section == section }
@@ -282,32 +292,53 @@ struct ProfileView: View {
             ? domains.reduce(0.0) { $0 + $1.accuracy * Double($1.attempts) } / Double(attempts)
             : 0
         let missed = section == "english" ? model.missedEnglish : model.missedMath
+        let buttonSolid = !missed.isEmpty
 
         return VStack(alignment: .leading, spacing: 6) {
             Text(label)
-                .font(.kCaption)
+                .font(.kFootnote.weight(.medium))
                 .foregroundStyle(Color.kTextSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
             Text(attempts > 0 ? "\(Int((weighted * 100).rounded()))%" : "—")
-                .font(.kTitle)
+                .font(.jakarta(30, relativeTo: .title).weight(.bold))
                 .foregroundStyle(Color.kTextPrimary)
-            Text(attempts > 0 ? "\(attempts) question\(attempts == 1 ? "" : "s")" : "Not yet practiced")
-                .font(.kCaption2)
-                .foregroundStyle(Color.kTextTertiary)
-
-            Button {
-                if missed.isEmpty {
-                    reviewQuery = SATQuery(sections: [section])
-                } else {
-                    reviewQuery = SATQuery(questionIds: Array(missed.prefix(20)))
+            Spacer(minLength: 8)
+            HStack(alignment: .bottom) {
+                Button {
+                    if missed.isEmpty {
+                        reviewQuery = SATQuery(sections: [section])
+                    } else {
+                        reviewQuery = SATQuery(questionIds: Array(missed.prefix(20)))
+                    }
+                } label: {
+                    Text(missed.isEmpty ? "Practice" : "Review \(missed.count)")
+                        .font(.kCaption.weight(.bold))
+                        .foregroundStyle(buttonSolid ? .white : Color.kTextPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(buttonSolid ? AnyShapeStyle(tint) : AnyShapeStyle(Color.white.opacity(0.06)))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .stroke(buttonSolid ? Color.clear : Color.kBorder, lineWidth: 1)
+                        )
                 }
-            } label: {
-                Text(missed.isEmpty ? "Practice" : "Review \(missed.count) missed")
-                    .font(.kCaption.bold())
+                .buttonStyle(.plain)
+
+                Spacer()
+
+                Image(systemName: "chart.bar.fill")
+                    .font(.callout)
                     .foregroundStyle(tint)
             }
-            .padding(.top, 2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: 150)
         .padding(Spacing.md)
         .satCard(tint: tint, logo: section == "english" ? "newlogo0" : "newlogo2")
     }
@@ -362,7 +393,10 @@ struct ProfileView: View {
                         .foregroundStyle(Color.kTextTertiary)
                 }
             }
-            .chartXScale(domain: 0...100)
+            // Extend past 100 so the trailing "%" annotation on a maxed-out
+            // bar has room to sit inside the card instead of spilling past
+            // its border.
+            .chartXScale(domain: 0...120)
             .chartXAxis(.hidden)
             .chartYAxis {
                 AxisMarks { _ in
@@ -738,45 +772,6 @@ struct SATGoalEditorSheet: View {
                 mathGoal = model.profile?.mathGoal.map(String.init) ?? ""
             }
         }
-    }
-}
-
-// MARK: - Card styling
-
-private extension View {
-    /// The tinted dark card surface shared with the SAT Home screen: a subtly
-    /// tinted fill over the dark background with a matching hairline border,
-    /// plus a semi-transparent Korah logo watermark tucked into the corner for
-    /// a bit of branded texture.
-    func satCard(tint: Color, cornerRadius: CGFloat = 22, logo: String = "newlogo3") -> some View {
-        self
-            .background(
-                ZStack {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(Color.kSurface.opacity(0.55))
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [tint.opacity(0.18), tint.opacity(0.03)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                    Image(logo)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 130, height: 130)
-                        .rotationEffect(.degrees(-12))
-                        .offset(x: 34, y: 26)
-                        .opacity(0.18)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                }
-                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(tint.opacity(0.30), lineWidth: 1)
-            )
     }
 }
 

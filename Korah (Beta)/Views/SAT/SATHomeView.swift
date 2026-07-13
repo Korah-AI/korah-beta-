@@ -51,11 +51,6 @@ struct SATHomeView: View {
             }
             .kBackground(withStars: true)
             .toolbar(.hidden, for: .navigationBar)
-            // Give the bottom tab bar a defined, tinted container surface so it
-            // reads as its own area rather than floating over the starfield.
-            .toolbarBackground(.visible, for: .tabBar)
-            .toolbarBackground(Color.kSurface.opacity(0.94), for: .tabBar)
-            .toolbarColorScheme(.dark, for: .tabBar)
             .navigationDestination(for: HomeDestination.self) { dest in
                 switch dest {
                 case .bank:      SATBankView()
@@ -797,45 +792,6 @@ private struct ScoreBar: View {
             }
         }
         .frame(height: 8)
-    }
-}
-
-// MARK: - Card styling
-
-private extension View {
-    /// The tinted dark card surface used across the Home screen: a subtly
-    /// tinted fill over the dark background with a matching hairline border,
-    /// plus a large semi-transparent Korah logo watermark tucked into the
-    /// corner for a bit of branded texture.
-    func satCard(tint: Color, cornerRadius: CGFloat = 22, logo: String = "newlogo3") -> some View {
-        self
-            .background(
-                ZStack {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(Color.kSurface.opacity(0.55))
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [tint.opacity(0.18), tint.opacity(0.03)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                    Image(logo)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 130, height: 130)
-                        .rotationEffect(.degrees(-12))
-                        .offset(x: 34, y: 26)
-                        .opacity(0.18)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                }
-                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(tint.opacity(0.30), lineWidth: 1)
-            )
     }
 }
 

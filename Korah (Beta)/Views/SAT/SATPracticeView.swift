@@ -100,43 +100,6 @@ struct SATPracticeView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Spacing.lg)
-        .practiceCard(tint: tint, logo: logo)
-    }
-}
-
-// MARK: - Card styling
-
-private extension View {
-    /// Tinted dark card surface matching the SAT Home / Profile screens, with a
-    /// branded logo watermark tucked into the trailing corner.
-    func practiceCard(tint: Color, cornerRadius: CGFloat = 22, logo: String) -> some View {
-        self
-            .background(
-                ZStack {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(Color.kSurface.opacity(0.55))
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [tint.opacity(0.20), tint.opacity(0.04)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                    Image(logo)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 130, height: 130)
-                        .rotationEffect(.degrees(-12))
-                        .offset(x: 30, y: 24)
-                        .opacity(0.18)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                }
-                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(tint.opacity(0.35), lineWidth: 1)
-            )
+        .satCard(tint: tint, logo: logo)
     }
 }
