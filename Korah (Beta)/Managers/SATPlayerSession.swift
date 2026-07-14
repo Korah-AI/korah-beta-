@@ -68,7 +68,7 @@ final class SATPlayerSession {
             currentIndex = 0
             restartStopwatch()
             await syncBookmarks()
-            await hydrate(around: 0, radius: 5)
+            await hydrate(around: 0, radius: 6)
         } catch {
             loadState = .error(error.localizedDescription)
         }
@@ -152,13 +152,19 @@ final class SATPlayerSession {
 
     // MARK: - Lazy hydration (stub → detail, with prefetch window)
 
-    func hydrate(around index: Int, radius: Int = 3) async {
+    func hydrate(around index: Int, radius: Int = 4) async {
         await ensureDetail(at: index)
         for offset in 1...radius {
             let forward = index + offset
             if forward < questions.count {
                 Task { await self.ensureDetail(at: forward) }
             }
+        }
+        // Prefetch one question behind too, so swiping back after a check
+        // doesn't hit a stub.
+        let backward = index - 1
+        if backward >= 0 {
+            Task { await self.ensureDetail(at: backward) }
         }
     }
 

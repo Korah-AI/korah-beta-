@@ -172,7 +172,7 @@ final class SATRushSession {
 
     private func hydrateAhead() async {
         await ensureDetail(at: position)
-        for offset in 1...3 {
+        for offset in 1...4 {
             let index = position + offset
             if index < questions.count {
                 Task { await self.ensureDetail(at: index) }
@@ -231,9 +231,10 @@ struct SATRushView: View {
             case .onboarding:
                 onboarding
             case .loading:
-                ProgressView("Loading questions…")
-                    .tint(Color.kAccent)
-                    .foregroundStyle(Color.kTextSecondary)
+                ScrollView {
+                    SATQuestionSkeleton()
+                }
+                .scrollDisabled(true)
             case .playing:
                 player
             case .empty:
@@ -512,10 +513,7 @@ struct SATRushView: View {
                         if question.loaded {
                             rushQuestionBody(question)
                         } else {
-                            ProgressView()
-                                .tint(Color.kAccent)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, Spacing.section)
+                            SATQuestionSkeleton(showPassage: false, applyPadding: false)
                                 .task { await rush.ensureDetail(at: rush.position) }
                         }
                         Spacer(minLength: 20)

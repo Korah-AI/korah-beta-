@@ -12,14 +12,40 @@ struct HTMLContentView: View {
     var textColorOverride: Color? = nil
 
     @State private var height: CGFloat = 24
+    @State private var sized = false
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        SizingWebView(html: html,
-                      fontSize: fontSize,
-                      isDark: colorScheme == .dark,
-                      height: $height)
-            .frame(height: height)
+        // Fast path: simple markup (most stems, options, and prose passages)
+        // renders as native text in the same frame — no WKWebView round-trip.
+        if let attributed = SimpleHTMLRenderer.attributedString(
+            html: html, fontSize: fontSize,
+            textColor: textColorOverride ?? .kTextPrimary) {
+            Text(attributed)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            SizingWebView(html: html,
+                          fontSize: fontSize,
+                          isDark: colorScheme == .dark,
+                          height: $height,
+                          sized: $sized)
+                .frame(height: sized ? height : 48)
+                .overlay(alignment: .topLeading) {
+                    if !sized {
+                        VStack(alignment: .leading, spacing: Spacing.xs) {
+                            SkeletonBox(height: 14)
+                            SkeletonBox(height: 14).frame(width: 180)
+                        }
+                    }
+                }
+                .animation(.easeOut(duration: 0.15), value: sized)
+        }
+    }
+
+    /// Spin up the WebContent process before the first question needs it so
+    /// the initial MathML/figure render doesn't pay process-launch latency.
+    static func warmUp() {
+        SizingWebView.warmUp()
     }
 }
 
@@ -28,11 +54,28 @@ private struct SizingWebView: UIViewRepresentable {
     let fontSize: CGFloat
     let isDark: Bool
     @Binding var height: CGFloat
+    @Binding var sized: Bool
+
+    // One shared web-content process for every sizing view; per-view pools
+    // were paying process-launch cost (~1s) on each new question container.
+    static let sharedProcessPool = WKProcessPool()
+
+    private static var warmUpWebView: WKWebView?
+
+    static func warmUp() {
+        guard warmUpWebView == nil else { return }
+        let config = WKWebViewConfiguration()
+        config.processPool = sharedProcessPool
+        let webView = WKWebView(frame: .zero, configuration: config)
+        webView.loadHTMLString("<html><body></body></html>", baseURL: nil)
+        warmUpWebView = webView
+    }
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
+        config.processPool = Self.sharedProcessPool
         config.userContentController.add(context.coordinator, name: "sizeChanged")
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.isOpaque = false
@@ -40,6 +83,10 @@ private struct SizingWebView: UIViewRepresentable {
         webView.scrollView.isScrollEnabled = false
         webView.scrollView.backgroundColor = .clear
         webView.navigationDelegate = context.coordinator
+        // Content is read-only (links are already blocked below) — disabling
+        // interaction lets taps pass through to a wrapping SwiftUI Button
+        // instead of being captured by the web view's own gesture recognizers.
+        webView.isUserInteractionEnabled = false
         return webView
     }
 
@@ -123,10 +170,11 @@ private struct SizingWebView: UIViewRepresentable {
             } else {
                 return
             }
-            if abs(parent.height - newHeight) > 1 {
-                DispatchQueue.main.async { [self] in
+            DispatchQueue.main.async { [self] in
+                if abs(parent.height - newHeight) > 1 {
                     parent.height = max(newHeight, 1)
                 }
+                if !parent.sized { parent.sized = true }
             }
         }
 
@@ -140,5 +188,207 @@ private struct SizingWebView: UIViewRepresentable {
                 decisionHandler(.allow)
             }
         }
+    }
+}
+
+// MARK: - Native fast path for simple HTML
+
+/// Converts plain-ish College Board HTML (prose with basic inline formatting)
+/// straight into an AttributedString so SwiftUI draws it in the same frame,
+/// with zero WKWebView latency. Returns nil for anything that needs the real
+/// renderer — MathML, images, SVG, tables, or unrecognized markup — which
+/// keeps this path strictly "instant or opt out", never "instant but wrong".
+enum SimpleHTMLRenderer {
+
+    private final class CachedResult {
+        let value: AttributedString?
+        init(_ value: AttributedString?) { self.value = value }
+    }
+    private static let cache = NSCache<NSString, CachedResult>()
+
+    static func attributedString(html: String, fontSize: CGFloat, textColor: Color) -> AttributedString? {
+        let key = "\(fontSize)|\(textColor)|\(html)" as NSString
+        if let cached = cache.object(forKey: key) { return cached.value }
+        let result = parse(html: html, fontSize: fontSize, textColor: textColor)
+        cache.setObject(CachedResult(result), forKey: key)
+        return result
+    }
+
+    // MARK: Parser
+
+    private struct Style {
+        var bold = false
+        var italic = false
+        var underline = false
+        var strikethrough = false
+        var script = 0        // +1 sup, -1 sub
+        var hidden = false    // inside an sr-only span
+    }
+
+    private static let namedEntities: [String: String] = [
+        "amp": "&", "lt": "<", "gt": ">", "quot": "\"", "apos": "'",
+        "nbsp": "\u{00A0}", "ndash": "–", "mdash": "—", "shy": "",
+        "lsquo": "\u{2018}", "rsquo": "\u{2019}", "ldquo": "\u{201C}", "rdquo": "\u{201D}",
+        "hellip": "…", "minus": "−", "times": "×", "divide": "÷",
+        "deg": "°", "plusmn": "±", "le": "≤", "ge": "≥", "ne": "≠",
+        "pi": "π", "middot": "·", "bull": "•", "prime": "′", "Prime": "″",
+        "frac12": "½", "frac14": "¼", "frac34": "¾", "cent": "¢", "sect": "§"
+    ]
+
+    private static func parse(html: String, fontSize: CGFloat, textColor: Color) -> AttributedString? {
+        let chars = Array(html)
+        var output = AttributedString()
+        var styleStack: [Style] = [Style()]
+        var textBuffer = ""
+        var pendingBreaks = 0
+        var lastWhitespace = true   // suppress leading/duplicate spaces
+        var i = 0
+
+        func flushText() {
+            guard !textBuffer.isEmpty else { textBuffer = ""; return }
+            let style = styleStack.last!
+            defer { textBuffer = "" }
+            guard !style.hidden else { return }
+            var collapsed = ""
+            for ch in textBuffer {
+                if ch.isWhitespace && ch != "\u{00A0}" {
+                    if !lastWhitespace { collapsed.append(" "); lastWhitespace = true }
+                } else {
+                    collapsed.append(ch)
+                    lastWhitespace = false
+                }
+            }
+            guard !collapsed.isEmpty else { return }
+            if pendingBreaks > 0 {
+                output += AttributedString(String(repeating: "\n", count: pendingBreaks))
+                pendingBreaks = 0
+            }
+            var run = AttributedString(collapsed)
+            var font = Font.system(size: style.script == 0 ? fontSize : fontSize * 0.75)
+            if style.bold { font = font.bold() }
+            if style.italic { font = font.italic() }
+            run.font = font
+            run.foregroundColor = textColor
+            if style.underline { run.underlineStyle = .single }
+            if style.strikethrough { run.strikethroughStyle = .single }
+            if style.script != 0 { run.baselineOffset = CGFloat(style.script) * fontSize * 0.33 }
+            output += run
+        }
+
+        func blockBreak() {
+            flushText()
+            guard !output.characters.isEmpty else { return }
+            pendingBreaks = max(pendingBreaks, 1)
+            lastWhitespace = true
+        }
+
+        func forcedBreak() {
+            flushText()
+            guard !output.characters.isEmpty else { return }
+            pendingBreaks += 1
+            lastWhitespace = true
+        }
+
+        while i < chars.count {
+            let ch = chars[i]
+            if ch == "<" {
+                // Comments
+                if i + 3 < chars.count, chars[i+1] == "!", chars[i+2] == "-", chars[i+3] == "-" {
+                    var j = i + 4
+                    while j + 2 < chars.count,
+                          !(chars[j] == "-" && chars[j+1] == "-" && chars[j+2] == ">") { j += 1 }
+                    guard j + 2 < chars.count else { return nil }
+                    i = j + 3
+                    continue
+                }
+                // Scan to the closing '>' (respecting quoted attribute values)
+                var j = i + 1
+                var quote: Character? = nil
+                while j < chars.count {
+                    let c = chars[j]
+                    if let q = quote { if c == q { quote = nil } }
+                    else if c == "\"" || c == "'" { quote = c }
+                    else if c == ">" { break }
+                    j += 1
+                }
+                guard j < chars.count else { return nil }
+                let rawTag = String(chars[(i+1)..<j])
+                i = j + 1
+
+                let isClosing = rawTag.hasPrefix("/")
+                let body = isClosing ? String(rawTag.dropFirst()) : rawTag
+                let name = body.prefix { $0.isLetter || $0.isNumber }.lowercased()
+                let lowered = rawTag.lowercased()
+                // Anything visually non-trivial goes to the web view.
+                if lowered.contains("display:none") { return nil }
+
+                switch name {
+                case "p", "div":
+                    blockBreak()
+                case "br":
+                    forcedBreak()
+                case "wbr":
+                    break
+                case "b", "strong", "i", "em", "u", "s", "del", "strike", "sup", "sub", "span":
+                    if isClosing {
+                        flushText()
+                        if styleStack.count > 1 { styleStack.removeLast() }
+                    } else {
+                        flushText()
+                        var style = styleStack.last!
+                        switch name {
+                        case "b", "strong": style.bold = true
+                        case "i", "em": style.italic = true
+                        case "u": style.underline = true
+                        case "s", "del", "strike": style.strikethrough = true
+                        case "sup": style.script = 1
+                        case "sub": style.script = -1
+                        case "span":
+                            if lowered.contains("sr-only") { style.hidden = true }
+                        default: break
+                        }
+                        styleStack.append(style)
+                        // Self-closing (<span/> etc.) — pop right back.
+                        if rawTag.hasSuffix("/") { styleStack.removeLast() }
+                    }
+                default:
+                    // math, img, svg, table, ul/ol, figure, … → real renderer
+                    return nil
+                }
+            } else if ch == "&" {
+                // Decode the entity; unknown named entities bail to the web view.
+                var j = i + 1
+                var entity = ""
+                while j < chars.count, chars[j] != ";", entity.count < 10 {
+                    entity.append(chars[j]); j += 1
+                }
+                if j < chars.count, chars[j] == ";" {
+                    if entity.hasPrefix("#") {
+                        let digits = entity.dropFirst()
+                        let scalarValue: UInt32?
+                        if digits.hasPrefix("x") || digits.hasPrefix("X") {
+                            scalarValue = UInt32(digits.dropFirst(), radix: 16)
+                        } else {
+                            scalarValue = UInt32(digits)
+                        }
+                        guard let value = scalarValue, let scalar = Unicode.Scalar(value) else { return nil }
+                        textBuffer.append(Character(scalar))
+                    } else if let replacement = namedEntities[entity] {
+                        textBuffer.append(replacement)
+                    } else {
+                        return nil
+                    }
+                    i = j + 1
+                } else {
+                    textBuffer.append(ch)
+                    i += 1
+                }
+            } else {
+                textBuffer.append(ch)
+                i += 1
+            }
+        }
+        flushText()
+        return output
     }
 }

@@ -38,7 +38,11 @@ struct SATPlayerView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { toolbarContent }
-        .task { await session.load() }
+        .toolbar(.hidden, for: .tabBar)
+        .task {
+            HTMLContentView.warmUp()
+            await session.load()
+        }
         .onDisappear { session.endSession() }
         .sheet(isPresented: $showNavigator) {
             SATNavigatorSheet(session: session)
@@ -133,15 +137,12 @@ struct SATPlayerView: View {
     // MARK: - Loading / message states
 
     private var loadingView: some View {
-        VStack(spacing: Spacing.md) {
-            ProgressView()
-                .tint(Color.kAccent)
-            Text("Fetching your session from the College Board question bank…")
-                .font(.kSubheadline)
-                .foregroundStyle(Color.kTextSecondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, Spacing.xxl)
+        // Skeleton of the question layout instead of a blocking spinner —
+        // the page appears "already there" and fills in as data lands.
+        ScrollView {
+            SATQuestionSkeleton()
         }
+        .scrollDisabled(true)
     }
 
     private func messageView(icon: String, title: String, message: String,
@@ -178,6 +179,7 @@ struct SATQuestionPageView: View {
 
     @State private var sprInput = ""
     @State private var showExplanationSheet = false
+    @State private var showStubRetry = false
     @FocusState private var sprFocused: Bool
 
     private var question: SATQuestion? {
@@ -202,24 +204,6 @@ struct SATQuestionPageView: View {
     private func content(_ question: SATQuestion) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.md) {
-                // Meta chips
-                HStack(spacing: Spacing.xs) {
-                    if !question.domain.isEmpty {
-                        chip(question.domain, tint: Color.kAccent)
-                    }
-                    if let label = SATCatalog.difficultyLabels[question.difficulty] {
-                        chip(label, tint: difficultyTint(question.difficulty))
-                    }
-                    Spacer()
-                    Button {
-                        session.toggleBookmark(question)
-                        Haptics.light()
-                    } label: {
-                        Image(systemName: session.isBookmarked(question) ? "bookmark.fill" : "bookmark")
-                            .foregroundStyle(session.isBookmarked(question) ? Color.kGold : Color.kTextTertiary)
-                    }
-                }
-
                 // Stimulus / passage
                 if !question.paragraph.isEmpty {
                     HTMLContentView(html: question.paragraph, fontSize: 16)
@@ -251,6 +235,29 @@ struct SATQuestionPageView: View {
             .padding(.top, Spacing.sm)
         }
         .scrollDismissesKeyboard(.interactively)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            // Meta chips (pinned so topic/difficulty are always visible without scrolling)
+            HStack(spacing: Spacing.xs) {
+                if !question.domain.isEmpty {
+                    chip(question.domain, tint: Color.kAccent)
+                }
+                if let label = SATCatalog.difficultyLabels[question.difficulty] {
+                    chip(label, tint: difficultyTint(question.difficulty))
+                }
+                Spacer()
+                Button {
+                    session.toggleBookmark(question)
+                    Haptics.light()
+                } label: {
+                    Image(systemName: session.isBookmarked(question) ? "bookmark.fill" : "bookmark")
+                        .foregroundStyle(session.isBookmarked(question) ? Color.kGold : Color.kTextTertiary)
+                }
+            }
+            .padding(.horizontal, Spacing.md)
+            .padding(.top, Spacing.sm)
+            .padding(.bottom, Spacing.xs)
+            .background(Color.kBackground)
+        }
         .sheet(isPresented: $showExplanationSheet) {
             SATExplanationSheet(question: question)
         }
@@ -393,19 +400,28 @@ struct SATQuestionPageView: View {
     // MARK: - Stub (not yet hydrated)
 
     private var stubView: some View {
-        VStack(spacing: Spacing.md) {
-            ProgressView()
-                .tint(Color.kAccent)
-            Text("Loading question…")
-                .font(.kSubheadline)
-                .foregroundStyle(Color.kTextSecondary)
-            Button("Retry") {
-                Task { await session.ensureDetail(at: index) }
+        ScrollView {
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                SATQuestionSkeleton()
+                // Only surface the retry affordance once the skeleton has
+                // clearly stalled — a flash of "Retry" on a fast load is noise.
+                if showStubRetry {
+                    Button("Taking a while — Retry") {
+                        Task { await session.ensureDetail(at: index) }
+                    }
+                    .buttonStyle(.kGhost)
+                    .font(.kCaption)
+                    .frame(maxWidth: .infinity)
+                    .transition(.opacity)
+                }
             }
-            .buttonStyle(.kGhost)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .scrollDisabled(true)
         .task { await session.ensureDetail(at: index) }
+        .task {
+            try? await Task.sleep(for: .seconds(4))
+            withAnimation { showStubRetry = true }
+        }
     }
 
     // MARK: - Small helpers
