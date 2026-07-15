@@ -335,6 +335,7 @@ struct SATBankView: View {
                                 .font(.kHeadline)
                                 .foregroundStyle(Color.white.opacity(0.85))
                         }
+                        .frame(minHeight: 64, alignment: .leading)
                         Spacer()
                         Image(systemName: icon)
                             .font(.title2.weight(.semibold))
