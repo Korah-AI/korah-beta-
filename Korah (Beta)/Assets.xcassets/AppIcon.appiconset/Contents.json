@@ -1,7 +1,7 @@
 {
   "images" : [
     {
-      "filename" : "AppIcon.jpg",
+      "filename" : "mobilelogo.png",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
