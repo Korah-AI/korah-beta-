@@ -139,6 +139,8 @@ struct SATProfile: Codable {
     var englishScore: Int?
     var mathGoal: Int?
     var englishGoal: Int?
+    /// ISO8601 date the user plans to sit the SAT (set during onboarding).
+    var testDate: String?
     var createdAt: String?
     var updatedAt: String?
 }

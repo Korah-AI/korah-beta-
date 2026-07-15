@@ -62,6 +62,15 @@ final class SATAnalyticsService {
             .setData(payload, merge: true)
     }
 
+    /// Saves the date the user plans to take the SAT (from onboarding).
+    func saveTestDate(_ date: Date) async throws {
+        guard let uid else { return }
+        try await userDoc(uid).collection("satProfile").document("main").setData([
+            "testDate": ISO8601DateFormatter.satShared.string(from: date),
+            "updatedAt": isoNow()
+        ], merge: true)
+    }
+
     // MARK: - Totals
 
     func getTotals() async throws -> SATTotals {
