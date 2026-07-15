@@ -4,18 +4,40 @@ import SwiftUI
 
 /// Modern flagship chat view for Korah AI tutor
 struct ChatView: View {
+    /// Invoked by the header's back chevron — returns to the SAT home tab.
+    var onBack: (() -> Void)? = nil
+
     @State private var viewModel = ChatViewModel()
     @State private var showImagePicker = false
     @State private var showImageSourceSheet = false
     @State private var imageSource: UIImagePickerController.SourceType = .photoLibrary
     @State private var showClearAlert = false
-    
-    @Environment(\.dismiss) private var dismiss
-    
+    @State private var showCameraMode = false
+    @State private var cameraIsReady = false
+
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                // Messages list or empty state
+            ZStack {
+                chatContent
+                    .opacity(showCameraMode ? 0 : 1)
+
+                if showCameraMode {
+                    cameraMode
+                        .transition(.opacity)
+                }
+            }
+            .toolbar(.hidden, for: .navigationBar)
+        }
+    }
+
+    // MARK: - Chat Content
+
+    private var chatContent: some View {
+        VStack(spacing: 0) {
+            // Custom Liquid Glass header with the Camera / Chat toggle
+            header
+
+            // Messages list or empty state
                 if viewModel.isEmpty {
                     emptyState
                 } else {
@@ -29,8 +51,8 @@ struct ChatView: View {
                         .transition(.scale.combined(with: .opacity))
                 }
                 
-                // Suggestion chips
-                if !viewModel.suggestions.isEmpty && !viewModel.isLoading {
+                // Contextual suggestion chips (only during an active chat)
+                if !viewModel.isEmpty && !viewModel.suggestions.isEmpty && !viewModel.isLoading {
                     SuggestionChipsView(suggestions: viewModel.suggestions) { suggestion in
                         viewModel.sendSuggestion(suggestion)
                     }
@@ -48,48 +70,21 @@ struct ChatView: View {
                     isStreaming: viewModel.isStreaming
                 )
             }
-            .kBackground()
-            .navigationTitle("Korah")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.headline)
-                            .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-                    }
-                }
-                
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button {
+            .kBackground(withStars: true)
+            .overlay {
+                if showClearAlert {
+                    DeleteChatConfirmView(
+                        onCancel: {
+                            withAnimation(KAnimation.quick) { showClearAlert = false }
+                        },
+                        onDelete: {
                             viewModel.clearChat()
-                        } label: {
-                            Label("New Chat", systemImage: "square.and.pencil")
+                            withAnimation(KAnimation.quick) { showClearAlert = false }
                         }
-                        
-                        Button(role: .destructive) {
-                            showClearAlert = true
-                        } label: {
-                            Label("Clear Chat", systemImage: "trash")
-                        }
-                        .disabled(viewModel.isEmpty)
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                            .font(.headline)
-                            .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-                    }
+                    )
+                    .transition(.opacity)
+                    .zIndex(1)
                 }
-            }
-            .alert("Clear Chat?", isPresented: $showClearAlert) {
-                Button("Cancel", role: .cancel) {}
-                Button("Clear", role: .destructive) {
-                    viewModel.clearChat()
-                }
-            } message: {
-                Text("This will delete all messages in this conversation.")
             }
             .confirmationDialog("Add Image", isPresented: $showImageSourceSheet) {
                 Button("Take Photo") {
@@ -108,53 +103,103 @@ struct ChatView: View {
                     sourceType: imageSource
                 )
             }
+    }
+
+    // MARK: - Camera Mode
+
+    private var cameraMode: some View {
+        ZStack(alignment: .top) {
+            CustomCameraView(
+                onPhotoCaptured: { image in
+                    // Drop the capture into the composer so the user can add a
+                    // question before sending — don't fire the message off yet.
+                    viewModel.selectedImage = image
+                    withAnimation(KAnimation.quick) { showCameraMode = false }
+                },
+                onDismiss: {
+                    withAnimation(KAnimation.quick) { showCameraMode = false }
+                },
+                onCameraReady: { ready in
+                    cameraIsReady = ready
+                }
+            )
+            .ignoresSafeArea()
+
+            header
+
+            // Center crosshair once the preview is live
+            if cameraIsReady {
+                Image("crosshare")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 50, height: 50)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
         }
     }
-    
+
+    // MARK: - Header
+
+    /// Shared Liquid Glass header, used in both chat and camera modes. Carries
+    /// the Camera / Chat toggle; new-chat and delete actions hide in camera mode.
+    private var header: some View {
+        ChatHeaderBar(
+            onBack: onBack,
+            showCameraMode: showCameraMode,
+            onSelectCamera: {
+                hideKeyboard()
+                withAnimation(KAnimation.quick) { showCameraMode = true }
+                Haptics.selection()
+            },
+            onSelectChat: {
+                withAnimation(KAnimation.quick) { showCameraMode = false }
+                Haptics.selection()
+            },
+            onNewChat: { viewModel.clearChat() },
+            onDelete: { withAnimation(KAnimation.quick) { showClearAlert = true } },
+            deleteDisabled: viewModel.isEmpty
+        )
+    }
+
     // MARK: - Empty State
     
     private var emptyState: some View {
         ScrollView {
-            VStack(spacing: Spacing.xl) {
-                Spacer(minLength: 80)
-                
-                // Hero icon
-                Image(systemName: "sparkles")
-                    .font(.system(size: 60))
-                    .foregroundStyle(Color.adaptive(light: .Light.accent, dark: .Dark.accent))
-                    .symbolEffect(.pulse)
-                
+            VStack(spacing: Spacing.lg) {
+                Spacer(minLength: 48)
+
+                // Hero brand mark
+                Image("newlogo3")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 112, height: 112)
+                    .shadow(color: SATAccent.violet.solid.opacity(0.35), radius: 18, y: 8)
+
                 // Title
-                VStack(spacing: Spacing.sm) {
-                    Text("Hi! I'm Korah")
+                VStack(spacing: Spacing.xs) {
+                    Text("Your SAT study buddy")
                         .font(.kTitle)
-                        .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-                    
-                    Text("Your friendly AI study buddy")
-                        .font(.kBody)
-                        .foregroundStyle(Color.adaptive(light: .Light.textSecondary, dark: .Dark.textSecondary))
+                        .foregroundStyle(Color.kTextPrimary)
+
+                    Text("Ask me anything — math, reading & writing.\nI'll help you cook. 🍳")
+                        .font(.kSubheadline)
+                        .foregroundStyle(Color.kTextSecondary)
                 }
                 .multilineTextAlignment(.center)
-                
-                // Starter suggestions
+
+                // Category-colored starter cards
                 VStack(spacing: Spacing.sm) {
-                    Text("Try asking me...")
-                        .font(.kSubheadline)
-                        .foregroundStyle(Color.adaptive(light: .Light.textTertiary, dark: .Dark.textTertiary))
-                    
-                    VStack(spacing: Spacing.xs) {
-                        ForEach(ChatSuggestion.starters) { suggestion in
-                            StarterSuggestionButton(suggestion: suggestion) {
-                                viewModel.sendSuggestion(suggestion)
-                            }
+                    ForEach(SATStarter.all) { starter in
+                        SATStarterCard(starter: starter) {
+                            viewModel.sendSuggestion(ChatSuggestion(starter.prompt))
                         }
                     }
                 }
-                .padding(.horizontal, Spacing.xl)
-                
-                Spacer()
+                .padding(.top, Spacing.xs)
+
+                Spacer(minLength: Spacing.lg)
             }
-            .padding()
+            .padding(.horizontal, Spacing.lg)
         }
     }
     
@@ -194,51 +239,219 @@ struct ChatView: View {
     }
 }
 
-// MARK: - Starter Suggestion Button
+// MARK: - Chat Header Bar
 
-private struct StarterSuggestionButton: View {
-    let suggestion: ChatSuggestion
+/// Floating Liquid Glass toolbar: back-to-home chevron, centered Camera / Chat
+/// toggle, and new-chat / delete actions (the latter hidden in camera mode).
+private struct ChatHeaderBar: View {
+    var onBack: (() -> Void)?
+    let showCameraMode: Bool
+    let onSelectCamera: () -> Void
+    let onSelectChat: () -> Void
+    let onNewChat: () -> Void
+    let onDelete: () -> Void
+    let deleteDisabled: Bool
+
+    var body: some View {
+        ZStack {
+            // Centered Camera / Chat switcher
+            modeToggle
+
+            // Side actions
+            HStack(spacing: Spacing.xxs) {
+                if let onBack {
+                    iconButton("chevron.left", tint: Color.kTextPrimary, action: onBack)
+                        .accessibilityLabel("Back to home")
+                }
+
+                Spacer()
+
+                if !showCameraMode {
+                    iconButton("square.and.pencil", tint: Color.kTextPrimary, action: onNewChat)
+                        .accessibilityLabel("New chat")
+
+                    iconButton(
+                        "trash",
+                        tint: deleteDisabled ? Color.kTextTertiary : SATAccent.red.solid,
+                        action: onDelete
+                    )
+                    .disabled(deleteDisabled)
+                    .accessibilityLabel("Delete chat")
+                }
+            }
+        }
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, Spacing.xs)
+        .satGlassBar()
+        .padding(.horizontal, Spacing.md)
+        .padding(.top, Spacing.xs)
+        .padding(.bottom, Spacing.xxs)
+    }
+
+    private var modeToggle: some View {
+        HStack(spacing: 2) {
+            toggleChip(title: "Camera", icon: "camera.fill", active: showCameraMode, action: onSelectCamera)
+            toggleChip(title: "Chat", icon: "message.fill", active: !showCameraMode, action: onSelectChat)
+        }
+        .padding(3)
+        .background(Capsule().fill(.ultraThinMaterial))
+        .overlay(Capsule().stroke(Color.kBorder, lineWidth: 1))
+    }
+
+    private func toggleChip(title: String, icon: String, active: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .semibold))
+                Text(title)
+                    .font(.kCaption.weight(.semibold))
+            }
+            .foregroundStyle(active ? .white : Color.kTextSecondary)
+            .padding(.vertical, 6)
+            .padding(.horizontal, Spacing.sm)
+            .background(
+                Capsule().fill(active ? AnyShapeStyle(SATAccent.violet.solid) : AnyShapeStyle(Color.clear))
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func iconButton(_ name: String, tint: Color, action: @escaping () -> Void) -> some View {
+        Button {
+            Haptics.light()
+            action()
+        } label: {
+            Image(systemName: name)
+                .font(.headline)
+                .foregroundStyle(tint)
+                .frame(width: 36, height: 36)
+                .contentShape(Rectangle())
+        }
+    }
+}
+
+// MARK: - SAT Starter Card
+
+/// Welcome-screen prompt tile. Each carries its own category color — a solid
+/// tinted icon chip and a matching border — echoing the web home page tiles.
+private struct SATStarterCard: View {
+    let starter: SATStarter
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: {
             Haptics.selection()
             action()
         }) {
             HStack(spacing: Spacing.sm) {
-                if let icon = suggestion.icon {
-                    Image(systemName: icon)
-                        .font(.kBody)
-                        .foregroundStyle(Color.adaptive(light: .Light.accent, dark: .Dark.accent))
-                        .frame(width: 28, height: 28)
-                        .background(
-                            Circle()
-                                .fill(Color.adaptive(light: .Light.accent.opacity(0.1), dark: .Dark.accent.opacity(0.15)))
-                        )
+                Image(systemName: starter.icon)
+                    .font(.kHeadline)
+                    .foregroundStyle(.white)
+                    .frame(width: 40, height: 40)
+                    .background(RoundedRectangle(cornerRadius: CornerRadius.sm, style: .continuous).fill(starter.accent.solid))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(starter.title)
+                        .font(.kBodyBold)
+                        .foregroundStyle(Color.kTextPrimary)
+                        .multilineTextAlignment(.leading)
+
+                    Text(starter.subtitle)
+                        .font(.kCaption)
+                        .foregroundStyle(Color.kTextSecondary)
+                        .multilineTextAlignment(.leading)
                 }
-                
-                Text(suggestion.text)
-                    .font(.kBody)
-                    .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-                    .multilineTextAlignment(.leading)
-                
-                Spacer()
-                
-                Image(systemName: "arrow.right")
-                    .font(.kCaption)
-                    .foregroundStyle(Color.adaptive(light: .Light.textTertiary, dark: .Dark.textTertiary))
+
+                Spacer(minLength: Spacing.xs)
+
+                Image(systemName: "chevron.right")
+                    .font(.kCaption.weight(.bold))
+                    .foregroundStyle(starter.accent.solid)
             }
             .padding(Spacing.md)
+            .frame(maxWidth: .infinity)
             .background(
                 RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
-                    .fill(Color.adaptive(light: .Light.surface, dark: .Dark.surface))
+                    .fill(starter.accent.tint)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
-                    .stroke(Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
+                    .stroke(starter.accent.border, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Delete Chat Confirmation
+
+/// Custom "are you sure?" sheet styled like the web delete modal — a glass card
+/// with a red destructive action, instead of the default system alert.
+private struct DeleteChatConfirmView: View {
+    let onCancel: () -> Void
+    let onDelete: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.55)
+                .ignoresSafeArea()
+                .onTapGesture { onCancel() }
+
+            VStack(spacing: Spacing.md) {
+                Image(systemName: "trash")
+                    .font(.title2)
+                    .foregroundStyle(SATAccent.red.solid)
+                    .frame(width: 52, height: 52)
+                    .background(Circle().fill(SATAccent.red.tint))
+
+                VStack(spacing: Spacing.xxs) {
+                    Text("Delete this chat?")
+                        .font(.kTitle3)
+                        .foregroundStyle(Color.kTextPrimary)
+
+                    Text("This will permanently clear every message in this conversation. This can't be undone.")
+                        .font(.kSubheadline)
+                        .foregroundStyle(Color.kTextSecondary)
+                        .multilineTextAlignment(.center)
+                }
+
+                HStack(spacing: Spacing.sm) {
+                    Button(action: onCancel) {
+                        Text("Cancel")
+                            .font(.kBodyBold)
+                            .foregroundStyle(Color.kTextPrimary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, Spacing.sm)
+                            .background(RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous).fill(Color.kSurfaceElevated))
+                            .overlay(RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous).stroke(Color.kBorder, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+
+                    Button(action: onDelete) {
+                        Text("Delete")
+                            .font(.kBodyBold)
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, Spacing.sm)
+                            .background(RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous).fill(SATAccent.red.solid))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.top, Spacing.xxs)
+            }
+            .padding(Spacing.xl)
+            .frame(maxWidth: 360)
+            .background(
+                RoundedRectangle(cornerRadius: CornerRadius.xl, style: .continuous)
+                    .fill(Color.kSurface)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: CornerRadius.xl, style: .continuous)
+                    .stroke(SATAccent.red.border, lineWidth: 1)
+            )
+            .kShadowStrong()
+            .padding(.horizontal, Spacing.xl)
+        }
     }
 }
 

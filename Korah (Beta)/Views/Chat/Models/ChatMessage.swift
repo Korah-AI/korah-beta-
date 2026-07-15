@@ -67,38 +67,6 @@ struct ChatMessage: Identifiable, Equatable {
     }
 }
 
-// MARK: - Formatted Response (Korah JSON)
-
-/// Structured response format from Korah AI
-struct KorahResponse: Codable {
-    let kind: String?
-    let title: String?
-    let summary: String?
-    let steps: [String]?
-    let hints: [String]?
-    let questions: [String]?
-    let footer: String?
-}
-
-extension String {
-    /// Attempt to decode this string as a KorahResponse
-    func decodeKorahResponse() -> KorahResponse? {
-        // Try direct decode
-        if let data = self.data(using: .utf8),
-           let response = try? JSONDecoder().decode(KorahResponse.self, from: data) {
-            return response
-        }
-        
-        // Try extracting JSON from content
-        guard let start = self.firstIndex(of: "{"),
-              let end = self.lastIndex(of: "}") else { return nil }
-        
-        let jsonSubstring = self[start...end]
-        guard let data = String(jsonSubstring).data(using: .utf8) else { return nil }
-        return try? JSONDecoder().decode(KorahResponse.self, from: data)
-    }
-}
-
 // MARK: - ChatMessage Extensions
 
 extension ChatMessage {
@@ -146,15 +114,16 @@ struct ChatSuggestion: Identifiable, Equatable {
 
 extension ChatSuggestion {
     static let starters: [ChatSuggestion] = [
-        ChatSuggestion("Help me solve this problem", icon: "lightbulb"),
+        ChatSuggestion("Solve this SAT problem with Desmos", icon: "function"),
         ChatSuggestion("Explain this step by step", icon: "list.number"),
-        ChatSuggestion("Check my homework answer", icon: "checkmark.circle"),
-        ChatSuggestion("What can you help me learn?", icon: "book")
+        ChatSuggestion("Quiz me on SAT math", icon: "checkmark.circle"),
+        ChatSuggestion("How is the digital SAT scored?", icon: "chart.line.uptrend.xyaxis")
     ]
-    
+
     static let followUps: [ChatSuggestion] = [
         ChatSuggestion("Explain deeper", icon: "magnifyingglass"),
-        ChatSuggestion("Give me an example", icon: "lightbulb"),
-        ChatSuggestion("Practice problem", icon: "pencil.and.outline")
+        ChatSuggestion("Show the Desmos way", icon: "function"),
+        ChatSuggestion("Give me a similar problem", icon: "pencil.and.outline"),
+        ChatSuggestion("Why is this the answer?", icon: "questionmark.circle")
     ]
 }

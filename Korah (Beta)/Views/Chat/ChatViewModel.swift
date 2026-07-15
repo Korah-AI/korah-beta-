@@ -140,8 +140,7 @@ final class ChatViewModel {
     
     /// Copy message content to clipboard
     func copyMessage(_ message: ChatMessage) {
-        let text = extractReadableText(from: message.content)
-        UIPasteboard.general.string = text
+        UIPasteboard.general.string = message.content
         Haptics.success()
     }
     
@@ -195,13 +194,13 @@ final class ChatViewModel {
             }
         }
         
+        // Matches the web app (korah-chat.js callChatApi): plain markdown
+        // streaming, temperature 0.7, no JSON response_format.
         let body: [String: Any] = [
             "model": APIConfig.chatModel,
             "messages": apiMessages,
-            "temperature": 0.3,
-            "max_tokens": 1000,
-            "stream": true,
-            "response_format": ["type": "json_object"]
+            "temperature": 0.7,
+            "stream": true
         ]
         
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
@@ -280,25 +279,29 @@ final class ChatViewModel {
     // MARK: - Helpers
     
     private func buildSystemPrompt() -> String {
+        // Mirrors the web app's `sat` mode prompt (korah-chat.js MODE_SYSTEM_PROMPTS.sat):
+        // plain Markdown + KaTeX, SAT-focused, no JSON.
         """
-        You are Korah, a friendly tutor for kids. Never give final answers to homework outright; guide step-by-step.
-        Always respond with PURE JSON (no backticks, no code fences), matching this schema:
+        ABOUT KORAH: Created by Oscar Euceda, a high school programmer, Korah is a free academic resource that helps students receive quality education at the click of a button.
 
-        {
-          "kind": "tutor",
-          "title": string,
-          "summary": string,
-          "steps": [string],
-          "hints": [string],
-          "questions": [string],
-          "footer": string (optional)
-        }
+        You are Korah, an expert digital SAT tutor. Your teaching style:
+        - Focus on speed, accuracy, and test-taking strategies
+        - Teach students to recognize the question patterns the SAT repeats
+        - For math, show both the algebraic approach AND the Desmos calculator approach
+        - Emphasize time-saving shortcuts, elimination, and pacing
+        - Cover all SAT sections: Math (Algebra, Advanced Math, Problem-Solving & Data Analysis, Geometry) and Reading & Writing (evidence, grammar, vocabulary-in-context)
 
-        Rules:
-        - Keep it kid-friendly, concise, and actionable.
-        - Do NOT include any non-JSON text.
-        - If the user asks for direct answers, redirect with hints in JSON.
-        - REMINDER: Students can ask you to create flashcards, study guides, or practice tests.
+        TEACHING APPROACH:
+        - Be concise and confident: a few tight sentences or short numbered steps.
+        - State the key move, then land on a clear final answer.
+        - If a math problem involves data or points, mention the Desmos table + regression shortcut.
+
+        KaTeX delimiter policy (REQUIRED for all math):
+        - Inline math: $...$ (single dollar signs)
+        - Display math: $$...$$ (double dollar signs)
+        - NEVER use \\(...\\), \\[...\\], or bare math without delimiters
+
+        Format replies as clean Markdown (headings, **bold**, and lists where helpful).
         """
     }
     
@@ -363,50 +366,87 @@ final class ChatViewModel {
     }
 
     private func updateSuggestions() {
-        guard let lastMessage = messages.last(where: { $0.role == .assistant }) else {
+        // Derive follow-up chips from the latest assistant reply, keyed off
+        // SAT topics — mirrors the web's `generateContextualSuggestions`.
+        guard let last = messages.last(where: { $0.role == .assistant })?.content,
+              !last.isEmpty else {
             suggestions = ChatSuggestion.starters
             return
         }
-        
-        // Try to extract questions from formatted response
-        if let response = lastMessage.content.decodeKorahResponse(),
-           let questions = response.questions, !questions.isEmpty {
-            suggestions = questions.prefix(3).map { ChatSuggestion($0) }
-        } else {
-            suggestions = ChatSuggestion.followUps
-        }
+        suggestions = ChatViewModel.contextualSuggestions(for: last)
     }
-    
-    private func extractReadableText(from content: String) -> String {
-        guard let response = content.decodeKorahResponse() else {
-            return content
+
+    /// Keyword-driven SAT follow-ups for the most recent assistant response.
+    static func contextualSuggestions(for response: String) -> [ChatSuggestion] {
+        let r = response.lowercased()
+
+        func has(_ terms: String...) -> Bool { terms.contains { r.contains($0) } }
+
+        if has("desmos", "graph", "regression", "plot", "intersection") {
+            return [
+                ChatSuggestion("Walk me through the Desmos steps", icon: "function"),
+                ChatSuggestion("Solve it without a calculator", icon: "pencil.and.outline"),
+                ChatSuggestion("Give me a similar problem", icon: "plus.forwardslash.minus")
+            ]
         }
-        
-        var text = ""
-        
-        if let title = response.title, !title.isEmpty {
-            text += title + "\n\n"
+        if has("quadratic", "parabola", "x²", "x^2", "vertex", "factor") {
+            return [
+                ChatSuggestion("How do I find the vertex?", icon: "chart.dots.scatter"),
+                ChatSuggestion("What's the discriminant?", icon: "questionmark.circle"),
+                ChatSuggestion("Factor this step by step", icon: "list.number")
+            ]
         }
-        
-        if let summary = response.summary, !summary.isEmpty {
-            text += summary + "\n\n"
+        if has("slope", "linear", "y = mx", "y=mx", "line of best fit") {
+            return [
+                ChatSuggestion("What does the slope mean here?", icon: "chart.line.uptrend.xyaxis"),
+                ChatSuggestion("Find the y-intercept", icon: "arrow.down.to.line"),
+                ChatSuggestion("Give me a harder one", icon: "flame")
+            ]
         }
-        
-        if let steps = response.steps, !steps.isEmpty {
-            text += "Steps:\n"
-            for (index, step) in steps.enumerated() {
-                text += "\(index + 1). \(step)\n"
-            }
-            text += "\n"
+        if has("system", "elimination", "substitution", "two equations") {
+            return [
+                ChatSuggestion("Show the Desmos shortcut", icon: "function"),
+                ChatSuggestion("When is there no solution?", icon: "xmark.circle"),
+                ChatSuggestion("Give me a similar problem", icon: "plus.forwardslash.minus")
+            ]
         }
-        
-        if let hints = response.hints, !hints.isEmpty {
-            text += "Hints:\n"
-            for hint in hints {
-                text += "• \(hint)\n"
-            }
+        if has("exponential", "growth", "decay", "percent", "interest") {
+            return [
+                ChatSuggestion("Growth vs. decay — how to tell?", icon: "arrow.up.arrow.down"),
+                ChatSuggestion("Set up the equation", icon: "function"),
+                ChatSuggestion("Practice problem, please", icon: "pencil.and.outline")
+            ]
         }
-        
-        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if has("triangle", "circle", "angle", "geometry", "area", "radius") {
+            return [
+                ChatSuggestion("Which formula do I use?", icon: "ruler"),
+                ChatSuggestion("Draw it out for me", icon: "scribble.variable"),
+                ChatSuggestion("Give me a similar problem", icon: "plus.forwardslash.minus")
+            ]
+        }
+        if has("evidence", "passage", "reading", "author", "main idea", "tone") {
+            return [
+                ChatSuggestion("How do I spot the evidence?", icon: "text.magnifyingglass"),
+                ChatSuggestion("Eliminate wrong answers", icon: "xmark.circle"),
+                ChatSuggestion("Give me a practice passage", icon: "text.book.closed")
+            ]
+        }
+        if has("grammar", "comma", "punctuation", "clause", "verb", "writing") {
+            return [
+                ChatSuggestion("Explain the grammar rule", icon: "text.badge.checkmark"),
+                ChatSuggestion("Show me a tricky example", icon: "exclamationmark.triangle"),
+                ChatSuggestion("Quiz me on this", icon: "checklist")
+            ]
+        }
+        if has("score", "pacing", "time", "guess", "strategy") {
+            return [
+                ChatSuggestion("Make me a study plan", icon: "calendar"),
+                ChatSuggestion("Best guessing strategy?", icon: "dice"),
+                ChatSuggestion("What are common traps?", icon: "exclamationmark.triangle")
+            ]
+        }
+
+        // Fallback: general SAT follow-ups.
+        return ChatSuggestion.followUps
     }
 }

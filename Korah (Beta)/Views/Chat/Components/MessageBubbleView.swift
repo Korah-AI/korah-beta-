@@ -26,9 +26,12 @@ struct MessageBubbleView: View {
                         .clipShape(.rect(cornerRadius: CornerRadius.md))
                 }
                 
-                // Message content
+                // Message content — skip the text bubble entirely for an
+                // image-only user message so no empty bubble shows.
                 if message.isUser {
-                    userBubble
+                    if !message.content.isEmpty {
+                        userBubble
+                    }
                 } else {
                     assistantBubble
                 }
@@ -52,56 +55,64 @@ struct MessageBubbleView: View {
         Text(message.content)
             .font(.kBody)
             .foregroundStyle(.white)
-            .kLineSpacing()
-            .padding(.horizontal, Spacing.md)
-            .padding(.vertical, Spacing.sm)
+            .multilineTextAlignment(.leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
             .background(
-                BubbleShape(isUser: true)
-                    .fill(Color.adaptive(light: .Light.accent, dark: .Dark.accent))
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color.kAccent)
             )
             .kShadowAccent()
     }
     
     // MARK: - Assistant Bubble
-    
-    @ViewBuilder
+    //
+    // Plain Markdown + KaTeX (matching the web app), rendered inside a glass
+    // card headed by the Korah brand mark and a violet "SAT Tutor" tag.
+
     private var assistantBubble: some View {
-        if let formatted = message.content.decodeKorahResponse() {
-            FormattedResponseView(response: formatted, isStreaming: message.isStreaming)
-        } else {
-            plainTextBubble
-        }
-    }
-    
-    private var plainTextBubble: some View {
-        VStack(alignment: .leading, spacing: Spacing.xs) {
-            if message.isStreaming {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            assistantHeader
+
+            if message.content.isEmpty && message.isStreaming {
                 HStack(spacing: Spacing.xs) {
-                    Text(message.content)
-                        .font(.kBody)
-                        .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-                        .kLineSpacing()
-                    
+                    Text("Thinking")
+                        .font(.kSubheadline)
+                        .foregroundStyle(Color.kTextSecondary)
                     StreamingCursor()
                 }
             } else {
-                Text(message.content)
-                    .font(.kBody)
-                    .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-                    .kLineSpacing()
-                    .textSelection(.enabled)
+                HStack(alignment: .bottom, spacing: Spacing.xxs) {
+                    LatexMarkdownView(content: message.content, isStreaming: message.isStreaming)
+                    if message.isStreaming { StreamingCursor() }
+                }
             }
         }
         .padding(Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             BubbleShape(isUser: false)
-                .fill(Color.adaptive(light: .Light.surface, dark: .Dark.surface))
+                .fill(Color.kSurface)
         )
         .overlay(
             BubbleShape(isUser: false)
-                .stroke(Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
+                .stroke(SATAccent.violet.border, lineWidth: 1)
         )
         .kShadowSubtle()
+    }
+
+    private var assistantHeader: some View {
+        HStack(spacing: Spacing.xs) {
+            Image("newlogo2")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 20, height: 20)
+
+            Text("Korah")
+                .font(.kSubheadline.weight(.semibold))
+                .foregroundStyle(Color.kTextPrimary)
+        }
     }
     
     // MARK: - Message Actions
@@ -127,168 +138,6 @@ struct MessageBubbleView: View {
             }
         }
         .padding(.top, Spacing.xxs)
-    }
-}
-
-// MARK: - Formatted Response View
-
-struct FormattedResponseView: View {
-    let response: KorahResponse
-    let isStreaming: Bool
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            // Header
-            HStack(spacing: Spacing.xs) {
-                Image(systemName: "sparkles")
-                    .font(.kSubheadline)
-                    .foregroundStyle(Color.adaptive(light: .Light.accent, dark: .Dark.accent))
-                
-                Text("Korah")
-                    .font(.kSubheadline)
-                    .foregroundStyle(Color.adaptive(light: .Light.textSecondary, dark: .Dark.textSecondary))
-                
-                if isStreaming {
-                    StreamingCursor()
-                }
-            }
-            
-            // Title
-            if let title = response.title, !title.isEmpty {
-                Text(title)
-                    .font(.kTitle3)
-                    .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-            }
-            
-            // Summary
-            if let summary = response.summary, !summary.isEmpty {
-                Text(summary)
-                    .font(.kBody)
-                    .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-                    .kLineSpacing()
-            }
-            
-            // Steps
-            if let steps = response.steps, !steps.isEmpty {
-                StepsView(steps: steps)
-            }
-            
-            // Hints
-            if let hints = response.hints, !hints.isEmpty {
-                HintsView(hints: hints)
-            }
-            
-            // Questions
-            if let questions = response.questions, !questions.isEmpty {
-                QuestionsView(questions: questions)
-            }
-            
-            // Footer
-            if let footer = response.footer, !footer.isEmpty {
-                Divider()
-                    .background(Color.adaptive(light: .Light.separator, dark: .Dark.separator))
-                
-                Text(footer)
-                    .font(.kCaption)
-                    .foregroundStyle(Color.adaptive(light: .Light.textTertiary, dark: .Dark.textTertiary))
-            }
-        }
-        .padding(Spacing.md)
-        .background(
-            RoundedRectangle(cornerRadius: CornerRadius.bubble, style: .continuous)
-                .fill(Color.adaptive(light: .Light.surface, dark: .Dark.surface))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: CornerRadius.bubble, style: .continuous)
-                .stroke(Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
-        )
-        .kShadowSubtle()
-    }
-}
-
-// MARK: - Steps View
-
-private struct StepsView: View {
-    let steps: [String]
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            ForEach(steps.enumerated(), id: \.offset) { index, step in
-                HStack(alignment: .top, spacing: Spacing.sm) {
-                    // Step number badge
-                    Text("\(index + 1)")
-                        .font(.kCaption.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 24, height: 24)
-                        .background(
-                            Circle()
-                                .fill(Color.adaptive(light: .Light.accent, dark: .Dark.accent).opacity(0.8))
-                        )
-                    
-                    Text(step)
-                        .font(.kBody)
-                        .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-                        .kLineSpacing()
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Hints View
-
-private struct HintsView: View {
-    let hints: [String]
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.xs) {
-            Text("💡 Hints")
-                .font(.kSubheadline)
-                .foregroundStyle(Color.adaptive(light: .Light.textSecondary, dark: .Dark.textSecondary))
-            
-            ForEach(hints, id: \.self) { hint in
-                HStack(alignment: .top, spacing: Spacing.xs) {
-                    Image(systemName: "lightbulb.fill")
-                        .font(.kCaption)
-                        .foregroundStyle(Color.adaptive(light: .Light.warning, dark: .Dark.warning))
-                    
-                    Text(hint)
-                        .font(.kBody)
-                        .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-                }
-            }
-        }
-        .padding(Spacing.sm)
-        .background(
-            RoundedRectangle(cornerRadius: CornerRadius.sm, style: .continuous)
-                .fill(Color.adaptive(light: .Light.warning.opacity(0.1), dark: .Dark.warning.opacity(0.1)))
-        )
-    }
-}
-
-// MARK: - Questions View
-
-private struct QuestionsView: View {
-    let questions: [String]
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.xs) {
-            Text("🤔 Try these")
-                .font(.kSubheadline)
-                .foregroundStyle(Color.adaptive(light: .Light.textSecondary, dark: .Dark.textSecondary))
-            
-            ForEach(questions, id: \.self) { question in
-                HStack(alignment: .top, spacing: Spacing.xs) {
-                    Image(systemName: "questionmark.circle")
-                        .font(.kCaption)
-                        .foregroundStyle(Color.adaptive(light: .Light.accent, dark: .Dark.accent))
-                    
-                    Text(question)
-                        .font(.kBody)
-                        .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
-                }
-            }
-        }
     }
 }
 
@@ -362,7 +211,11 @@ struct BubbleShape: Shape {
                 message: ChatMessage(
                     role: .assistant,
                     content: """
-                    {"kind":"tutor","title":"Solving Quadratic Equations","summary":"Let me guide you through the process!","steps":["Identify the coefficients a, b, and c","Use the quadratic formula","Simplify your answer"],"hints":["Remember: a is never zero","Check your work by substituting back"],"questions":["What are your coefficients?"]}
+                    Use the quadratic formula:
+
+                    $$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$
+
+                    **Faster on the SAT:** graph it in Desmos and read the $x$-intercepts directly.
                     """
                 )
             )

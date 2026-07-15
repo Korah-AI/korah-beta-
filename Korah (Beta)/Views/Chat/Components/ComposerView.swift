@@ -34,7 +34,8 @@ struct ComposerView: View {
             }
             .padding(.horizontal, Spacing.sm)
             .padding(.vertical, Spacing.xs)
-            .background(composerBackground)
+            .satGlassBar(cornerRadius: CornerRadius.xxl)
+            .kShadowMedium()
         }
         .padding(.horizontal, Spacing.md)
         .padding(.bottom, Spacing.xs)
@@ -74,14 +75,11 @@ struct ComposerView: View {
     
     private var attachmentButton: some View {
         Button(action: onAttachment) {
-            Image(systemName: "photo.on.rectangle.angled")
-                .font(.title3.weight(.medium))
-                .foregroundStyle(Color.adaptive(light: .Light.accent, dark: .Dark.accent))
+            Image(systemName: "plus")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.white)
                 .frame(width: HitTarget.minimum, height: HitTarget.minimum)
-                .background(
-                    Circle()
-                        .fill(Color.adaptive(light: .Light.accent.opacity(0.1), dark: .Dark.accent.opacity(0.15)))
-                )
+                .contentShape(Circle())
         }
         .disabled(isLoading || isStreaming)
         .opacity(isLoading || isStreaming ? 0.5 : 1)
@@ -91,7 +89,7 @@ struct ComposerView: View {
     // MARK: - Text Field
     
     private var textField: some View {
-        TextField("Message Korah...", text: $text, axis: .vertical)
+        TextField("Ask an SAT question…", text: $text, axis: .vertical)
             .font(.kBody)
             .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
             .lineLimit(1...6)
@@ -118,8 +116,8 @@ struct ComposerView: View {
             Haptics.light()
             onSend()
         }) {
-            Image(systemName: "paperplane.fill")
-                .font(.title3.weight(.semibold))
+            Image(systemName: "arrow.up")
+                .font(.title3.weight(.bold))
                 .foregroundStyle(.white)
                 .frame(width: HitTarget.minimum, height: HitTarget.minimum)
                 .background(
@@ -149,18 +147,6 @@ struct ComposerView: View {
                 )
         }
         .accessibilityLabel("Stop generating")
-    }
-    
-    // MARK: - Background
-    
-    private var composerBackground: some View {
-        RoundedRectangle(cornerRadius: CornerRadius.xxl, style: .continuous)
-            .fill(.ultraThinMaterial)
-            .overlay(
-                RoundedRectangle(cornerRadius: CornerRadius.xxl, style: .continuous)
-                    .stroke(Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
-            )
-            .kShadowMedium()
     }
     
     // MARK: - Computed
@@ -233,8 +219,11 @@ struct SuggestionChipsView: View {
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: Spacing.xs) {
-                ForEach(suggestions) { suggestion in
-                    SuggestionChip(suggestion: suggestion) {
+                ForEach(Array(suggestions.enumerated()), id: \.element.id) { index, suggestion in
+                    SuggestionChip(
+                        suggestion: suggestion,
+                        accent: SATAccent.palette[index % SATAccent.palette.count]
+                    ) {
                         onSelect(suggestion)
                     }
                 }
@@ -248,8 +237,9 @@ struct SuggestionChipsView: View {
 
 private struct SuggestionChip: View {
     let suggestion: ChatSuggestion
+    let accent: SATAccent
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: {
             Haptics.selection()
@@ -259,22 +249,23 @@ private struct SuggestionChip: View {
                 if let icon = suggestion.icon {
                     Image(systemName: icon)
                         .font(.kCaption)
+                        .foregroundStyle(accent.solid)
                 }
-                
+
                 Text(suggestion.text)
                     .font(.kSubheadline)
+                    .foregroundStyle(Color.kTextPrimary)
                     .lineLimit(2)
             }
-            .foregroundStyle(Color.adaptive(light: .Light.textPrimary, dark: .Dark.textPrimary))
             .padding(.horizontal, Spacing.sm)
             .padding(.vertical, Spacing.xs)
             .background(
                 RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
-                    .fill(Color.adaptive(light: .Light.surface, dark: .Dark.surface))
+                    .fill(accent.tint)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
-                    .stroke(Color.adaptive(light: .Light.border, dark: .Dark.border), lineWidth: 0.5)
+                    .stroke(accent.border, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
