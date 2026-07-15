@@ -91,6 +91,70 @@ struct AuthErrorBanner: View {
     }
 }
 
+// MARK: - Solid Card Color
+
+extension Color {
+    /// Solid fill for the login / signup cards (deep blue).
+    static let kAuthCard = Color(red: 0.10, green: 0.14, blue: 0.32)
+}
+
+// MARK: - Fitted Auth Card
+
+/// Lays its content out at a fixed reference width, then uniformly scales it to
+/// fit the available space and centers it. This keeps the auth card in the exact
+/// same proportions and position on every screen size — everything grows or
+/// shrinks together — and it never needs to scroll.
+struct FittedAuthCard<Content: View>: View {
+    var referenceWidth: CGFloat = 393
+    @ViewBuilder var content: Content
+
+    @State private var naturalSize: CGSize = .zero
+
+    var body: some View {
+        GeometryReader { geo in
+            content
+                .frame(width: referenceWidth)
+                .background(
+                    GeometryReader { proxy in
+                        Color.clear
+                            .onAppear { naturalSize = proxy.size }
+                            .onChange(of: proxy.size) { _, newValue in
+                                naturalSize = newValue
+                            }
+                    }
+                )
+                .scaleEffect(scale(in: geo.size), anchor: .center)
+                .frame(width: geo.size.width, height: geo.size.height)
+        }
+    }
+
+    /// Uniform scale that fits the reference-width content into `available`.
+    /// `naturalSize.width` equals `referenceWidth`, so the width term keeps the
+    /// card the same fraction of every screen; the height term prevents overflow.
+    private func scale(in available: CGSize) -> CGFloat {
+        guard naturalSize.width > 0, naturalSize.height > 0 else {
+            return available.width / referenceWidth
+        }
+        return min(available.width / naturalSize.width,
+                   available.height / naturalSize.height)
+    }
+}
+
+// MARK: - Auth Logo
+
+/// The Korah mascot (newlogo2) with a soft purple glow.
+struct AuthLogo: View {
+    var size: CGFloat = 140
+
+    var body: some View {
+        Image("newlogo2")
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .kShadowGlow()
+    }
+}
+
 // MARK: - Auth Validation Hint
 
 /// An inline icon + text hint shown beneath a field to communicate

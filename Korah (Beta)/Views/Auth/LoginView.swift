@@ -16,26 +16,19 @@ struct LoginView: View {
             TwinklingStarsBackground(starCount: 100)
                 .ignoresSafeArea()
             
-            ScrollView {
-                VStack {
-                    Spacer(minLength: 50)
-                    
-                    // Main Bento Card
+            FittedAuthCard {
+                // Main Bento Card
                     VStack(spacing: 12) {
                         // Top Icon (Korah Mascot)
-                        Image("korahimg")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 150, height: 150)
-                            .kShadowGlow()
-                        
+                        AuthLogo(size: 150)
+
                         // Title
-                        Text("Korah")
+                        Text("Korah AI")
                             .font(.system(size: 38, weight: .semibold, design: .rounded))
                             .foregroundStyle(.white)
-                        
+
                         HStack(spacing: 4) {
-                            Text("Study Smarter, Not Harder")
+                            Text("The Most Goated SAT Prep.")
                                 .foregroundStyle(.white.opacity(0.6))
                                 .padding(.bottom, 10)
                         }
@@ -140,36 +133,18 @@ struct LoginView: View {
                     .padding(.horizontal, 40)
                     .padding(.vertical, 48)
                     .background {
-                        if #available(iOS 18.0, *) {
-                            RoundedRectangle(cornerRadius: 56, style: .continuous)
-                                .fill(.clear)
-                                .glassEffect(
-                                    .regular.tint(.white.opacity(0.05)),
-                                    in: .rect(cornerRadius: 56)
-                                )
-                                .overlay {
-                                    RoundedRectangle(cornerRadius: 56, style: .continuous)
-                                        .stroke(.white.opacity(0.1), lineWidth: 1)
-                                }
-                        } else {
-                            RoundedRectangle(cornerRadius: 56, style: .continuous)
-                                .fill(Color.white.opacity(0.03))
-                                .background(.ultraThinMaterial.opacity(0.4))
-                                .overlay {
-                                    RoundedRectangle(cornerRadius: 56, style: .continuous)
-                                        .stroke(.white.opacity(0.1), lineWidth: 1)
-                                }
-                        }
+                        RoundedRectangle(cornerRadius: 56, style: .continuous)
+                            .fill(Color.kAuthCard)
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 56, style: .continuous)
+                                    .stroke(.blue.opacity(0.35), lineWidth: 1)
+                            }
                     }
                     .padding(.horizontal, 24)
                     .opacity(appeared ? 1 : 0)
                     .offset(y: appeared ? 0 : 40)
-                    
-                    Spacer(minLength: 80)
-                }
             }
         }
-        .scrollBounceBehavior(.basedOnSize)
         .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear {
             withAnimation(.spring(response: 0.8, dampingFraction: 0.8)) {
@@ -248,58 +223,65 @@ private struct BentoInputField: View {
 
 // MARK: - Animated Button Style
 
+/// Two glowing pulses of light that chase around the button's border, each
+/// constantly shifting color — rather than a solid rainbow ring. The base edge
+/// stays faint; only the two travelling spots light up. Driven by
+/// `TimelineView(.animation)` — derived purely from the clock — so it never
+/// stalls, including the instant the button is tapped or becomes disabled. (The
+/// old approach used a `withAnimation(.repeatForever)` started in `.onAppear`;
+/// that animation gets cancelled by the state changes a tap triggers, which is
+/// why the border froze the moment you clicked.)
 struct BentoGlowingButtonStyle: ButtonStyle {
-    @State private var rotation: Double = 0
-    @State private var dashPhase: CGFloat = 0
-    @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .overlay {
-                    ZStack {
-                        // Rainbow rotating gradient stroke with dash
-                        RoundedRectangle(cornerRadius: 30)
-                            .stroke(
-                                AngularGradient(
-                                    colors: [
-                                        .red, .orange, .yellow, .green, .mint, .teal, .blue, .indigo, .purple, .pink, .red
-                                    ],
-                                    center: .center,
-                                    angle: .degrees(rotation)
-                                ),
-                                style: StrokeStyle(
-                                    lineWidth: 3,
-                                    lineCap: .round,
-                                    lineJoin: .round,
-                                    dash: [40, 400],
-                                    dashPhase: dashPhase
-                                )
-                            )
-                            .blur(radius: 0.5)
+                TimelineView(.animation) { context in
+                    let t = context.date.timeIntervalSinceReferenceDate
 
-                        // Subtle angular glow accent with reduced opacity
+                    // The two pulses travel around the edge together (one lap
+                    // every 3s) while their colors cycle through the spectrum.
+                    let angle = Angle.degrees(t / 3 * 360)
+                    let hueA = (t * 0.28).truncatingRemainder(dividingBy: 1)
+                    let hueB = (t * 0.28 + 0.5).truncatingRemainder(dividingBy: 1)
+                    let pulseA = Color(hue: hueA, saturation: 0.9, brightness: 1)
+                    let pulseB = Color(hue: hueB, saturation: 0.9, brightness: 1)
+                    let dim = Color.white.opacity(0.04)
+
+                    // A dim ring with two bright bands 180° apart — sweeping the
+                    // gradient makes the bands read as pulses jumping around.
+                    let gradient = AngularGradient(
+                        gradient: Gradient(stops: [
+                            .init(color: dim,    location: 0.00),
+                            .init(color: dim,    location: 0.17),
+                            .init(color: pulseA, location: 0.25),
+                            .init(color: dim,    location: 0.33),
+                            .init(color: dim,    location: 0.67),
+                            .init(color: pulseB, location: 0.75),
+                            .init(color: dim,    location: 0.83),
+                            .init(color: dim,    location: 1.00),
+                        ]),
+                        center: .center,
+                        angle: angle
+                    )
+
+                    ZStack {
+                        // Faint always-on base edge.
                         RoundedRectangle(cornerRadius: 30)
-                            .stroke(
-                                AngularGradient(
-                                    colors: [.clear, .white.opacity(0.25), .clear],
-                                    center: .center,
-                                    angle: .degrees(rotation)
-                                ),
-                                lineWidth: 2
-                            )
-                            .blur(radius: 2)
+                            .stroke(Color.white.opacity(0.08), lineWidth: 1.5)
+
+                        // Soft bloom of the pulses.
+                        RoundedRectangle(cornerRadius: 30)
+                            .stroke(gradient, lineWidth: 3.5)
+                            .blur(radius: 7)
+
+                        // Crisp core of the pulses.
+                        RoundedRectangle(cornerRadius: 30)
+                            .stroke(gradient, lineWidth: 2)
                     }
                 }
-        
-            .scaleEffect(configuration.isPressed ? 0.96 : 1)
-            .animation(.easeIn(duration: 0.1), value: configuration.isPressed)
-            .onAppear {
-                withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
-                    rotation = 360
-                }
-                withAnimation(.linear(duration: 2).repeatForever(autoreverses: false)) {
-                    dashPhase = -440 // moves the dash around the perimeter continuously
-                }
             }
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
     }
 }

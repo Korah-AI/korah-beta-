@@ -39,19 +39,12 @@ struct SignupView: View {
             TwinklingStarsBackground(starCount: 100)
                 .ignoresSafeArea()
             
-            ScrollView {
-                VStack {
-                    Spacer(minLength: 40)
-                    
-                    // Main Bento Card
+            FittedAuthCard {
+                // Main Bento Card
                     VStack(spacing: 28) {
                         // Top Icon (Korah Mascot)
-                        Image("korahimg")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 100, height: 100)
-                            .kShadowGlow()
-                        
+                        AuthLogo(size: 100)
+
                         // Title
                         VStack(spacing: 8) {
                             Text("Create Account")
@@ -197,36 +190,18 @@ struct SignupView: View {
                     .padding(.horizontal, 32)
                     .padding(.vertical, 40)
                     .background {
-                        if #available(iOS 18.0, *) {
-                            RoundedRectangle(cornerRadius: 48, style: .continuous)
-                                .fill(.clear)
-                                .glassEffect(
-                                    .regular.tint(.white.opacity(0.05)),
-                                    in: .rect(cornerRadius: 48)
-                                )
-                                .overlay {
-                                    RoundedRectangle(cornerRadius: 48, style: .continuous)
-                                        .stroke(.white.opacity(0.1), lineWidth: 1)
-                                }
-                        } else {
-                            RoundedRectangle(cornerRadius: 48, style: .continuous)
-                                .fill(Color.white.opacity(0.03))
-                                .background(.ultraThinMaterial.opacity(0.4))
-                                .overlay {
-                                    RoundedRectangle(cornerRadius: 48, style: .continuous)
-                                        .stroke(.white.opacity(0.1), lineWidth: 1)
-                                }
-                        }
+                        RoundedRectangle(cornerRadius: 48, style: .continuous)
+                            .fill(Color.kAuthCard)
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 48, style: .continuous)
+                                    .stroke(.blue.opacity(0.35), lineWidth: 1)
+                            }
                     }
                     .padding(.horizontal, 24)
                     .opacity(appeared ? 1 : 0)
                     .offset(y: appeared ? 0 : 40)
-                    
-                    Spacer(minLength: 40)
-                }
             }
         }
-        .scrollBounceBehavior(.basedOnSize)
         .toolbarBackground(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden()
         .onAppear {

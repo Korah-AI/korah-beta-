@@ -33,6 +33,9 @@ struct KorahApp: App {
     private let studyService = FirestoreStudyService.shared
     private let conversationService = FirestoreConversationService.shared
     @State private var themeManager = ThemeManager.shared
+    /// Owns onboarding completion so it can gate the very first screen,
+    /// ahead of login/signup — not just the post-auth `LauncherView`.
+    @State private var appState = AppStateManager()
 
     init() {
         setupTabBarAppearance()
@@ -43,15 +46,23 @@ struct KorahApp: App {
         WindowGroup {
             ZStack {
                 if authCheckComplete {
-                    if authManager.isAuthenticated {
-                        // Authenticated: straight to launcher (has its own
-                        // first-run onboarding)
+                    if !appState.hasCompletedOnboarding {
+                        // First launch ever (or fresh reinstall): onboarding
+                        // is the very first thing anyone sees, before
+                        // login/signup.
+                        OnboardingView(isOnboardingComplete: $appState.hasCompletedOnboarding) { profile in
+                            appState.pendingOnboardingProfile = profile
+                        }
+                        .transition(.opacity)
+                    } else if authManager.isAuthenticated {
+                        // Onboarding done and authenticated: straight to the
+                        // main app.
                         LauncherView()
                             .transition(.opacity)
                     } else {
-                        // Unauthenticated: straight to login. Make
-                        // NavigationStack the container and apply star
-                        // background behind it.
+                        // Onboarding done, not authenticated: straight to
+                        // login. Make NavigationStack the container and
+                        // apply star background behind it.
                         NavigationStack {
                             LoginView()
                                 .navigationBarTitleDisplayMode(.inline)
@@ -89,6 +100,7 @@ struct KorahApp: App {
                     studyService.startListening(uid: uid)
                     conversationService.startListening(uid: uid)
                     await DataMigrationManager.shared.migrateIfNeeded(uid: uid)
+                    await flushPendingOnboardingProfileIfNeeded()
                 }
                 withAnimation(.easeInOut(duration: 0.4)) {
                     authCheckComplete = true
@@ -100,6 +112,7 @@ struct KorahApp: App {
                     conversationService.startListening(uid: uid)
                     Task {
                         await DataMigrationManager.shared.migrateIfNeeded(uid: uid)
+                        await flushPendingOnboardingProfileIfNeeded()
                     }
                 } else {
                     studyService.stopListening()
@@ -134,6 +147,24 @@ struct KorahApp: App {
 
         UITabBar.appearance().standardAppearance = appearance
         UITabBar.appearance().scrollEdgeAppearance = appearance
+    }
+
+    /// Onboarding collects test date / score goals before login exists, so
+    /// there's no `uid` to save them under at the time. Once auth succeeds,
+    /// write anything pending to Firestore and clear it.
+    private func flushPendingOnboardingProfileIfNeeded() async {
+        guard let profile = appState.pendingOnboardingProfile else { return }
+        let service = SATAnalyticsService.shared
+        try? await service.saveProfile(
+            mathScore: profile.mathScore,
+            englishScore: profile.englishScore,
+            mathGoal: profile.mathGoal,
+            englishGoal: profile.englishGoal
+        )
+        if let testDate = profile.testDate {
+            try? await service.saveTestDate(testDate)
+        }
+        appState.pendingOnboardingProfile = nil
     }
 
     private func setupNotifications() {

@@ -1,14 +1,15 @@
 import SwiftUI
 
-// MARK: - Onboarding (post-signup, runs once)
+// MARK: - Onboarding (first launch, runs once, before login/signup)
 // Slideshow of near-full-screen cards: each card has a solid two-tone tinted
 // hero (same language as SATGradientCard headers — no fade-to-clear washes)
 // with a Korah logo watermarked in the corner (a different logo per page)
 // and a white "mini UI" demo panel animating in the middle. The card body
 // holds the title, description, inline inputs, and a solid tint button.
 // Pages slide horizontally like a phone onboarding slideshow. Collects
-// the planned test date and current/goal section scores and saves them to
-// users/{uid}/satProfile/main via SATAnalyticsService (shared with web).
+// the planned test date and current/goal section scores; since there's no
+// signed-in user yet, they're handed to `onFinish` and saved to
+// users/{uid}/satProfile/main (via SATAnalyticsService) once auth succeeds.
 //
 // Page order (urgency first, aspiration last):
 //   1. Welcome  2. Test date  3. Current scores  4. Goal scores
@@ -17,6 +18,10 @@ import SwiftUI
 
 struct OnboardingView: View {
     @Binding var isOnboardingComplete: Bool
+    /// Onboarding now runs before login/signup, so there's no `uid` yet to
+    /// save the collected profile to Firestore — hand it back to the caller
+    /// to hold until auth succeeds.
+    var onFinish: (PendingOnboardingProfile) -> Void
 
     @State private var page = 0
     /// +1 when advancing, -1 when going back — drives the slide direction.
@@ -32,7 +37,6 @@ struct OnboardingView: View {
     @State private var goalMath: Double = 650
     @State private var goalRW: Double = 650
     @State private var goalsSeeded = false
-    @State private var isSaving = false
 
     /// Upcoming official SAT dates (mirrors SATHomeView.examDates).
     private static let examDates: [Date] = {
@@ -136,22 +140,16 @@ struct OnboardingView: View {
     }
 
     private func finish() {
-        guard !isSaving else { return }
-        isSaving = true
-        Task {
-            let service = SATAnalyticsService.shared
-            try? await service.saveProfile(
-                mathScore: hasTakenTest ? Int(currentMath) : nil,
-                englishScore: hasTakenTest ? Int(currentRW) : nil,
-                mathGoal: Int(goalMath),
-                englishGoal: Int(goalRW)
-            )
-            if let idx = dateChoice, idx < Self.examDates.count {
-                try? await service.saveTestDate(Self.examDates[idx])
-            }
-            withAnimation(.easeInOut(duration: 0.4)) {
-                isOnboardingComplete = true
-            }
+        let profile = PendingOnboardingProfile(
+            mathScore: hasTakenTest ? Int(currentMath) : nil,
+            englishScore: hasTakenTest ? Int(currentRW) : nil,
+            mathGoal: Int(goalMath),
+            englishGoal: Int(goalRW),
+            testDate: dateChoice.flatMap { $0 < Self.examDates.count ? Self.examDates[$0] : nil }
+        )
+        onFinish(profile)
+        withAnimation(.easeInOut(duration: 0.4)) {
+            isOnboardingComplete = true
         }
     }
 
@@ -298,8 +296,7 @@ struct OnboardingView: View {
             tint: Color.kGold, logo: "newlogo2",
             title: "And it's all 100% free",
             description: "No subscription, no paywall, no catch. Everything you just saw is free — forever.",
-            primaryTitle: isSaving ? "Setting up…" : "Get Started",
-            primaryDisabled: isSaving,
+            primaryTitle: "Get Started",
             primaryAction: finish
         ) {
             FreeDemo()
@@ -1112,5 +1109,5 @@ private struct FreeDemo: View {
 }
 
 #Preview {
-    OnboardingView(isOnboardingComplete: .constant(false))
+    OnboardingView(isOnboardingComplete: .constant(false), onFinish: { _ in })
 }

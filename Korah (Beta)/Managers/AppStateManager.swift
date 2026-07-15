@@ -1,5 +1,16 @@
 import SwiftUI
 
+/// Test date / score goals collected during onboarding, before the user has
+/// signed in. There's no `uid` yet to write these to Firestore, so they're
+/// held here and flushed to `SATAnalyticsService` once auth succeeds.
+struct PendingOnboardingProfile: Codable {
+    var mathScore: Int?
+    var englishScore: Int?
+    var mathGoal: Int
+    var englishGoal: Int
+    var testDate: Date?
+}
+
 @MainActor
 @Observable
 final class AppStateManager {
@@ -18,9 +29,26 @@ final class AppStateManager {
         }
     }
 
+    var pendingOnboardingProfile: PendingOnboardingProfile? {
+        didSet {
+            if let pendingOnboardingProfile,
+               let data = try? JSONEncoder().encode(pendingOnboardingProfile) {
+                UserDefaults.standard.set(data, forKey: Self.pendingProfileKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: Self.pendingProfileKey)
+            }
+        }
+    }
+
     private static let onboardingKey = "hasCompletedOnboardingV2"
+    private static let pendingProfileKey = "pendingOnboardingProfileV1"
 
     init() {
         hasCompletedOnboarding = UserDefaults.standard.bool(forKey: Self.onboardingKey)
+        if let data = UserDefaults.standard.data(forKey: Self.pendingProfileKey) {
+            pendingOnboardingProfile = try? JSONDecoder().decode(PendingOnboardingProfile.self, from: data)
+        } else {
+            pendingOnboardingProfile = nil
+        }
     }
 }

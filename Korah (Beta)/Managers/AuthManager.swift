@@ -82,6 +82,36 @@ final class AuthManager {
         return repairedUser
     }
 
+    // MARK: - Friendly Error Messages
+
+    /// Maps raw Firebase/auth errors into warm, human-readable messages for the UI.
+    private func friendlyMessage(for error: Error) -> String {
+        let nsError = error as NSError
+        if let code = AuthErrorCode(rawValue: nsError.code) {
+            switch code {
+            case .invalidEmail:
+                return "Hmm, that email doesn't look quite right — mind double-checking it?"
+            case .emailAlreadyInUse:
+                return "You already have an account with this email. Try signing in instead!"
+            case .weakPassword:
+                return "Let's make that password a little stronger so your account stays safe."
+            case .wrongPassword, .invalidCredential:
+                return "That email or password didn't match. Give it another try!"
+            case .userNotFound:
+                return "We couldn't find an account with that email. Want to sign up?"
+            case .userDisabled:
+                return "This account has been disabled. Reach out to us if you think that's a mistake."
+            case .networkError:
+                return "Looks like you're offline. Check your connection and try again."
+            case .tooManyRequests:
+                return "Too many attempts for now — take a quick break and try again shortly."
+            default:
+                break
+            }
+        }
+        return "Something went wrong on our end. Please try again in a moment."
+    }
+
     // MARK: - Email/Password Authentication
 
     func signUp(
@@ -113,7 +143,7 @@ final class AuthManager {
         } catch {
             isLoading = false
             if errorMessage == nil {
-                errorMessage = error.localizedDescription
+                errorMessage = friendlyMessage(for: error)
             }
             throw error
         }
@@ -139,7 +169,7 @@ final class AuthManager {
         } catch {
             isLoading = false
             if errorMessage == nil {
-                errorMessage = error.localizedDescription
+                errorMessage = friendlyMessage(for: error)
             }
             throw error
         }
@@ -176,7 +206,7 @@ final class AuthManager {
         } catch {
             isLoading = false
             if errorMessage == nil {
-                errorMessage = error.localizedDescription
+                errorMessage = friendlyMessage(for: error)
             }
             throw error
         }
@@ -206,7 +236,7 @@ final class AuthManager {
             try await signInWithGoogle(idToken: idToken, accessToken: accessToken)
         } catch {
             isLoading = false
-            errorMessage = error.localizedDescription
+            errorMessage = friendlyMessage(for: error)
             throw error
         }
     }
@@ -234,7 +264,7 @@ final class AuthManager {
             isLoading = false
         } catch {
             isLoading = false
-            errorMessage = error.localizedDescription
+            errorMessage = friendlyMessage(for: error)
             throw error
         }
     }
@@ -251,7 +281,7 @@ final class AuthManager {
             try await signInWithApple(result: result)
         } catch {
             isLoading = false
-            errorMessage = error.localizedDescription
+            errorMessage = friendlyMessage(for: error)
             throw error
         }
     }
@@ -263,7 +293,7 @@ final class AuthManager {
               let idTokenString = String(data: appleIDToken, encoding: .utf8) else {
             isLoading = false
             let error = AuthError.credentialError
-            errorMessage = error.localizedDescription
+            errorMessage = friendlyMessage(for: error)
             throw error
         }
         
@@ -319,7 +349,7 @@ final class AuthManager {
             isLoading = false
         } catch {
             isLoading = false
-            errorMessage = error.localizedDescription
+            errorMessage = friendlyMessage(for: error)
             throw error
         }
     }
@@ -358,7 +388,7 @@ final class AuthManager {
                     self.isGuestSession = true
                     self.errorMessage = nil
                 } catch {
-                    errorMessage = error.localizedDescription
+                    errorMessage = friendlyMessage(for: error)
                     self.isAuthenticated = false
                     self.currentUser = nil
                     self.isGuestSession = false
@@ -378,7 +408,7 @@ final class AuthManager {
                 self.isGuestSession = false
                 self.errorMessage = nil
             } catch {
-                errorMessage = error.localizedDescription
+                errorMessage = friendlyMessage(for: error)
                 self.isAuthenticated = false
                 self.currentUser = nil
                 self.isGuestSession = false
@@ -398,7 +428,7 @@ final class AuthManager {
             self.isGuestSession = false
             self.errorMessage = nil
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = friendlyMessage(for: error)
             throw error
         }
     }
