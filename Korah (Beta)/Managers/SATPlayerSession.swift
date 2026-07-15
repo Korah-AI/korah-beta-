@@ -63,7 +63,10 @@ final class SATPlayerSession {
         loadState = .loading
         do {
             let response = try await SATService.shared.fetchQuestions(query)
-            questions = response.questions
+            let bank = SATBankStore.shared
+            questions = bank.hasQuestionLevelFilters
+                ? response.questions.filter(bank.matchesQuestionFilters)
+                : response.questions
             loadState = questions.isEmpty ? .empty : .ready
             currentIndex = 0
             restartStopwatch()

@@ -8,46 +8,37 @@ import SwiftUI
 struct SATBankView: View {
     @State private var bank = SATBankStore.shared
     @State private var startQuery: SATQuery?
-    @State private var showFilters = false
-    /// Which section dropdowns are currently expanded. English starts open.
-    @State private var expandedSections: Set<String> = ["english"]
+    /// Which section dropdown is currently expanded, if any. Only one can be
+    /// open at a time (accordion); both start closed.
+    @State private var expandedSection: String?
+    /// Whether the Question set / Difficulty / Time Spent / Saved / Completed
+    /// / Result chip row is showing.
+    @State private var filtersExpanded = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
             ScrollView {
                 VStack(alignment: .leading, spacing: Spacing.md) {
-                    header
-
                     if let error = bank.statsError {
                         errorBanner(error)
                     }
 
-                    sectionDropdown(SATCatalog.english, icon: "book.fill", tint: .satBankBlue)
-                    sectionDropdown(SATCatalog.math, icon: "x.squareroot", tint: .kSuccess)
+                    filterBar
+
+                    sectionDropdown(SATCatalog.english, icon: "book.fill", gradient: Self.englishGradient)
+                    sectionDropdown(SATCatalog.math, icon: "x.squareroot", gradient: Self.mathGradient)
 
                     Spacer(minLength: 110)
                 }
                 .padding(.horizontal, Spacing.md)
+                .padding(.top, Spacing.xs)
             }
 
             startPill
         }
-        .background(Color.kBackground)
-        .navigationTitle("Question Bank")
-        .navigationBarTitleDisplayMode(.large)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showFilters = true
-                } label: {
-                    Image(systemName: "line.3.horizontal.decrease.circle")
-                }
-            }
-        }
-        .sheet(isPresented: $showFilters) {
-            SATBankFiltersSheet(bank: bank)
-                .presentationDetents([.medium])
-        }
+        .kBackground(withStars: true)
+        .navigationTitle("Questionbank")
+        .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(item: $startQuery) { query in
             SATPlayerView(query: query)
         }
@@ -56,34 +47,6 @@ struct SATBankView: View {
             await bank.loadStats(force: true)
             await bank.loadProgress()
         }
-    }
-
-    // MARK: - Header
-
-    private var header: some View {
-        VStack(spacing: Spacing.sm) {
-            Image("newlogo3")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 72, height: 72)
-                .shadow(color: Color.kGlow, radius: 12)
-
-            VStack(spacing: Spacing.xxs) {
-                Text("Official College Board questions")
-                    .font(.kSubheadline.weight(.semibold))
-                    .foregroundStyle(Color.kTextSecondary)
-                if let stats = bank.stats {
-                    Text("\(stats.totalQuestions) questions · \(bank.assessment)")
-                        .font(.kCaption)
-                        .foregroundStyle(Color.kTextTertiary)
-                } else if bank.isLoadingStats {
-                    ProgressView().tint(Color.kAccent)
-                }
-            }
-            .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.top, Spacing.xs)
     }
 
     private func errorBanner(_ message: String) -> some View {
@@ -105,61 +68,296 @@ struct SATBankView: View {
         )
     }
 
+    // MARK: - Filter bar
+    // Question Limit dropdown + a "Filters" toggle that reveals a chip row
+    // (Question set / Difficulty / Time Spent / Saved / Completed / Result).
+    // Mirrors sat/index.html's filter bar.
+
+    @ViewBuilder
+    private var filterBar: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            HStack(spacing: Spacing.sm) {
+                questionLimitMenu
+                filtersToggleButton
+                Spacer(minLength: 0)
+            }
+
+            if filtersExpanded {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: Spacing.xs) {
+                        questionSetChip
+                        difficultyChip
+                        timeSpentChip
+                        savedChip
+                        completedChip
+                        resultChip
+
+                        if bank.hasActiveFilters {
+                            Button {
+                                bank.resetFilters()
+                                Haptics.light()
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "xmark")
+                                        .font(.caption2.weight(.bold))
+                                    Text("Reset filters")
+                                        .font(.kCaption.weight(.semibold))
+                                }
+                                .foregroundStyle(Color.kTextTertiary)
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.leading, Spacing.xxs)
+                        }
+                    }
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+
+    private var questionLimitMenu: some View {
+        Menu {
+            Button("All questions") { bank.limit = nil }
+            ForEach([10, 25, 50, 100], id: \.self) { value in
+                Button("\(value) questions") { bank.limit = value }
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "list.bullet")
+                    .font(.caption.weight(.semibold))
+                Text(bank.limit.map { "\($0) questions" } ?? "Question Limit")
+                    .font(.kSubheadline.weight(.semibold))
+                    .lineLimit(1)
+                Image(systemName: "chevron.down")
+                    .font(.caption2.weight(.bold))
+            }
+            .foregroundStyle(bank.limit != nil ? Color.kAccent : Color.kTextPrimary)
+            .padding(.horizontal, Spacing.sm)
+            .padding(.vertical, Spacing.xs + 2)
+            .background(Capsule().fill(bank.limit != nil ? Color.kAccent.opacity(0.12) : Color.kSurface))
+            .overlay(Capsule().stroke(bank.limit != nil ? Color.kAccent.opacity(0.6) : Color.kBorder.opacity(0.6), lineWidth: 1))
+        }
+    }
+
+    private var filtersToggleButton: some View {
+        Button {
+            withAnimation(KAnimation.smooth) { filtersExpanded.toggle() }
+            Haptics.light()
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "line.3.horizontal.decrease.circle")
+                    .font(.caption.weight(.semibold))
+                Text("Filters")
+                    .font(.kSubheadline.weight(.semibold))
+                Image(systemName: filtersExpanded ? "chevron.up" : "chevron.down")
+                    .font(.caption2.weight(.bold))
+            }
+            .foregroundStyle(filtersExpanded || bank.hasActiveFilters ? Color.kAccent : Color.kTextPrimary)
+            .padding(.horizontal, Spacing.sm)
+            .padding(.vertical, Spacing.xs + 2)
+            .background(Capsule().fill(filtersExpanded || bank.hasActiveFilters ? Color.kAccent.opacity(0.12) : Color.kSurface))
+            .overlay(Capsule().stroke(filtersExpanded || bank.hasActiveFilters ? Color.kAccent.opacity(0.6) : Color.kBorder.opacity(0.6), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// A single dropdown chip in the filter row.
+    private func filterChip<Content: View>(icon: String, label: String, isActive: Bool,
+                                            @ViewBuilder content: () -> Content) -> some View {
+        Menu {
+            content()
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.caption.weight(.semibold))
+                Text(label)
+                    .font(.kCaption.weight(.semibold))
+                    .lineLimit(1)
+                Image(systemName: "chevron.down")
+                    .font(.caption2.weight(.bold))
+            }
+            .foregroundStyle(isActive ? Color.kAccent : Color.kTextSecondary)
+            .padding(.horizontal, Spacing.sm)
+            .padding(.vertical, Spacing.xs + 2)
+            .background(Capsule().fill(isActive ? Color.kAccent.opacity(0.12) : Color.kSurface))
+            .overlay(Capsule().stroke(isActive ? Color.kAccent.opacity(0.6) : Color.kBorder.opacity(0.6), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var questionSetChip: some View {
+        filterChip(icon: "square.stack.3d.up",
+                   label: bank.assessment == "SAT" ? "Question set" : bank.assessment,
+                   isActive: bank.assessment != "SAT") {
+            ForEach(SATCatalog.assessments, id: \.self) { option in
+                Button {
+                    bank.assessment = option
+                    Haptics.selection()
+                } label: {
+                    if bank.assessment == option {
+                        Label(option, systemImage: "checkmark")
+                    } else {
+                        Text(option)
+                    }
+                }
+            }
+        }
+    }
+
+    private var difficultyChip: some View {
+        let label = bank.selectedDifficulties.isEmpty
+            ? "Difficulty"
+            : SATCatalog.difficulties
+                .filter { bank.selectedDifficulties.contains($0.code) }
+                .map(\.label)
+                .joined(separator: ", ")
+        return filterChip(icon: "chart.bar.fill", label: label, isActive: !bank.selectedDifficulties.isEmpty) {
+            ForEach(SATCatalog.difficulties, id: \.code) { entry in
+                Button {
+                    if bank.selectedDifficulties.contains(entry.code) {
+                        bank.selectedDifficulties.remove(entry.code)
+                    } else {
+                        bank.selectedDifficulties.insert(entry.code)
+                    }
+                    Haptics.selection()
+                } label: {
+                    if bank.selectedDifficulties.contains(entry.code) {
+                        Label(entry.label, systemImage: "checkmark")
+                    } else {
+                        Text(entry.label)
+                    }
+                }
+            }
+        }
+    }
+
+    private var timeSpentChip: some View {
+        filterChip(icon: "clock",
+                   label: bank.timeSpentFilter == .any ? "Time Spent" : bank.timeSpentFilter.rawValue,
+                   isActive: bank.timeSpentFilter != .any) {
+            ForEach(SATTimeSpentFilter.allCases) { option in
+                Button {
+                    bank.timeSpentFilter = option
+                    Haptics.selection()
+                } label: {
+                    if bank.timeSpentFilter == option {
+                        Label(option.rawValue, systemImage: "checkmark")
+                    } else {
+                        Text(option.rawValue)
+                    }
+                }
+            }
+        }
+    }
+
+    private var savedChip: some View {
+        filterChip(icon: "bookmark.fill", label: "Saved", isActive: bank.savedOnly) {
+            Button {
+                bank.savedOnly.toggle()
+                Haptics.selection()
+            } label: {
+                if bank.savedOnly {
+                    Label("Saved only", systemImage: "checkmark")
+                } else {
+                    Text("Saved only")
+                }
+            }
+        }
+    }
+
+    private var completedChip: some View {
+        filterChip(icon: "checkmark.circle.fill",
+                   label: bank.completionFilter == .any ? "Completed" : bank.completionFilter.rawValue,
+                   isActive: bank.completionFilter != .any) {
+            ForEach(SATCompletionFilter.allCases) { option in
+                Button {
+                    bank.completionFilter = option
+                    Haptics.selection()
+                } label: {
+                    if bank.completionFilter == option {
+                        Label(option.rawValue, systemImage: "checkmark")
+                    } else {
+                        Text(option.rawValue)
+                    }
+                }
+            }
+        }
+    }
+
+    private var resultChip: some View {
+        filterChip(icon: "circle.lefthalf.filled",
+                   label: bank.resultFilter == .any ? "Result" : bank.resultFilter.rawValue,
+                   isActive: bank.resultFilter != .any) {
+            ForEach(SATResultFilter.allCases) { option in
+                Button {
+                    bank.resultFilter = option
+                    Haptics.selection()
+                } label: {
+                    if bank.resultFilter == option {
+                        Label(option.rawValue, systemImage: "checkmark")
+                    } else {
+                        Text(option.rawValue)
+                    }
+                }
+            }
+        }
+    }
+
     // MARK: - Section dropdown
 
     /// A collapsible dropdown for a whole SAT section (English or Math). The
     /// leading checkbox toggles selecting every topic in the section; the rest
     /// of the header expands/collapses the domain + skill list.
-    private func sectionDropdown(_ section: SATSectionInfo, icon: String, tint: Color) -> some View {
-        let isExpanded = expandedSections.contains(section.key)
+    private func sectionDropdown(_ section: SATSectionInfo, icon: String, gradient: LinearGradient) -> some View {
+        let isExpanded = expandedSection == section.key
         let count = bank.questionCount(forSection: section)
 
-        return VStack(alignment: .leading, spacing: Spacing.sm) {
+        return VStack(spacing: 0) {
+            // Gradient header — matches the section cards on the Practice tab.
             HStack(spacing: Spacing.sm) {
                 Button {
                     withAnimation(KAnimation.quick) { bank.toggleSection(section) }
                     Haptics.selection()
                 } label: {
-                    checkbox(isOn: bank.isSectionSelected(section))
+                    checkbox(isOn: bank.isSectionSelected(section), activeTint: .white, inactiveTint: Color.white.opacity(0.6))
                 }
                 .buttonStyle(.plain)
 
                 Button {
-                    withAnimation(KAnimation.quick) {
-                        if isExpanded { expandedSections.remove(section.key) }
-                        else { expandedSections.insert(section.key) }
+                    withAnimation(KAnimation.smooth) {
+                        expandedSection = isExpanded ? nil : section.key
                     }
                     Haptics.light()
                 } label: {
-                    HStack(spacing: Spacing.sm) {
-                        Image(systemName: icon)
-                            .font(.headline)
-                            .foregroundStyle(tint)
-                            .frame(width: 34, height: 34)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(tint.opacity(0.15))
-                            )
-                        VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: Spacing.md) {
+                        VStack(alignment: .leading, spacing: 4) {
                             Text(SATCatalog.sectionLabels[section.key] ?? section.label)
-                                .font(.kTitle3)
-                                .foregroundStyle(Color.kTextPrimary)
-                            if count > 0 {
-                                Text("\(count) questions")
-                                    .font(.kCaption)
-                                    .foregroundStyle(Color.kTextTertiary)
-                            }
+                                .font(.kTitle2.weight(.bold))
+                                .foregroundStyle(.white)
+                            Text(count > 0 ? "\(count) questions" : "\(section.domains.count) domains")
+                                .font(.kSubheadline)
+                                .foregroundStyle(Color.white.opacity(0.85))
                         }
                         Spacer()
+                        Image(systemName: icon)
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 44, height: 44)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .fill(Color.white.opacity(0.2))
+                            )
                         Image(systemName: "chevron.down")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Color.kTextTertiary)
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(Color.white.opacity(0.85))
                             .rotationEffect(.degrees(isExpanded ? 0 : -90))
                     }
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
+            .padding(Spacing.lg)
+            .background(gradient)
 
             if isExpanded {
                 VStack(alignment: .leading, spacing: Spacing.sm) {
@@ -167,14 +365,16 @@ struct SATBankView: View {
                         domainGroup(section: section, domain: domain)
                     }
                 }
+                .padding(Spacing.md)
+                .background(Color.kSurface)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .padding(Spacing.md)
-        .kGlassEffect(cornerRadius: CornerRadius.xl)
+        .background(Color.kSurface)
+        .clipShape(RoundedRectangle(cornerRadius: CornerRadius.xl, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: CornerRadius.xl, style: .continuous)
-                .stroke(tint.opacity(isExpanded ? 0.35 : 0.0), lineWidth: 1)
+                .stroke(Color.kBorder.opacity(0.6), lineWidth: 1)
         )
     }
 
@@ -270,10 +470,11 @@ struct SATBankView: View {
         percent >= 60 ? .kSuccess : percent >= 35 ? .kGold : .kError
     }
 
-    private func checkbox(isOn: Bool, small: Bool = false) -> some View {
+    private func checkbox(isOn: Bool, small: Bool = false,
+                          activeTint: Color = .kAccent, inactiveTint: Color = .kTextTertiary) -> some View {
         Image(systemName: isOn ? "checkmark.square.fill" : "square")
             .font(small ? .subheadline : .title3)
-            .foregroundStyle(isOn ? Color.kAccent : Color.kTextTertiary)
+            .foregroundStyle(isOn ? activeTint : inactiveTint)
     }
 
     // MARK: - Bottom start pill
@@ -334,78 +535,6 @@ struct SATBankView: View {
     }
 }
 
-// MARK: - Filters sheet (assessment / difficulty / limit)
-
-struct SATBankFiltersSheet: View {
-    @Bindable var bank: SATBankStore
-    @Environment(\.dismiss) private var dismiss
-    @State private var limitText = ""
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Question set") {
-                    Picker("Assessment", selection: $bank.assessment) {
-                        ForEach(SATCatalog.assessments, id: \.self) { Text($0) }
-                    }
-                    .pickerStyle(.segmented)
-                }
-
-                Section("Difficulty") {
-                    HStack(spacing: Spacing.xs) {
-                        ForEach(SATCatalog.difficulties, id: \.code) { difficulty in
-                            let isOn = bank.selectedDifficulties.contains(difficulty.code)
-                            Button {
-                                if isOn { bank.selectedDifficulties.remove(difficulty.code) }
-                                else { bank.selectedDifficulties.insert(difficulty.code) }
-                                Haptics.selection()
-                            } label: {
-                                Text(difficulty.label)
-                                    .font(.kSubheadline)
-                                    .foregroundStyle(isOn ? .white : Color.kTextSecondary)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 9)
-                                    .background(
-                                        Capsule().fill(isOn ? Color.kAccent : Color.kSurface)
-                                    )
-                                    .overlay(Capsule().stroke(Color.kBorder, lineWidth: isOn ? 0 : 1))
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .listRowBackground(Color.clear)
-                }
-
-                Section("Question limit") {
-                    TextField("No limit", text: $limitText)
-                        .keyboardType(.numberPad)
-                        .onChange(of: limitText) { _, newValue in
-                            bank.limit = Int(newValue).flatMap { $0 > 0 ? $0 : nil }
-                        }
-                    Toggle("Randomize order", isOn: $bank.randomize)
-                }
-
-                Section {
-                    Button("Reset all filters", role: .destructive) {
-                        bank.resetFilters()
-                        limitText = ""
-                    }
-                }
-            }
-            .navigationTitle("Filters")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                }
-            }
-            .onAppear {
-                limitText = bank.limit.map(String.init) ?? ""
-            }
-        }
-    }
-}
-
 // MARK: - SATQuery needs Hashable for navigationDestination(item:)
 
 extension SATQuery: Hashable {
@@ -424,8 +553,14 @@ extension SATQuery: Hashable {
 }
 
 // MARK: - Bank palette
+// Same color-blocking as the section cards on the Practice tab.
 
-private extension Color {
-    /// Blue accent used for the Reading & Writing (English) dropdown.
-    static let satBankBlue = Color(red: 0.38, green: 0.56, blue: 0.96)
+private extension SATBankView {
+    static let englishGradient = LinearGradient(
+        colors: [Color(red: 0.30, green: 0.51, blue: 0.94), Color(red: 0.30, green: 0.71, blue: 0.91)],
+        startPoint: .leading, endPoint: .trailing)
+
+    static let mathGradient = LinearGradient(
+        colors: [Color(red: 0.22, green: 0.65, blue: 0.45), Color(red: 0.36, green: 0.78, blue: 0.55)],
+        startPoint: .leading, endPoint: .trailing)
 }
