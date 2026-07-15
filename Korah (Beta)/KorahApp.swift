@@ -26,55 +26,53 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 struct KorahApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @State private var authCheckComplete = false
-    /// Resets to `false` on every app launch — onboarding is shown once
-    /// per session before the user reaches LoginView.
-    @State private var hasSeenOnboardingThisSession = false
+    /// Launch overlay (icon → "Korah AI" lockup → zoom) stays up until its
+    /// animation finishes AND the auth check is done. No spinner, ever.
+    @State private var showLaunchOverlay = true
     private let authManager = AuthManager.shared
     private let studyService = FirestoreStudyService.shared
     private let conversationService = FirestoreConversationService.shared
     @State private var themeManager = ThemeManager.shared
 
     init() {
+        setupTabBarAppearance()
         setupNotifications()
     }
 
     var body: some Scene {
         WindowGroup {
             ZStack {
-                if !authCheckComplete {
-                    // Brief loading state while Firebase checks auth
-                    ZStack {
-                        TwinklingStarsBackground(starCount: 80)
-                            .ignoresSafeArea()
-                        ProgressView()
-                            .tint(.white)
-                    }
-                    .transition(.opacity)
-
-                } else if authManager.isAuthenticated {
-                    // Authenticated: straight to launcher (has its own first-run onboarding)
-                    LauncherView()
-                        .transition(.opacity)
-
-                } else if !hasSeenOnboardingThisSession {
-                    // Unauthenticated + first open this session: show onboarding
-                    OnboardingView(isOnboardingComplete: $hasSeenOnboardingThisSession)
-                        .transition(.opacity)
-
-                } else {
-                    // Unauthenticated + onboarding done: show login.
-                    // Make NavigationStack the container and apply star background behind it.
-                    NavigationStack {
-                        LoginView()
-                            .navigationBarTitleDisplayMode(.inline)
-                    }
-                    .background(
-                        ZStack {
-                            TwinklingStarsBackground(starCount: 80)
-                                .ignoresSafeArea()
+                if authCheckComplete {
+                    if authManager.isAuthenticated {
+                        // Authenticated: straight to launcher (has its own
+                        // first-run onboarding)
+                        LauncherView()
+                            .transition(.opacity)
+                    } else {
+                        // Unauthenticated: straight to login. Make
+                        // NavigationStack the container and apply star
+                        // background behind it.
+                        NavigationStack {
+                            LoginView()
+                                .navigationBarTitleDisplayMode(.inline)
                         }
-                    )
-                    .transition(.opacity)
+                        .background(
+                            ZStack {
+                                TwinklingStarsBackground(starCount: 80)
+                                    .ignoresSafeArea()
+                            }
+                        )
+                        .transition(.opacity)
+                    }
+                }
+
+                // Launch overlay: app icon while auth loads, then the
+                // "Korah AI" reveal + zoom-through into the app.
+                if showLaunchOverlay {
+                    LaunchAnimationView(isReady: authCheckComplete) {
+                        showLaunchOverlay = false
+                    }
+                    .zIndex(1)
                 }
             }
             .preferredColorScheme(themeManager.colorScheme ?? .dark)
@@ -111,6 +109,33 @@ struct KorahApp: App {
         }
     }
     
+    /// Configures the tab bar's tinted (selected item) color via the UIKit
+    /// appearance proxy. This runs in `init()`, before any `UITabBar` is
+    /// created, so the tint is correct on the very first render. Relying on
+    /// SwiftUI's `.tint()` alone left the tab bar untinted on cold launch and
+    /// only correct after backgrounding/foregrounding forced a rebuild.
+    private func setupTabBarAppearance() {
+        // `Color.kAccent` is backed by a dynamic UIColor (see Color.adaptive),
+        // so this bridges back to a dynamic UIColor that stays correct in
+        // light/dark rather than being frozen at init() time.
+        let accent = UIColor(Color.kAccent)
+
+        let appearance = UITabBarAppearance()
+        appearance.configureWithDefaultBackground()
+
+        for itemAppearance in [
+            appearance.stackedLayoutAppearance,
+            appearance.inlineLayoutAppearance,
+            appearance.compactInlineLayoutAppearance
+        ] {
+            itemAppearance.selected.iconColor = accent
+            itemAppearance.selected.titleTextAttributes = [.foregroundColor: accent]
+        }
+
+        UITabBar.appearance().standardAppearance = appearance
+        UITabBar.appearance().scrollEdgeAppearance = appearance
+    }
+
     private func setupNotifications() {
         // Request notification permissions
         NotificationManager.shared.requestPermission { granted in

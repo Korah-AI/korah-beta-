@@ -7,30 +7,19 @@ struct LauncherView: View {
     @AppStorage("LastMoodCheckInDate") private var lastMoodCheckInDate: Double = 0
     
     var body: some View {
+        // The launch animation overlay is hosted app-wide in KorahApp now.
         ZStack {
-            // Main content layer - only show after launch animation completes
-            if !appState.shouldShowLaunchAnimation {
-                Group {
-                    if !appState.hasCompletedOnboarding {
-                        // Show onboarding for first-time users
-                        OnboardingView(isOnboardingComplete: $appState.hasCompletedOnboarding)
-                    } else {
-                        // Show main app content
-                        MainTabView()
-                    }
-                }
-                .transition(.opacity)
-            }
-            
-            // Launch animation overlay (shows first on fresh app launch)
-            if appState.shouldShowLaunchAnimation {
-                LaunchAnimationView(onComplete: {
-                    appState.dismissLaunchAnimation()
-                })
-                .transition(.opacity)
-                .zIndex(1)
+            if !appState.hasCompletedOnboarding {
+                // Show onboarding for first-time users
+                OnboardingView(isOnboardingComplete: $appState.hasCompletedOnboarding)
+                    .transition(.opacity)
+            } else {
+                // Show main app content
+                MainTabView()
+                    .transition(.opacity)
             }
         }
+        .animation(.easeInOut(duration: 0.4), value: appState.hasCompletedOnboarding)
         .onAppear {
             // Track app open for streak
             streakManager.checkAndUpdateStreak()
