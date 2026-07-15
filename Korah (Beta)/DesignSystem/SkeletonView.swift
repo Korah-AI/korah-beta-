@@ -86,3 +86,62 @@ struct SATQuestionSkeleton: View {
         .padding(.top, applyPadding ? Spacing.sm : 0)
     }
 }
+
+// MARK: - Profile dashboard skeleton
+
+/// Mirrors the shape of the Profile tab's progress dashboard (score card,
+/// stat grid, section cards) so it reads as "already there" while the SAT
+/// analytics load, instead of swapping a spinner for the real layout.
+struct SATProfileSkeleton: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.lg) {
+            // Score card
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                HStack {
+                    SkeletonBox(height: 18).frame(width: 110)
+                    Spacer()
+                    SkeletonBox(height: 16).frame(width: 90)
+                }
+                SkeletonBox(height: 8)
+                SkeletonBox(height: 8)
+            }
+            .padding(Spacing.md)
+            .satCard(tint: .kSuccess, logo: "newlogo3")
+
+            // Stat grid
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: Spacing.sm) {
+                ForEach(0..<4, id: \.self) { _ in
+                    VStack(alignment: .leading, spacing: 6) {
+                        SkeletonBox(height: 12).frame(width: 80)
+                        SkeletonBox(height: 26).frame(width: 60)
+                        Spacer(minLength: 8)
+                        HStack { Spacer(); SkeletonBox(cornerRadius: CornerRadius.xxl, height: 18).frame(width: 18) }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: 118)
+                    .padding(Spacing.md)
+                    .satCard(tint: .kAccentLight, logo: "newlogo10")
+                }
+            }
+
+            // Section cards
+            HStack(spacing: Spacing.sm) {
+                ForEach(0..<2, id: \.self) { index in
+                    VStack(alignment: .leading, spacing: 6) {
+                        SkeletonBox(height: 12).frame(width: 100)
+                        SkeletonBox(height: 26).frame(width: 50)
+                        Spacer(minLength: 8)
+                        HStack {
+                            SkeletonBox(cornerRadius: CornerRadius.md, height: 32).frame(width: 80)
+                            Spacer()
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: 150)
+                    .padding(Spacing.md)
+                    .satCard(tint: index == 0 ? .kAccent : .kSuccess, logo: index == 0 ? "newlogo0" : "newlogo2")
+                }
+            }
+        }
+    }
+}

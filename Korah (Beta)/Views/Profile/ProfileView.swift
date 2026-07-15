@@ -31,10 +31,7 @@ struct ProfileView: View {
                     accountCard
 
                     if model.isLoading && !model.hasLoadedOnce {
-                        ProgressView("Loading your progress…")
-                            .tint(Color.kAccent)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, Spacing.section)
+                        SATProfileSkeleton()
                     } else if model.totals.answered == 0 && model.profile == nil {
                         emptyProgressState
                     } else {
@@ -121,22 +118,31 @@ struct ProfileView: View {
                 .scaledToFill()
                 .frame(width: 56, height: 56)
                 .clipShape(Circle())
-                .overlay(Circle().stroke(Color.kAccent.opacity(0.4), lineWidth: 1.5))
+                .overlay(Circle().stroke(Color.white.opacity(0.6), lineWidth: 1.5))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(authManager.currentUser?.firstName ?? "Student")
                     .font(.kHeadline)
-                    .foregroundStyle(Color.kTextPrimary)
+                    .foregroundStyle(.white)
                 if let email = authManager.currentUser?.email, !email.isEmpty {
                     Text(email)
                         .font(.kCaption)
-                        .foregroundStyle(Color.kTextSecondary)
+                        .foregroundStyle(.white.opacity(0.85))
                 }
             }
             Spacer()
         }
         .padding(Spacing.md)
-        .satCard(tint: .kAccent, logo: "newlogo2")
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            LinearGradient(colors: [Color.satTeal, Color.satTeal.lightened(by: 0.18)],
+                           startPoint: .leading, endPoint: .trailing)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color.satTeal.opacity(0.35), lineWidth: 1)
+        )
     }
 
     // MARK: - Empty progress state
@@ -165,22 +171,17 @@ struct ProfileView: View {
     // MARK: - Score progress
 
     private var scoreCard: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            HStack {
-                Text("Score Goals")
-                    .font(.kHeadline)
-                    .foregroundStyle(Color.kTextPrimary)
-                Spacer()
-                Text(goalHeadline)
-                    .font(.kSubheadline.bold())
-                    .kGradientText()
-            }
+        SATGradientCard(title: "Score Goals",
+                        subtitle: goalHeadline,
+                        systemImage: "target",
+                        tint: .kSuccess) {
+            scoreRow(label: "Reading & Writing", current: model.profile?.englishScore, goal: model.profile?.englishGoal, tint: .satStatBlue)
+            scoreRow(label: "Math", current: model.profile?.mathScore, goal: model.profile?.mathGoal, tint: .kSuccess)
 
-            scoreRow(label: "Reading & Writing", current: model.profile?.englishScore, goal: model.profile?.englishGoal)
-            scoreRow(label: "Math", current: model.profile?.mathScore, goal: model.profile?.mathGoal)
+            SATCardButton(title: "Update goals", tint: .kSuccess) {
+                showGoalEditor = true
+            }
         }
-        .padding(Spacing.md)
-        .satCard(tint: .kSuccess, logo: "newlogo3")
     }
 
     private var goalHeadline: String {
@@ -192,7 +193,7 @@ struct ProfileView: View {
         return remaining <= 0 ? "Goals reached! 🎉" : "\(remaining) points to go"
     }
 
-    private func scoreRow(label: String, current: Int?, goal: Int?) -> some View {
+    private func scoreRow(label: String, current: Int?, goal: Int?, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text(label)
@@ -209,7 +210,7 @@ struct ProfileView: View {
                     if let current, let goal, goal > 200 {
                         let fraction = max(0, min(1, Double(current - 200) / Double(goal - 200)))
                         Capsule()
-                            .fill(LinearGradient.kPurpleGradient)
+                            .fill(tint)
                             .frame(width: geo.size.width * fraction)
                     }
                 }
@@ -222,16 +223,16 @@ struct ProfileView: View {
 
     private var statGrid: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: Spacing.sm) {
-            statCard(icon: "checkmark.circle.fill", tint: .kSuccess, logo: "newlogo5",
+            statCard(icon: "checkmark.circle.fill", tint: .kSuccess,
                      value: "\(model.totals.answered)",
                      label: "Questions Answered")
-            statCard(icon: "target", tint: .kAccent, logo: "newlogo10",
+            statCard(icon: "target", tint: .satStatBlue,
                      value: model.totals.answered > 0 ? "\(Int((model.totals.accuracy * 100).rounded()))%" : "—",
                      label: "Accuracy")
-            statCard(icon: "bolt.fill", tint: .kGold, logo: "newlogo11",
+            statCard(icon: "bolt.fill", tint: .kGold,
                      value: model.totals.totalXP.formatted(),
                      label: "Level \(SATXP.level(for: model.totals.totalXP))")
-            statCard(icon: "clock.fill", tint: .kAccentLight, logo: "newlogo12",
+            statCard(icon: "clock.fill", tint: .korahPink,
                      value: practiceTimeText,
                      label: "All-Time Practice")
         }
@@ -247,30 +248,14 @@ struct ProfileView: View {
     /// Mirrors `SATHomeView.statCard`: small label, large value, spacer,
     /// icon pinned bottom-trailing — at the same fixed height so every
     /// card in the grid lines up identically.
-    private func statCard(icon: String, tint: Color, logo: String, value: String, label: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(label)
-                .font(.kFootnote.weight(.medium))
-                .foregroundStyle(Color.kTextSecondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+    private func statCard(icon: String, tint: Color, value: String, label: String) -> some View {
+        SATGradientCard(title: label, systemImage: icon, tint: tint, compact: true) {
             Text(value)
-                .font(.jakarta(30, relativeTo: .title).weight(.bold))
+                .font(.jakarta(24, relativeTo: .title2).weight(.bold))
                 .foregroundStyle(Color.kTextPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
-            Spacer(minLength: 8)
-            HStack {
-                Spacer()
-                Image(systemName: icon)
-                    .font(.callout)
-                    .foregroundStyle(tint)
-            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: 118)
-        .padding(Spacing.md)
-        .satCard(tint: tint, logo: logo)
     }
 
     // MARK: - Section cards
@@ -282,8 +267,7 @@ struct ProfileView: View {
         }
     }
 
-    /// Mirrors `SATHomeView.actionStatCard`: label, large value, spacer,
-    /// then a pill button + trailing icon pinned to the bottom.
+    /// A per-section accuracy tile with a Practice / Review button.
     private func sectionCard(section: String, label: String) -> some View {
         let tint: Color = section == "english" ? .satStatBlue : .kSuccess
         let domains = model.domains.filter { $0.section == section }
@@ -292,100 +276,54 @@ struct ProfileView: View {
             ? domains.reduce(0.0) { $0 + $1.accuracy * Double($1.attempts) } / Double(attempts)
             : 0
         let missed = section == "english" ? model.missedEnglish : model.missedMath
-        let buttonSolid = !missed.isEmpty
 
-        return VStack(alignment: .leading, spacing: 6) {
-            Text(label)
-                .font(.kFootnote.weight(.medium))
-                .foregroundStyle(Color.kTextSecondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+        return SATGradientCard(title: label, systemImage: "chart.bar.fill", tint: tint) {
             Text(attempts > 0 ? "\(Int((weighted * 100).rounded()))%" : "—")
                 .font(.jakarta(30, relativeTo: .title).weight(.bold))
                 .foregroundStyle(Color.kTextPrimary)
-            Spacer(minLength: 8)
-            HStack(alignment: .bottom) {
-                Button {
-                    if missed.isEmpty {
-                        reviewQuery = SATQuery(sections: [section])
-                    } else {
-                        reviewQuery = SATQuery(questionIds: Array(missed.prefix(20)))
-                    }
-                } label: {
-                    Text(missed.isEmpty ? "Practice" : "Review \(missed.count)")
-                        .font(.kCaption.weight(.bold))
-                        .foregroundStyle(buttonSolid ? .white : Color.kTextPrimary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(buttonSolid ? AnyShapeStyle(tint) : AnyShapeStyle(Color.white.opacity(0.06)))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .stroke(buttonSolid ? Color.clear : Color.kBorder, lineWidth: 1)
-                        )
+
+            SATCardButton(title: missed.isEmpty ? "Practice" : "Review \(missed.count)", tint: tint) {
+                if missed.isEmpty {
+                    reviewQuery = SATQuery(sections: [section])
+                } else {
+                    reviewQuery = SATQuery(questionIds: Array(missed.prefix(20)))
                 }
-                .buttonStyle(.plain)
-
-                Spacer()
-
-                Image(systemName: "chart.bar.fill")
-                    .font(.callout)
-                    .foregroundStyle(tint)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: 150)
-        .padding(Spacing.md)
-        .satCard(tint: tint, logo: section == "english" ? "newlogo0" : "newlogo2")
     }
 
     // MARK: - Focus banner
 
     private func focusBanner(_ top: SATAnalyticsService.SkillSuggestion) -> some View {
-        HStack(spacing: Spacing.sm) {
-            Image(systemName: "scope")
-                .font(.title3)
-                .foregroundStyle(Color.satCoral)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Focus on: \(top.skillName)")
-                    .font(.kSubheadline.bold())
-                    .foregroundStyle(Color.kTextPrimary)
-                Text(top.attempts > 0
-                     ? "\(top.domain) · \(Int((top.accuracy * 100).rounded()))% over \(top.attempts) attempt\(top.attempts == 1 ? "" : "s")"
-                     : "\(top.domain) · not yet practiced")
-                    .font(.kCaption)
-                    .foregroundStyle(Color.kTextSecondary)
-            }
-            Spacer()
-            Button("Go") {
+        SATGradientCard(title: "Focus Skill",
+                        subtitle: top.skillName,
+                        systemImage: "scope",
+                        tint: .satCoral) {
+            Text(top.attempts > 0
+                 ? "\(top.domain) · \(Int((top.accuracy * 100).rounded()))% over \(top.attempts) attempt\(top.attempts == 1 ? "" : "s")"
+                 : "\(top.domain) · not yet practiced")
+                .font(.kSubheadline)
+                .foregroundStyle(Color.kTextSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            SATCardButton(title: "Practice this skill", tint: .satCoral) {
                 reviewQuery = model.practiceQuery(for: top)
             }
-            .font(.kCaption.bold())
-            .buttonStyle(.kSecondary)
-            .frame(width: 60)
         }
-        .padding(Spacing.md)
-        .satCard(tint: .satCoral, logo: "newlogo5")
     }
 
     // MARK: - Domain chart (Swift Charts)
 
     private var domainChart: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            Text("Accuracy by domain")
-                .font(.kHeadline)
-                .foregroundStyle(Color.kTextPrimary)
-
+        SATGradientCard(title: "Accuracy by domain",
+                        systemImage: "chart.bar.xaxis",
+                        tint: .satTeal) {
             Chart(model.domains.sorted { $0.attempts > $1.attempts }) { domain in
                 BarMark(
                     x: .value("Accuracy", domain.accuracy * 100),
                     y: .value("Domain", domain.domain)
                 )
-                .foregroundStyle(LinearGradient.kPurpleGradient)
+                .foregroundStyle(by: .value("Domain", domain.domain))
                 .cornerRadius(4)
                 .annotation(position: .trailing) {
                     Text("\(Int((domain.accuracy * 100).rounded()))%")
@@ -393,6 +331,9 @@ struct ProfileView: View {
                         .foregroundStyle(Color.kTextTertiary)
                 }
             }
+            // Solid, distinct colour per domain (no gradient).
+            .chartForegroundStyleScale(range: Self.domainBarColors)
+            .chartLegend(.hidden)
             // Extend past 100 so the trailing "%" annotation on a maxed-out
             // bar has room to sit inside the card instead of spilling past
             // its border.
@@ -407,25 +348,21 @@ struct ProfileView: View {
             }
             .frame(height: CGFloat(model.domains.count) * 42 + 20)
         }
-        .padding(Spacing.md)
-        .satCard(tint: .kAccent, logo: "newlogo10")
     }
 
     // MARK: - Suggestions
 
     private var suggestionList: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            Text("Suggested skills")
-                .font(.kHeadline)
-                .foregroundStyle(Color.kTextPrimary)
-
+        SATGradientCard(title: "Suggested skills",
+                        systemImage: "lightbulb.fill",
+                        tint: .kGold) {
             ForEach(Array(model.suggestions.enumerated()), id: \.element.id) { index, suggestion in
                 HStack(spacing: Spacing.sm) {
                     Text("\(index + 1)")
                         .font(.kCaption.bold())
-                        .foregroundStyle(Color.kAccent)
+                        .foregroundStyle(Color.kGold)
                         .frame(width: 24, height: 24)
-                        .background(Circle().fill(Color.kAccent.opacity(0.12)))
+                        .background(Circle().fill(Color.kGold.opacity(0.12)))
                     VStack(alignment: .leading, spacing: 2) {
                         Text(suggestion.skillName)
                             .font(.kSubheadline)
@@ -445,32 +382,19 @@ struct ProfileView: View {
                         reviewQuery = model.practiceQuery(for: suggestion)
                     }
                     .font(.kCaption.bold())
-                    .foregroundStyle(Color.kAccent)
+                    .foregroundStyle(Color.kGold)
                 }
                 .padding(.vertical, 4)
             }
         }
-        .padding(Spacing.md)
-        .satCard(tint: .kGold, logo: "newlogo11")
     }
 
     // MARK: - Saved questions
 
     private var savedSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            HStack {
-                Text("Saved questions")
-                    .font(.kHeadline)
-                    .foregroundStyle(Color.kTextPrimary)
-                Spacer()
-                Button("Practice all") {
-                    let ids = model.bookmarks.map(\.questionId).prefix(50)
-                    reviewQuery = SATQuery(questionIds: Array(ids))
-                }
-                .font(.kCaption.bold())
-                .foregroundStyle(Color.kAccent)
-            }
-
+        SATGradientCard(title: "Saved questions",
+                        systemImage: "bookmark.fill",
+                        tint: .kGold) {
             ForEach(model.bookmarks.prefix(6)) { bookmark in
                 HStack(spacing: Spacing.sm) {
                     Image(systemName: "bookmark.fill")
@@ -489,23 +413,24 @@ struct ProfileView: View {
                         reviewQuery = SATQuery(questionIds: [bookmark.questionId])
                     }
                     .font(.kCaption.bold())
-                    .foregroundStyle(Color.kAccent)
+                    .foregroundStyle(Color.kGold)
                 }
                 .padding(.vertical, 3)
             }
+
+            SATCardButton(title: "Practice all saved", tint: .kGold) {
+                let ids = model.bookmarks.map(\.questionId).prefix(50)
+                reviewQuery = SATQuery(questionIds: Array(ids))
+            }
         }
-        .padding(Spacing.md)
-        .satCard(tint: .kGold, logo: "newlogo12")
     }
 
     // MARK: - Recent activity
 
     private var recentSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            Text("Recent activity")
-                .font(.kHeadline)
-                .foregroundStyle(Color.kTextPrimary)
-
+        SATGradientCard(title: "Recent activity",
+                        systemImage: "clock.arrow.circlepath",
+                        tint: .satStatBlue) {
             ForEach(model.recent) { attempt in
                 HStack(spacing: Spacing.sm) {
                     Image(systemName: attempt.correct ? "checkmark.circle.fill" : "xmark.circle.fill")
@@ -527,8 +452,6 @@ struct ProfileView: View {
                 .padding(.vertical, 3)
             }
         }
-        .padding(Spacing.md)
-        .satCard(tint: .satStatBlue, logo: "newlogo0")
     }
 
     private func relativeTime(_ iso: String) -> String {
@@ -540,11 +463,9 @@ struct ProfileView: View {
     // MARK: - Preferences
 
     private var preferencesCard: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            Text("Preferences")
-                .font(.kHeadline)
-                .foregroundStyle(Color.kTextPrimary)
-
+        SATGradientCard(title: "Preferences",
+                        systemImage: "gearshape.fill",
+                        tint: .korahPink) {
             HStack {
                 Label("Appearance", systemImage: "circle.lefthalf.filled")
                     .font(.kSubheadline)
@@ -556,7 +477,7 @@ struct ProfileView: View {
                     }
                 }
                 .pickerStyle(.menu)
-                .tint(Color.kAccent)
+                .tint(Color.korahPink)
             }
 
             Divider().overlay(Color.kBorder.opacity(0.4))
@@ -570,17 +491,17 @@ struct ProfileView: View {
                     ForEach(SATCatalog.assessments, id: \.self) { Text($0) }
                 }
                 .pickerStyle(.menu)
-                .tint(Color.kAccent)
+                .tint(Color.korahPink)
             }
         }
-        .padding(Spacing.md)
-        .satCard(tint: .kAccent, logo: "newlogo3")
     }
 
     // MARK: - Danger zone
 
     private var dangerCard: some View {
-        VStack(spacing: Spacing.sm) {
+        SATGradientCard(title: "Account",
+                        systemImage: "person.crop.circle.badge.exclamationmark",
+                        tint: .satCoral) {
             Button {
                 showClearDataConfirm = true
             } label: {
@@ -612,14 +533,14 @@ struct ProfileView: View {
                 .font(.kSubheadline)
             }
         }
-        .padding(Spacing.md)
-        .satCard(tint: .satCoral, logo: "newlogo5")
     }
 
     // MARK: - About
 
     private var aboutCard: some View {
-        VStack(alignment: .leading, spacing: Spacing.xs) {
+        SATGradientCard(title: "About",
+                        systemImage: "info.circle.fill",
+                        tint: .satStatBlue) {
             HStack {
                 Text("Version")
                     .font(.kSubheadline)
@@ -633,8 +554,6 @@ struct ProfileView: View {
                 .font(.kCaption2)
                 .foregroundStyle(Color.kTextTertiary)
         }
-        .padding(Spacing.md)
-        .satCard(tint: .satStatBlue, logo: "newlogo2")
     }
 
     // MARK: - Clear data (mirrors web clearAllData: conversations + study items)
@@ -782,4 +701,23 @@ private extension Color {
     static let satCoral = Color(red: 0.91, green: 0.36, blue: 0.27)
     /// Blue used for the "attempted" and momentum accents.
     static let satStatBlue = Color(red: 0.38, green: 0.56, blue: 0.96)
+    /// Teal used for the account header and domain chart.
+    static let satTeal = Color(red: 0.20, green: 0.68, blue: 0.66)
+    /// Pink/rose used for the "All-Time Practice" stat and preferences card.
+    static let korahPink = Color(red: 0.93, green: 0.35, blue: 0.60)
+}
+
+private extension ProfileView {
+    /// A rotating palette of muted, distinct colours so each bar in the
+    /// "Accuracy by domain" chart reads as its own solid colour.
+    static let domainBarColors: [Color] = [
+        Color(red: 0.38, green: 0.56, blue: 0.96),  // blue
+        Color(red: 0.24, green: 0.72, blue: 0.51),  // green
+        Color(red: 0.95, green: 0.70, blue: 0.28),  // gold
+        Color(red: 0.91, green: 0.42, blue: 0.36),  // coral
+        Color(red: 0.72, green: 0.45, blue: 0.28),  // terracotta
+        Color(red: 0.30, green: 0.72, blue: 0.78),  // teal
+        Color(red: 0.90, green: 0.47, blue: 0.72),  // pink
+        Color(red: 0.56, green: 0.62, blue: 0.72),  // slate
+    ]
 }

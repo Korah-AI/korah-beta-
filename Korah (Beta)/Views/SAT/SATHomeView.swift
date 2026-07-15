@@ -11,6 +11,8 @@ struct SATHomeView: View {
     /// Switches the app to the Profile tab, which now hosts the progress
     /// dashboard that used to live behind `HomeDestination.dashboard`.
     var onOpenProfile: () -> Void = {}
+    /// Switches the app to the Ask Korah (chat) tab.
+    var onOpenChat: () -> Void = {}
 
     @Environment(AuthManager.self) private var authManager
 
@@ -39,7 +41,7 @@ struct SATHomeView: View {
                     hero
                     countdownCard
                     statsSection
-                    desmosCard
+                    askKorahCard
                     scoreJourneyCard
                     focusSection
                     momentumCard
@@ -54,7 +56,6 @@ struct SATHomeView: View {
             .navigationDestination(for: HomeDestination.self) { dest in
                 switch dest {
                 case .bank:      SATBankView()
-                case .mathChat:  MathChatView()
                 case .rush:      SATRushView()
                 case .practice(let plan): SATPlayerView(query: plan.query)
                 }
@@ -82,7 +83,7 @@ struct SATHomeView: View {
                     .padding(.top, 8)
             }
 
-            Image("newlogo11")
+            Image("newlogo2")
                 .resizable()
                 .scaledToFit()
                 .frame(width: 104, height: 104)
@@ -94,11 +95,10 @@ struct SATHomeView: View {
     // MARK: - Countdown
 
     private var countdownCard: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            Text("Time left to SAT exam")
-                .font(.kFootnote.weight(.semibold))
-                .foregroundStyle(Color.kGold)
-
+        SATGradientCard(title: "Time left to SAT exam",
+                        subtitle: examDate.formatted(.dateTime.weekday(.wide).month(.wide).day()),
+                        systemImage: "calendar",
+                        tint: .kGold) {
             HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
                 countdownUnit(countdown.days, "days")
                 countdownUnit(countdown.hours, "hrs", pad: true)
@@ -106,13 +106,10 @@ struct SATHomeView: View {
                 countdownUnit(countdown.seconds, "sec", pad: true)
             }
 
-            Text(examDate.formatted(.dateTime.weekday(.wide).month(.wide).day()))
-                .font(.kSubheadline)
-                .foregroundStyle(Color.kTextSecondary)
+            SATCardButton(title: "Start a practice set", tint: .kGold) {
+                path.append(HomeDestination.practice(PracticePlan(limit: 10, random: true)))
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(Spacing.lg)
-        .satCard(tint: .kGold, logo: "newlogo11")
     }
 
     private func countdownUnit(_ value: Int, _ label: String, pad: Bool = false) -> some View {
@@ -133,168 +130,90 @@ struct SATHomeView: View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             sectionHeader("My Stats", systemImage: "chart.bar.fill", tint: .satStatBlue)
 
-            HStack(spacing: Spacing.sm) {
-                statCard(label: "Questions Attempted",
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: Spacing.sm), GridItem(.flexible())],
+                      spacing: Spacing.sm) {
+                statTile(label: "Questions Attempted",
                          value: "\(totals.answered)",
+                         icon: "checkmark.circle.fill",
                          tint: .satStatBlue,
-                         icon: "checkmark",
-                         iconFilled: true,
-                         logo: "newlogo0",
                          action: { path.append(HomeDestination.bank) })
 
-                statCard(label: "Current Accuracy",
+                statTile(label: "Current Accuracy",
                          value: totals.answered > 0 ? "\(Int((totals.accuracy * 100).rounded()))%" : "—",
-                         tint: .kSuccess,
                          icon: "chart.bar.fill",
-                         logo: "newlogo5",
+                         tint: .kSuccess,
                          action: { onOpenProfile() })
-            }
 
-            HStack(spacing: Spacing.sm) {
-                actionStatCard(label: "Saved Questions",
-                               value: "\(savedIds.count)",
-                               tint: .kAccentLight,
-                               buttonTitle: "View Saved",
-                               buttonSolid: false,
-                               buttonEnabled: !savedIds.isEmpty,
-                               trailingIcon: "bookmark.fill",
-                               logo: "newlogo10",
-                               action: { path.append(HomeDestination.practice(PracticePlan(questionIds: savedIds))) })
+                statTile(label: "Saved Questions",
+                         value: "\(savedIds.count)",
+                         icon: "bookmark.fill",
+                         tint: .satTeal,
+                         caption: savedIds.isEmpty ? "Nothing saved yet" : "Tap to review",
+                         enabled: !savedIds.isEmpty,
+                         action: { path.append(HomeDestination.practice(PracticePlan(questionIds: savedIds))) })
 
-                actionStatCard(label: "Recent Errors",
-                               value: "\(missedIds.count)",
-                               tint: .satCoral,
-                               buttonTitle: "Start Review",
-                               buttonSolid: true,
-                               buttonEnabled: !missedIds.isEmpty,
-                               trailingIcon: "clock.arrow.circlepath",
-                               logo: "newlogo12",
-                               action: { path.append(HomeDestination.practice(PracticePlan(questionIds: missedIds))) })
+                statTile(label: "Recent Errors",
+                         value: "\(missedIds.count)",
+                         icon: "clock.arrow.circlepath",
+                         tint: .satCoral,
+                         caption: missedIds.isEmpty ? "No errors yet" : "Tap to review",
+                         enabled: !missedIds.isEmpty,
+                         action: { path.append(HomeDestination.practice(PracticePlan(questionIds: missedIds))) })
             }
         }
     }
 
-    private func statCard(label: String, value: String, tint: Color,
-                          icon: String, iconFilled: Bool = false,
-                          logo: String = "newlogo3",
+    /// A uniform, compact stat tile — every card in the "My Stats" grid uses
+    /// this same shape (label, big value, optional caption) so the grid reads
+    /// as one neat block instead of mismatched card heights.
+    private func statTile(label: String, value: String, icon: String, tint: Color,
+                          caption: String? = nil, enabled: Bool = true,
                           action: @escaping () -> Void) -> some View {
-        Button {
-            action()
-        } label: {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(label)
-                    .font(.kFootnote.weight(.medium))
-                    .foregroundStyle(Color.kTextSecondary)
+        Button(action: action) {
+            SATGradientCard(title: label, systemImage: icon, tint: tint, compact: true) {
+                Text(value)
+                    .font(.jakarta(24, relativeTo: .title2).weight(.bold))
+                    .foregroundStyle(Color.kTextPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
-                Text(value)
-                    .font(.jakarta(30, relativeTo: .title).weight(.bold))
-                    .foregroundStyle(Color.kTextPrimary)
-                Spacer(minLength: 8)
-                HStack {
-                    Spacer()
-                    if iconFilled {
-                        Image(systemName: icon)
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(Color.kTextPrimary)
-                            .frame(width: 26, height: 26)
-                            .background(Circle().fill(Color.white.opacity(0.12)))
-                    } else {
-                        Image(systemName: icon)
-                            .font(.callout)
-                            .foregroundStyle(tint)
-                    }
+
+                if let caption {
+                    Text(caption)
+                        .font(.kCaption)
+                        .foregroundStyle(Color.kTextTertiary)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: 118)
-            .padding(Spacing.md)
-            .satCard(tint: tint, logo: logo)
         }
         .buttonStyle(.plain)
+        .disabled(!enabled)
+        .opacity(enabled ? 1 : 0.55)
     }
 
-    private func actionStatCard(label: String, value: String, tint: Color,
-                                buttonTitle: String, buttonSolid: Bool,
-                                buttonEnabled: Bool, trailingIcon: String,
-                                logo: String = "newlogo3",
-                                action: @escaping () -> Void) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(label)
-                .font(.kFootnote.weight(.medium))
-                .foregroundStyle(Color.kTextSecondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Text(value)
-                .font(.jakarta(30, relativeTo: .title).weight(.bold))
-                .foregroundStyle(Color.kTextPrimary)
-            Spacer(minLength: 8)
-            HStack(alignment: .bottom) {
-                Button(action: action) {
-                    Text(buttonTitle)
-                        .font(.kCaption.weight(.bold))
-                        .foregroundStyle(buttonSolid ? .white : Color.kTextPrimary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(buttonSolid ? AnyShapeStyle(Color.satCoral)
-                                                  : AnyShapeStyle(Color.white.opacity(0.06)))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .stroke(buttonSolid ? Color.clear : Color.kBorder, lineWidth: 1)
-                        )
-                }
-                .buttonStyle(.plain)
-                .disabled(!buttonEnabled)
-                .opacity(buttonEnabled ? 1 : 0.45)
+    // MARK: - Ask Korah
 
-                Spacer()
+    private var askKorahCard: some View {
+        SATGradientCard(title: "Ask Korah for help on a problem",
+                        subtitle: "Your AI tutor, on demand",
+                        systemImage: "bubble.left.and.bubble.right.fill",
+                        tint: .korahPink) {
+            (Text("Snap a photo or type your question into ").foregroundColor(.kTextSecondary)
+                + Text("Ask Korah").foregroundColor(.kTextPrimary).bold()
+                + Text(" for step-by-step help.").foregroundColor(.kTextSecondary))
+                .font(.kSubheadline)
+                .fixedSize(horizontal: false, vertical: true)
 
-                Image(systemName: trailingIcon)
-                    .font(.callout)
-                    .foregroundStyle(tint)
+            SATCardButton(title: "Ask Korah", tint: .korahPink) {
+                onOpenChat()
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: 150)
-        .padding(Spacing.md)
-        .satCard(tint: tint, logo: logo)
-    }
-
-    // MARK: - Desmos
-
-    private var desmosCard: some View {
-        Button {
-            path.append(HomeDestination.mathChat)
-        } label: {
-            VStack(spacing: Spacing.xs) {
-                Text("Learn how to use Desmos")
-                    .font(.kTitle3.weight(.bold))
-                    .foregroundStyle(Color.kTextPrimary)
-                (Text("Get started in ").foregroundColor(.kTextSecondary)
-                    + Text("Desmos Chat").foregroundColor(.kGold).bold()
-                    + Text(" to get that math score up, fast.").foregroundColor(.kTextSecondary))
-                    .font(.kSubheadline)
-                    .multilineTextAlignment(.center)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, Spacing.xxl)
-            .padding(.horizontal, Spacing.lg)
-            .satCard(tint: .kGold, logo: "newlogo2")
-        }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Score Journey
 
     private var scoreJourneyCard: some View {
-        VStack(spacing: Spacing.md) {
-            Text("Score Journey")
-                .font(.kTitle3.weight(.bold))
-                .foregroundStyle(Color.kTextPrimary)
-
+        SATGradientCard(title: "Score Journey",
+                        systemImage: "chart.line.uptrend.xyaxis",
+                        tint: .kSuccess) {
             scoreRow(label: "Reading & Writing",
                      current: profile?.englishScore, goal: profile?.englishGoal,
                      tint: .satStatBlue)
@@ -302,19 +221,11 @@ struct SATHomeView: View {
                      current: profile?.mathScore, goal: profile?.mathGoal,
                      tint: .kSuccess)
 
-            Button {
+            SATCardButton(title: hasGoals ? "Update your score goals" : "Set your score goals",
+                          tint: .kSuccess) {
                 onOpenProfile()
-            } label: {
-                Text(hasGoals ? "Update your score goals" : "Set a goal to track your progress.")
-                    .font(.kFootnote)
-                    .foregroundStyle(Color.kTextTertiary)
             }
-            .buttonStyle(.plain)
-            .padding(.top, 2)
         }
-        .frame(maxWidth: .infinity)
-        .padding(Spacing.lg)
-        .satCard(tint: .kSuccess, logo: "newlogo3")
     }
 
     private func scoreRow(label: String, current: Int?, goal: Int?, tint: Color) -> some View {
@@ -323,11 +234,11 @@ struct SATHomeView: View {
                 Text(label.uppercased())
                     .font(.kCaption.weight(.bold))
                     .tracking(0.5)
-                    .foregroundStyle(tint)
+                    .foregroundStyle(Color.kTextSecondary)
                 Spacer()
                 Text("\(current.map(String.init) ?? "—") / \(goal.map(String.init) ?? "—")")
                     .font(.kSubheadline.weight(.semibold))
-                    .foregroundStyle(Color.kTextSecondary)
+                    .foregroundStyle(Color.kTextPrimary)
             }
             ScoreBar(fraction: scoreFraction(current: current, goal: goal), tint: tint)
         }
@@ -336,83 +247,44 @@ struct SATHomeView: View {
     // MARK: - Today's Focus
 
     private var focusSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            sectionHeader("Today's Focus", systemImage: "target", tint: .kSuccess)
+        SATGradientCard(title: "Today's Focus",
+                        subtitle: "Your #1 weakness to fix",
+                        systemImage: "target",
+                        tint: .satCoral) {
+            Text(focusTitle)
+                .font(.kTitle3.weight(.bold))
+                .foregroundStyle(Color.kTextPrimary)
+            Text(focusSubtitle)
+                .font(.kSubheadline)
+                .foregroundStyle(Color.kTextSecondary)
+                .fixedSize(horizontal: false, vertical: true)
 
-            VStack(alignment: .leading, spacing: Spacing.xs) {
-                Text("#1 Weakness to Fix")
-                    .font(.kCaption.weight(.semibold))
-                    .foregroundStyle(Color.satCoral)
-                Text(focusTitle)
-                    .font(.kTitle3.weight(.bold))
-                    .foregroundStyle(Color.kTextPrimary)
-                Text(focusSubtitle)
-                    .font(.kSubheadline)
-                    .foregroundStyle(Color.kTextSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Button {
-                    path.append(HomeDestination.practice(focusPlan))
-                } label: {
-                    HStack(spacing: 6) {
-                        Text("Start Practicing")
-                        Image(systemName: "arrow.right")
-                    }
-                    .font(.kSubheadline.weight(.bold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(Color.satCoral)
-                    )
-                }
-                .buttonStyle(.plain)
-                .padding(.top, Spacing.xs)
+            SATCardButton(title: "Start Practicing", tint: .satCoral) {
+                path.append(HomeDestination.practice(focusPlan))
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(Spacing.lg)
-            .satCard(tint: .satCoral, logo: "newlogo5")
         }
     }
 
     // MARK: - Momentum
 
     private var momentumCard: some View {
-        Button {
-            path.append(HomeDestination.rush)
-        } label: {
-            VStack(alignment: .leading, spacing: Spacing.md) {
-                HStack {
-                    Text("TODAY'S MOMENTUM")
-                        .font(.kCaption.weight(.bold))
-                        .tracking(1)
-                        .foregroundStyle(Color.satStatBlue)
-                    Spacer()
-                    Image(systemName: "clock.fill")
-                        .font(.footnote)
-                        .foregroundStyle(Color.satStatBlue)
-                }
-
-                HStack(spacing: Spacing.xxl) {
-                    momentumStat(value: "\(todayCount)", label: "QUESTIONS")
-                    momentumStat(value: "\(todayXP)", label: "XP EARNED")
-                }
-
-                Rectangle()
-                    .fill(Color.white.opacity(0.08))
-                    .frame(height: 1)
-
-                Text(todayCount > 0 ? "Nice work — keep the streak alive!"
-                                    : "Start practicing to build momentum!")
-                    .font(.kFootnote)
-                    .foregroundStyle(Color.kTextSecondary)
+        SATGradientCard(title: "Today's Momentum",
+                        systemImage: "clock.fill",
+                        tint: .satStatBlue) {
+            HStack(spacing: Spacing.xxl) {
+                momentumStat(value: "\(todayCount)", label: "QUESTIONS")
+                momentumStat(value: "\(todayXP)", label: "XP EARNED")
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(Spacing.lg)
-            .satCard(tint: .satStatBlue, logo: "newlogo0")
+
+            Text(todayCount > 0 ? "Nice work — keep the streak alive!"
+                                : "Start practicing to build momentum!")
+                .font(.kFootnote)
+                .foregroundStyle(Color.kTextSecondary)
+
+            SATCardButton(title: "Jump into a rush", tint: .satStatBlue) {
+                path.append(HomeDestination.rush)
+            }
         }
-        .buttonStyle(.plain)
     }
 
     private func momentumStat(value: String, label: String) -> some View {
@@ -439,69 +311,37 @@ struct SATHomeView: View {
 
     private var tipCard: some View {
         let tip = Self.tips[tipIndex]
-        return VStack(alignment: .leading, spacing: Spacing.sm) {
-            Image(systemName: tip.icon)
-                .font(.title3)
-                .foregroundStyle(Color.kGold)
-                .frame(width: 44, height: 44)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color.kGold.opacity(0.15))
-                )
-
-            Text(tip.category)
-                .font(.kTitle3.weight(.bold))
-                .foregroundStyle(Color.kGold)
-
+        return SATGradientCard(title: "Study Tip",
+                               subtitle: tip.category,
+                               systemImage: tip.icon,
+                               tint: .kGold) {
             Text(tip.body)
                 .font(.kSubheadline)
                 .foregroundStyle(Color.kTextSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            HStack {
-                HStack(spacing: 6) {
-                    ForEach(Self.tips.indices, id: \.self) { i in
-                        Circle()
-                            .fill(i == tipIndex ? Color.kGold : Color.white.opacity(0.15))
-                            .frame(width: 6, height: 6)
-                    }
+            HStack(spacing: 6) {
+                ForEach(Self.tips.indices, id: \.self) { i in
+                    Circle()
+                        .fill(i == tipIndex ? Color.kGold : Color.white.opacity(0.15))
+                        .frame(width: 6, height: 6)
                 }
-                Spacer()
-                Button {
-                    withAnimation(KAnimation.quick) {
-                        tipIndex = (tipIndex + 1) % Self.tips.count
-                    }
-                } label: {
-                    HStack(spacing: 6) {
-                        Text("Next tip")
-                        Image(systemName: "arrow.right")
-                    }
-                    .font(.kCaption.weight(.bold))
-                    .foregroundStyle(Color.kGold)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(Color.kGold.opacity(0.5), lineWidth: 1)
-                    )
-                }
-                .buttonStyle(.plain)
             }
-            .padding(.top, Spacing.xs)
+
+            SATCardButton(title: "Next tip", tint: .kGold) {
+                withAnimation(KAnimation.quick) {
+                    tipIndex = (tipIndex + 1) % Self.tips.count
+                }
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(Spacing.lg)
-        .satCard(tint: .kGold, logo: "newlogo10")
     }
 
     private var wordOfDayCard: some View {
         let word = Self.vocab[vocabIndex]
-        return VStack(alignment: .leading, spacing: Spacing.xs) {
-            Text("WORD OF THE DAY")
-                .font(.kCaption.weight(.bold))
-                .tracking(1)
-                .foregroundStyle(Color.satStatBlue)
-
+        return SATGradientCard(title: "Word of the Day",
+                               subtitle: "\(vocabIndex + 1) of \(Self.vocab.count)",
+                               systemImage: "character.book.closed.fill",
+                               tint: .satStatBlue) {
             Text(word.word)
                 .font(.jakarta(34, relativeTo: .largeTitle).weight(.bold))
                 .foregroundStyle(Color.kTextPrimary)
@@ -532,28 +372,21 @@ struct SATHomeView: View {
                 .padding(.top, 4)
             }
 
-            HStack {
+            HStack(spacing: Spacing.sm) {
                 Button { stepVocab(-1) } label: {
                     vocabNavLabel("Prev", systemImage: "arrow.left", leading: true)
+                        .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.plain)
-
-                Spacer()
-                Text("\(vocabIndex + 1) / \(Self.vocab.count)")
-                    .font(.kFootnote.weight(.medium))
-                    .foregroundStyle(Color.kTextTertiary)
-                Spacer()
 
                 Button { stepVocab(1) } label: {
                     vocabNavLabel("Next", systemImage: "arrow.right", leading: false)
+                        .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.top, Spacing.sm)
+            .padding(.top, Spacing.xs)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(Spacing.lg)
-        .satCard(tint: .satStatBlue, logo: "newlogo12")
     }
 
     private func vocabNavLabel(_ title: String, systemImage: String, leading: Bool) -> some View {
@@ -616,8 +449,14 @@ struct SATHomeView: View {
         return Self.quotes[day % Self.quotes.count]
     }
 
-    /// Next upcoming SAT date (falls back to a fixed 2026 date).
+    /// The user's own planned test date (from onboarding) when set and still
+    /// upcoming; otherwise the next official SAT date (falls back to a fixed
+    /// 2026 date).
     private var examDate: Date {
+        if let ts = profile?.testDate,
+           let chosen = Self.parseTimestamp(ts), chosen > now {
+            return chosen
+        }
         let cal = Calendar.current
         let upcoming = Self.examDates.compactMap { cal.date(from: $0) }
         return upcoming.first { $0 > now } ?? cal.date(from: DateComponents(year: 2026, month: 8, day: 22))!
@@ -742,7 +581,6 @@ struct SATHomeView: View {
 /// A destination on the Home navigation stack.
 enum HomeDestination: Hashable {
     case bank
-    case mathChat
     case rush
     case practice(PracticePlan)
 }
@@ -802,4 +640,8 @@ private extension Color {
     static let satCoral = Color(red: 0.91, green: 0.36, blue: 0.27)
     /// Blue used for the "attempted" and momentum accents.
     static let satStatBlue = Color(red: 0.38, green: 0.56, blue: 0.96)
+    /// Teal used for the "Saved Questions" stat tile.
+    static let satTeal = Color(red: 0.20, green: 0.68, blue: 0.66)
+    /// Pink/rose used for the "Ask Korah" card.
+    static let korahPink = Color(red: 0.93, green: 0.35, blue: 0.60)
 }
