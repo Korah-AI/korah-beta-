@@ -39,8 +39,7 @@ struct SignupView: View {
             TwinklingStarsBackground(starCount: 100)
                 .ignoresSafeArea()
             
-            FittedAuthCard {
-                // Main Bento Card
+            // Main Bento Card
                     VStack(spacing: 28) {
                         // Top Icon (Korah Mascot)
                         AuthLogo(size: 100)
@@ -191,16 +190,15 @@ struct SignupView: View {
                     .padding(.vertical, 40)
                     .background {
                         RoundedRectangle(cornerRadius: 48, style: .continuous)
-                            .fill(Color.kAuthCard)
+                            .fill(Color.kSurface)
                             .overlay {
                                 RoundedRectangle(cornerRadius: 48, style: .continuous)
-                                    .stroke(.blue.opacity(0.35), lineWidth: 1)
+                                    .stroke(Color.kBorder, lineWidth: 1)
                             }
                     }
                     .padding(.horizontal, 24)
                     .opacity(appeared ? 1 : 0)
                     .offset(y: appeared ? 0 : 40)
-            }
         }
         .toolbarBackground(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden()

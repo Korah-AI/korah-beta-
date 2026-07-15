@@ -16,8 +16,7 @@ struct LoginView: View {
             TwinklingStarsBackground(starCount: 100)
                 .ignoresSafeArea()
             
-            FittedAuthCard {
-                // Main Bento Card
+            // Main Bento Card
                     VStack(spacing: 12) {
                         // Top Icon (Korah Mascot)
                         AuthLogo(size: 150)
@@ -134,16 +133,15 @@ struct LoginView: View {
                     .padding(.vertical, 48)
                     .background {
                         RoundedRectangle(cornerRadius: 56, style: .continuous)
-                            .fill(Color.kAuthCard)
+                            .fill(Color.kSurface)
                             .overlay {
                                 RoundedRectangle(cornerRadius: 56, style: .continuous)
-                                    .stroke(.blue.opacity(0.35), lineWidth: 1)
+                                    .stroke(Color.kBorder, lineWidth: 1)
                             }
                     }
                     .padding(.horizontal, 24)
                     .opacity(appeared ? 1 : 0)
                     .offset(y: appeared ? 0 : 40)
-            }
         }
         .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear {
@@ -232,56 +230,65 @@ private struct BentoInputField: View {
 /// that animation gets cancelled by the state changes a tap triggers, which is
 /// why the border froze the moment you clicked.)
 struct BentoGlowingButtonStyle: ButtonStyle {
+    private let corner: CGFloat = 30
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .overlay {
                 TimelineView(.animation) { context in
                     let t = context.date.timeIntervalSinceReferenceDate
-
-                    // The two pulses travel around the edge together (one lap
-                    // every 3s) while their colors cycle through the spectrum.
-                    let angle = Angle.degrees(t / 3 * 360)
-                    let hueA = (t * 0.28).truncatingRemainder(dividingBy: 1)
-                    let hueB = (t * 0.28 + 0.5).truncatingRemainder(dividingBy: 1)
-                    let pulseA = Color(hue: hueA, saturation: 0.9, brightness: 1)
-                    let pulseB = Color(hue: hueB, saturation: 0.9, brightness: 1)
-                    let dim = Color.white.opacity(0.04)
-
-                    // A dim ring with two bright bands 180° apart — sweeping the
-                    // gradient makes the bands read as pulses jumping around.
-                    let gradient = AngularGradient(
-                        gradient: Gradient(stops: [
-                            .init(color: dim,    location: 0.00),
-                            .init(color: dim,    location: 0.17),
-                            .init(color: pulseA, location: 0.25),
-                            .init(color: dim,    location: 0.33),
-                            .init(color: dim,    location: 0.67),
-                            .init(color: pulseB, location: 0.75),
-                            .init(color: dim,    location: 0.83),
-                            .init(color: dim,    location: 1.00),
-                        ]),
-                        center: .center,
-                        angle: angle
-                    )
+                    // Position around the perimeter (one lap every 3s) and the
+                    // pulse color, which cycles through the spectrum over time.
+                    let travel = (t / 3).truncatingRemainder(dividingBy: 1)
+                    let hue = (t * 0.3).truncatingRemainder(dividingBy: 1)
 
                     ZStack {
                         // Faint always-on base edge.
-                        RoundedRectangle(cornerRadius: 30)
-                            .stroke(Color.white.opacity(0.08), lineWidth: 1.5)
+                        RoundedRectangle(cornerRadius: corner)
+                            .stroke(Color.white.opacity(0.10), lineWidth: 1.5)
 
-                        // Soft bloom of the pulses.
-                        RoundedRectangle(cornerRadius: 30)
-                            .stroke(gradient, lineWidth: 3.5)
-                            .blur(radius: 7)
-
-                        // Crisp core of the pulses.
-                        RoundedRectangle(cornerRadius: 30)
-                            .stroke(gradient, lineWidth: 2)
+                        // Two pulses, half a lap apart, in offset colors.
+                        pulse(at: travel, hue: hue)
+                        pulse(at: (travel + 0.5).truncatingRemainder(dividingBy: 1),
+                              hue: (hue + 0.5).truncatingRemainder(dividingBy: 1))
                     }
                 }
             }
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
+    }
+
+    /// A single short, rounded-cap arc of light gliding along the border, with a
+    /// soft bloom behind a crisp core.
+    private func pulse(at phase: Double, hue: Double) -> some View {
+        let color = Color(hue: hue, saturation: 0.9, brightness: 1)
+        return ZStack {
+            BorderArc(start: phase, length: 0.16, cornerRadius: corner)
+                .stroke(color, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                .blur(radius: 7)
+            BorderArc(start: phase, length: 0.13, cornerRadius: corner)
+                .stroke(color, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+        }
+    }
+}
+
+/// A short segment of a rounded-rectangle border, starting at `start` (a 0…1
+/// fraction of the perimeter) and spanning `length`, wrapping around the seam.
+private struct BorderArc: Shape {
+    var start: Double
+    var length: Double
+    var cornerRadius: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let base = Path(roundedRect: rect, cornerRadius: cornerRadius, style: .continuous)
+        let from = CGFloat(start)
+        let to = CGFloat(start + length)
+        if to <= 1 {
+            return base.trimmedPath(from: from, to: to)
+        }
+        // Wraps past the end: draw the tail and the head as two pieces.
+        var path = base.trimmedPath(from: from, to: 1)
+        path.addPath(base.trimmedPath(from: 0, to: to - 1))
+        return path
     }
 }
