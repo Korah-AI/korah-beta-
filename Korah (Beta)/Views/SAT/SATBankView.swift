@@ -18,7 +18,7 @@ struct SATBankView: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             ScrollView {
-                VStack(alignment: .leading, spacing: Spacing.md) {
+                VStack(alignment: .leading, spacing: Spacing.lg) {
                     if let error = bank.statsError {
                         errorBanner(error)
                     }
@@ -30,8 +30,8 @@ struct SATBankView: View {
 
                     Spacer(minLength: 110)
                 }
-                .padding(.horizontal, Spacing.md)
-                .padding(.top, Spacing.xs)
+                .padding(.horizontal, Spacing.lg)
+                .padding(.top, Spacing.sm)
             }
 
             startPill
@@ -83,31 +83,28 @@ struct SATBankView: View {
             }
 
             if filtersExpanded {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: Spacing.xs) {
-                        questionSetChip
-                        difficultyChip
-                        timeSpentChip
-                        savedChip
-                        completedChip
-                        resultChip
+                FlexibleChipLayout(spacing: Spacing.xs) {
+                    questionSetChip
+                    difficultyChip
+                    timeSpentChip
+                    savedChip
+                    completedChip
+                    resultChip
 
-                        if bank.hasActiveFilters {
-                            Button {
-                                bank.resetFilters()
-                                Haptics.light()
-                            } label: {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "xmark")
-                                        .font(.caption2.weight(.bold))
-                                    Text("Reset filters")
-                                        .font(.kCaption.weight(.semibold))
-                                }
-                                .foregroundStyle(Color.kTextTertiary)
+                    if bank.hasActiveFilters {
+                        Button {
+                            bank.resetFilters()
+                            Haptics.light()
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "xmark")
+                                    .font(.caption2.weight(.bold))
+                                Text("Reset filters")
+                                    .font(.kCaption.weight(.semibold))
                             }
-                            .buttonStyle(.plain)
-                            .padding(.leading, Spacing.xxs)
+                            .foregroundStyle(Color.kTextTertiary)
                         }
+                        .buttonStyle(.plain)
                     }
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
@@ -131,11 +128,11 @@ struct SATBankView: View {
                 Image(systemName: "chevron.down")
                     .font(.caption2.weight(.bold))
             }
-            .foregroundStyle(bank.limit != nil ? Color.kAccent : Color.kTextPrimary)
+            .foregroundStyle(bank.limit != nil ? Self.filterActive : Color.kTextPrimary)
             .padding(.horizontal, Spacing.sm)
             .padding(.vertical, Spacing.xs + 2)
-            .background(Capsule().fill(bank.limit != nil ? Color.kAccent.opacity(0.12) : Color.kSurface))
-            .overlay(Capsule().stroke(bank.limit != nil ? Color.kAccent.opacity(0.6) : Color.kBorder.opacity(0.6), lineWidth: 1))
+            .background(Capsule().fill(bank.limit != nil ? Self.filterActive.opacity(0.12) : Color.kSurface))
+            .overlay(Capsule().stroke(bank.limit != nil ? Self.filterActive.opacity(0.6) : Color.kBorder.opacity(0.6), lineWidth: 1))
         }
     }
 
@@ -152,11 +149,11 @@ struct SATBankView: View {
                 Image(systemName: filtersExpanded ? "chevron.up" : "chevron.down")
                     .font(.caption2.weight(.bold))
             }
-            .foregroundStyle(filtersExpanded || bank.hasActiveFilters ? Color.kAccent : Color.kTextPrimary)
+            .foregroundStyle(filtersExpanded || bank.hasActiveFilters ? Self.filterActive : Color.kTextPrimary)
             .padding(.horizontal, Spacing.sm)
             .padding(.vertical, Spacing.xs + 2)
-            .background(Capsule().fill(filtersExpanded || bank.hasActiveFilters ? Color.kAccent.opacity(0.12) : Color.kSurface))
-            .overlay(Capsule().stroke(filtersExpanded || bank.hasActiveFilters ? Color.kAccent.opacity(0.6) : Color.kBorder.opacity(0.6), lineWidth: 1))
+            .background(Capsule().fill(filtersExpanded || bank.hasActiveFilters ? Self.filterActive.opacity(0.12) : Color.kSurface))
+            .overlay(Capsule().stroke(filtersExpanded || bank.hasActiveFilters ? Self.filterActive.opacity(0.6) : Color.kBorder.opacity(0.6), lineWidth: 1))
         }
         .buttonStyle(.plain)
     }
@@ -176,11 +173,11 @@ struct SATBankView: View {
                 Image(systemName: "chevron.down")
                     .font(.caption2.weight(.bold))
             }
-            .foregroundStyle(isActive ? Color.kAccent : Color.kTextSecondary)
+            .foregroundStyle(isActive ? Self.filterActive : Color.kTextSecondary)
             .padding(.horizontal, Spacing.sm)
             .padding(.vertical, Spacing.xs + 2)
-            .background(Capsule().fill(isActive ? Color.kAccent.opacity(0.12) : Color.kSurface))
-            .overlay(Capsule().stroke(isActive ? Color.kAccent.opacity(0.6) : Color.kBorder.opacity(0.6), lineWidth: 1))
+            .background(Capsule().fill(isActive ? Self.filterActive.opacity(0.12) : Color.kSurface))
+            .overlay(Capsule().stroke(isActive ? Self.filterActive.opacity(0.6) : Color.kBorder.opacity(0.6), lineWidth: 1))
         }
         .buttonStyle(.plain)
     }
@@ -329,26 +326,26 @@ struct SATBankView: View {
                     }
                     Haptics.light()
                 } label: {
-                    HStack(spacing: Spacing.md) {
-                        VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: Spacing.lg) {
+                        VStack(alignment: .leading, spacing: 6) {
                             Text(SATCatalog.sectionLabels[section.key] ?? section.label)
-                                .font(.kTitle2.weight(.bold))
+                                .font(.kTitle.weight(.bold))
                                 .foregroundStyle(.white)
                             Text(count > 0 ? "\(count) questions" : "\(section.domains.count) domains")
-                                .font(.kSubheadline)
+                                .font(.kHeadline)
                                 .foregroundStyle(Color.white.opacity(0.85))
                         }
                         Spacer()
                         Image(systemName: icon)
-                            .font(.title3.weight(.semibold))
+                            .font(.title2.weight(.semibold))
                             .foregroundStyle(.white)
-                            .frame(width: 44, height: 44)
+                            .frame(width: 56, height: 56)
                             .background(
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
                                     .fill(Color.white.opacity(0.2))
                             )
                         Image(systemName: "chevron.down")
-                            .font(.headline.weight(.semibold))
+                            .font(.title3.weight(.semibold))
                             .foregroundStyle(Color.white.opacity(0.85))
                             .rotationEffect(.degrees(isExpanded ? 0 : -90))
                     }
@@ -356,7 +353,8 @@ struct SATBankView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(Spacing.lg)
+            .padding(.horizontal, Spacing.xl)
+            .padding(.vertical, Spacing.xxl)
             .background(gradient)
 
             if isExpanded {
@@ -556,6 +554,9 @@ extension SATQuery: Hashable {
 // Same color-blocking as the section cards on the Practice tab.
 
 private extension SATBankView {
+    /// Light blue used for selected/active filter buttons (instead of the purple accent).
+    static let filterActive = Color(red: 0.31, green: 0.62, blue: 0.94)
+
     static let englishGradient = LinearGradient(
         colors: [Color(red: 0.30, green: 0.51, blue: 0.94), Color(red: 0.30, green: 0.71, blue: 0.91)],
         startPoint: .leading, endPoint: .trailing)

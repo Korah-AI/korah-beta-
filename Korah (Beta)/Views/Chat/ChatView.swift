@@ -169,7 +169,7 @@ struct ChatView: View {
                 Spacer(minLength: 48)
 
                 // Hero brand mark
-                Image("newlogo3")
+                Image("newlogo12")
                     .resizable()
                     .scaledToFit()
                     .frame(width: 112, height: 112)
@@ -177,11 +177,11 @@ struct ChatView: View {
 
                 // Title
                 VStack(spacing: Spacing.xs) {
-                    Text("Your SAT study buddy")
+                    Text("Ask Me Anything")
                         .font(.kTitle)
                         .foregroundStyle(Color.kTextPrimary)
 
-                    Text("Ask me anything — math, reading & writing.\nI'll help you cook. 🍳")
+                    Text("Any domain, strategy, problem, or equation. I got you.")
                         .font(.kSubheadline)
                         .foregroundStyle(Color.kTextSecondary)
                 }
@@ -348,17 +348,17 @@ private struct SATStarterCard: View {
                     .font(.kHeadline)
                     .foregroundStyle(.white)
                     .frame(width: 40, height: 40)
-                    .background(RoundedRectangle(cornerRadius: CornerRadius.sm, style: .continuous).fill(starter.accent.solid))
+                    .background(RoundedRectangle(cornerRadius: CornerRadius.sm, style: .continuous).fill(Color.white.opacity(0.2)))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(starter.title)
                         .font(.kBodyBold)
-                        .foregroundStyle(Color.kTextPrimary)
+                        .foregroundStyle(.white)
                         .multilineTextAlignment(.leading)
 
                     Text(starter.subtitle)
                         .font(.kCaption)
-                        .foregroundStyle(Color.kTextSecondary)
+                        .foregroundStyle(.white.opacity(0.85))
                         .multilineTextAlignment(.leading)
                 }
 
@@ -366,17 +366,13 @@ private struct SATStarterCard: View {
 
                 Image(systemName: "chevron.right")
                     .font(.kCaption.weight(.bold))
-                    .foregroundStyle(starter.accent.solid)
+                    .foregroundStyle(.white)
             }
             .padding(Spacing.md)
             .frame(maxWidth: .infinity)
             .background(
                 RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
-                    .fill(starter.accent.tint)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: CornerRadius.card, style: .continuous)
-                    .stroke(starter.accent.border, lineWidth: 1)
+                    .fill(starter.accent.solid)
             )
         }
         .buttonStyle(.plain)

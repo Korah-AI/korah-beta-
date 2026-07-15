@@ -29,6 +29,9 @@ struct KorahApp: App {
     /// Launch overlay (icon → "Korah AI" lockup → zoom) stays up until its
     /// animation finishes AND the auth check is done. No spinner, ever.
     @State private var showLaunchOverlay = true
+    /// Same lockup + zoom, replayed right after a fresh login/signup/Google/
+    /// Apple/guest sign-in — not just on cold launch.
+    @State private var showPostAuthAnimation = false
     private let authManager = AuthManager.shared
     private let studyService = FirestoreStudyService.shared
     private let conversationService = FirestoreConversationService.shared
@@ -85,6 +88,16 @@ struct KorahApp: App {
                     }
                     .zIndex(1)
                 }
+
+                // Same reveal, replayed after a fresh sign-in (the
+                // underlying content has already switched to LauncherView
+                // by this point, so the zoom-through reveals the main app).
+                if showPostAuthAnimation {
+                    LaunchAnimationView(isReady: true) {
+                        showPostAuthAnimation = false
+                    }
+                    .zIndex(1)
+                }
             }
             .preferredColorScheme(themeManager.colorScheme ?? .dark)
             .environment(authManager)
@@ -108,6 +121,12 @@ struct KorahApp: App {
             }
             .onChange(of: authManager.isAuthenticated) { _, isAuthenticated in
                 if isAuthenticated, let uid = authManager.currentUser?.id {
+                    // Only replay the intro for a genuine mid-session
+                    // sign-in — not the cold-launch auth check, which is
+                    // still in flight while `authCheckComplete` is false.
+                    if authCheckComplete {
+                        showPostAuthAnimation = true
+                    }
                     studyService.startListening(uid: uid)
                     conversationService.startListening(uid: uid)
                     Task {
