@@ -1,6 +1,7 @@
 import SwiftUI
 import Charts
 import FirebaseFirestore
+import PhotosUI
 
 // MARK: - Profile tab (Progress dashboard + settings)
 // Now the home of the SAT progress analytics that used to live in
@@ -16,6 +17,7 @@ struct ProfileView: View {
     @State private var themeManager = ThemeManager.shared
     @State private var bank = SATBankStore.shared
     @State private var model = SATDashboardModel()
+    @State private var pfpStore = ProfileImageStore.shared
 
     @State private var showGoalEditor = false
     @State private var reviewQuery: SATQuery?
@@ -23,12 +25,14 @@ struct ProfileView: View {
     @State private var showClearDataConfirm = false
     @State private var isClearingData = false
     @State private var clearDataMessage: String?
+    @State private var pfpPickerItem: PhotosPickerItem?
 
     var body: some View {
         NavigationStack {
+            ScrollViewReader { scrollProxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: Spacing.lg) {
-                    accountCard
+                    accountCard(scrollProxy: scrollProxy)
 
                     if model.isLoading && !model.hasLoadedOnce {
                         SATProfileSkeleton()
@@ -56,7 +60,7 @@ struct ProfileView: View {
                     }
 
                     preferencesCard
-                    dangerCard
+                    dangerCard.id("accountSection")
                     aboutCard
 
                     Spacer(minLength: 40)
@@ -84,20 +88,17 @@ struct ProfileView: View {
                 SATPlayerView(query: query)
             }
             .task { await model.load() }
+            .task { pfpStore.load(for: authManager.currentUser?.id ?? "") }
             .refreshable { await model.load() }
-            .confirmationDialog("Sign out of Korah?", isPresented: $showSignOutConfirm, titleVisibility: .visible) {
-                Button("Sign Out", role: .destructive) {
-                    try? authManager.logout()
+            .onChange(of: pfpPickerItem) { _, newItem in
+                guard let newItem, let uid = authManager.currentUser?.id else { return }
+                Task {
+                    if let data = try? await newItem.loadTransferable(type: Data.self),
+                       let uiImage = UIImage(data: data) {
+                        pfpStore.save(uiImage, for: uid)
+                    }
+                    pfpPickerItem = nil
                 }
-                Button("Cancel", role: .cancel) {}
-            }
-            .confirmationDialog("Delete all your data?", isPresented: $showClearDataConfirm, titleVisibility: .visible) {
-                Button("Delete conversations & study items", role: .destructive) {
-                    Task { await clearAllData() }
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("This permanently deletes your chats, flashcards, guides, and practice tests from all devices. SAT progress is kept.")
             }
             .alert("Data cleared", isPresented: Binding(
                 get: { clearDataMessage != nil },
@@ -106,43 +107,100 @@ struct ProfileView: View {
             } message: {
                 Text(clearDataMessage ?? "")
             }
+            .overlay {
+                if showSignOutConfirm {
+                    KConfirmationPopup(
+                        icon: "rectangle.portrait.and.arrow.right",
+                        title: "Sign out of Korah?",
+                        message: "You can always sign back in with the same account.",
+                        confirmTitle: "Sign Out",
+                        onConfirm: {
+                            showSignOutConfirm = false
+                            try? authManager.logout()
+                        },
+                        onCancel: { showSignOutConfirm = false }
+                    )
+                } else if showClearDataConfirm {
+                    KConfirmationPopup(
+                        icon: "trash",
+                        title: "Delete all your data?",
+                        message: "This permanently deletes your chats, flashcards, guides, and practice tests from all devices. SAT progress is kept.",
+                        confirmTitle: "Delete Everything",
+                        onConfirm: {
+                            showClearDataConfirm = false
+                            Task { await clearAllData() }
+                        },
+                        onCancel: { showClearDataConfirm = false }
+                    )
+                }
+            }
+            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showSignOutConfirm)
+            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showClearDataConfirm)
+            }
         }
     }
 
     // MARK: - Account header
 
-    private var accountCard: some View {
+    private func accountCard(scrollProxy: ScrollViewProxy) -> some View {
         HStack(spacing: Spacing.md) {
-            Image("korahimg")
-                .resizable()
-                .scaledToFill()
-                .frame(width: 56, height: 56)
-                .clipShape(Circle())
-                .overlay(Circle().stroke(Color.white.opacity(0.6), lineWidth: 1.5))
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(authManager.currentUser?.firstName ?? "Student")
-                    .font(.kHeadline)
-                    .foregroundStyle(.white)
-                if let email = authManager.currentUser?.email, !email.isEmpty {
-                    Text(email)
-                        .font(.kCaption)
-                        .foregroundStyle(.white.opacity(0.85))
-                }
+            PhotosPicker(selection: $pfpPickerItem, matching: .images) {
+                avatarView
+                    .frame(width: 56, height: 56)
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(Color.white.opacity(0.6), lineWidth: 1.5))
             }
-            Spacer()
+            .buttonStyle(.plain)
+
+            Button {
+                withAnimation { scrollProxy.scrollTo("accountSection", anchor: .top) }
+            } label: {
+                HStack(spacing: Spacing.sm) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(authManager.currentUser?.firstName ?? "Student")
+                            .font(.kHeadline)
+                            .foregroundStyle(.white)
+                        if let email = authManager.currentUser?.email, !email.isEmpty {
+                            Text(email)
+                                .font(.kCaption)
+                                .foregroundStyle(.white.opacity(0.85))
+                        }
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.75))
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
         .padding(Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            LinearGradient(colors: [Color.satTeal, Color.satTeal.lightened(by: 0.18)],
+            LinearGradient(colors: [Color.kAccent, Color.kAccentLight],
                            startPoint: .leading, endPoint: .trailing)
         )
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(Color.satTeal.opacity(0.35), lineWidth: 1)
+                .stroke(Color.kAccent.opacity(0.35), lineWidth: 1)
         )
+    }
+
+    @ViewBuilder
+    private var avatarView: some View {
+        if let uiImage = pfpStore.image {
+            Image(uiImage: uiImage)
+                .resizable()
+                .scaledToFill()
+        } else {
+            Image("newlogo2")
+                .resizable()
+                .scaledToFit()
+                .padding(9)
+                .background(Color.white.opacity(0.18))
+        }
     }
 
     // MARK: - Empty progress state
