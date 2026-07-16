@@ -84,7 +84,7 @@ struct MessageBubbleView: View {
                 }
             } else {
                 HStack(alignment: .bottom, spacing: Spacing.xxs) {
-                    LatexMarkdownView(content: message.content, isStreaming: message.isStreaming)
+                    MathMarkdownWebView(content: message.content)
                     if message.isStreaming { StreamingCursor() }
                 }
             }
