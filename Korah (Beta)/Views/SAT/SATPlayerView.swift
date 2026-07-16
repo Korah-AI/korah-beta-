@@ -51,11 +51,7 @@ struct SATPlayerView: View {
         .sheet(isPresented: $showCalculator) {
             DesmosCalculatorSheet()
         }
-        .confirmationDialog("Practice Details", isPresented: $showSessionInfo, titleVisibility: .visible) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(sessionSummary)
-        }
+        .overlay { sessionInfoOverlay }
     }
 
     // MARK: - Pager
@@ -69,6 +65,74 @@ struct SATPlayerView: View {
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
         .ignoresSafeArea(edges: .bottom)
+        // Meta bar lives above the pager so it stays truly fixed under the nav
+        // bar — no per-page scroll inset that can tuck under the toolbar.
+        .safeAreaInset(edge: .top, spacing: 0) { metaBar }
+    }
+
+    // MARK: - Fixed meta bar (topic · difficulty · bookmark)
+
+    @ViewBuilder
+    private var metaBar: some View {
+        if let question = session.currentQuestion {
+            HStack(spacing: Spacing.sm) {
+                if !question.domain.isEmpty {
+                    chip(question.domain, tint: domainTint(question.domain))
+                }
+                if let label = SATCatalog.difficultyLabels[question.difficulty] {
+                    chip(label, tint: difficultyTint(question.difficulty))
+                }
+                Spacer()
+                Button {
+                    session.toggleBookmark(question)
+                    Haptics.light()
+                } label: {
+                    Image(systemName: session.isBookmarked(question) ? "bookmark.fill" : "bookmark")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(session.isBookmarked(question) ? Color.kGold : Color.kTextTertiary)
+                }
+            }
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, Spacing.sm)
+            .background(Color.kBackground)
+            .overlay(alignment: .bottom) {
+                Divider().opacity(0.4)
+            }
+        }
+    }
+
+    private func chip(_ text: String, tint: Color) -> some View {
+        Text(text)
+            .font(.kFootnote.weight(.semibold))
+            .foregroundStyle(tint)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Capsule().fill(tint.opacity(0.14)))
+            .overlay(Capsule().stroke(tint.opacity(0.30), lineWidth: 1))
+    }
+
+    /// A distinct colour per SAT domain so topics are recognisable at a glance.
+    private func domainTint(_ domain: String) -> Color {
+        switch domain {
+        case "Information and Ideas": return Color(red: 0.36, green: 0.42, blue: 0.95)  // indigo
+        case "Craft and Structure": return Color(red: 0.30, green: 0.70, blue: 0.78)    // cyan
+        case "Expression of Ideas": return Color(red: 0.20, green: 0.68, blue: 0.55)    // teal-green
+        case "Standard English Conventions": return Color(red: 0.30, green: 0.51, blue: 0.94)  // blue
+        case "Algebra": return Color(red: 0.85, green: 0.35, blue: 0.62)                // magenta
+        case "Advanced Math": return Color(red: 0.55, green: 0.40, blue: 0.88)          // purple
+        case "Problem-Solving and Data Analysis": return Color(red: 0.95, green: 0.62, blue: 0.20)  // amber
+        case "Geometry and Trigonometry": return Color(red: 0.95, green: 0.45, blue: 0.35)  // coral
+        default: return .kAccent
+        }
+    }
+
+    private func difficultyTint(_ difficulty: String) -> Color {
+        switch difficulty {
+        case "E": return .kSuccess
+        case "M": return .kGold
+        case "H": return .kError
+        default: return .kTextSecondary
+        }
     }
 
     // MARK: - Toolbar
@@ -113,25 +177,88 @@ struct SATPlayerView: View {
             }
 
             Button {
-                showSessionInfo = true
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    showSessionInfo.toggle()
+                }
             } label: {
                 Image(systemName: "info.circle")
+                    .foregroundStyle(showSessionInfo ? Color.kAccent : Color.kTextSecondary)
             }
         }
     }
 
-    private var sessionSummary: String {
-        var parts: [String] = []
-        parts.append("Assessment: \(assessment)")
-        if !session.query.difficulties.isEmpty {
-            let labels = session.query.difficulties.compactMap { SATCatalog.difficultyLabels[$0] }
-            parts.append("Difficulty: \(labels.sorted().joined(separator: ", "))")
+    // MARK: - Custom session info dropdown
+
+    @ViewBuilder
+    private var sessionInfoOverlay: some View {
+        if showSessionInfo {
+            ZStack(alignment: .topTrailing) {
+                // Tap-outside-to-dismiss scrim.
+                Color.black.opacity(0.12)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        withAnimation(.easeOut(duration: 0.15)) { showSessionInfo = false }
+                    }
+
+                sessionInfoCard
+                    .padding(.trailing, Spacing.md)
+                    .padding(.top, Spacing.xs)
+                    .transition(.scale(scale: 0.92, anchor: .topTrailing).combined(with: .opacity))
+            }
         }
-        if !session.query.domains.isEmpty {
-            parts.append("Domains: \(session.query.domains.sorted().joined(separator: ", "))")
+    }
+
+    private var sessionInfoCard: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            Text("Practice Details")
+                .font(.kHeadline)
+                .foregroundStyle(Color.kTextPrimary)
+
+            infoRow(icon: "doc.text", label: "Assessment", value: assessment)
+
+            if !session.query.difficulties.isEmpty {
+                let labels = session.query.difficulties
+                    .compactMap { SATCatalog.difficultyLabels[$0] }.sorted()
+                infoRow(icon: "chart.bar", label: "Difficulty", value: labels.joined(separator: ", "))
+            }
+            if !session.query.domains.isEmpty {
+                infoRow(icon: "square.grid.2x2", label: "Domains",
+                        value: session.query.domains.sorted().joined(separator: ", "))
+            }
+
+            Divider().opacity(0.5)
+
+            infoRow(icon: "checkmark.circle", label: "Progress",
+                    value: "\(session.answeredCount)/\(session.questions.count) · \(session.correctCount) correct")
         }
-        parts.append("Answered \(session.answeredCount) of \(session.questions.count) · \(session.correctCount) correct")
-        return parts.joined(separator: "\n")
+        .padding(Spacing.md)
+        .frame(width: 260, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: CornerRadius.lg, style: .continuous)
+                .fill(Color.kSurfaceElevated)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: CornerRadius.lg, style: .continuous)
+                .stroke(Color.kBorder, lineWidth: 1)
+        )
+        .kShadowMedium()
+    }
+
+    private func infoRow(icon: String, label: String, value: String) -> some View {
+        HStack(alignment: .top, spacing: Spacing.sm) {
+            Image(systemName: icon)
+                .font(.kCaption)
+                .foregroundStyle(Color.kAccent)
+                .frame(width: 18)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(label)
+                    .font(.kCaption2)
+                    .foregroundStyle(Color.kTextTertiary)
+                Text(value)
+                    .font(.kSubheadline)
+                    .foregroundStyle(Color.kTextPrimary)
+            }
+        }
     }
 
     // MARK: - Loading / message states
@@ -235,29 +362,6 @@ struct SATQuestionPageView: View {
             .padding(.top, Spacing.sm)
         }
         .scrollDismissesKeyboard(.interactively)
-        .safeAreaInset(edge: .top, spacing: 0) {
-            // Meta chips (pinned so topic/difficulty are always visible without scrolling)
-            HStack(spacing: Spacing.xs) {
-                if !question.domain.isEmpty {
-                    chip(question.domain, tint: Color.kAccent)
-                }
-                if let label = SATCatalog.difficultyLabels[question.difficulty] {
-                    chip(label, tint: difficultyTint(question.difficulty))
-                }
-                Spacer()
-                Button {
-                    session.toggleBookmark(question)
-                    Haptics.light()
-                } label: {
-                    Image(systemName: session.isBookmarked(question) ? "bookmark.fill" : "bookmark")
-                        .foregroundStyle(session.isBookmarked(question) ? Color.kGold : Color.kTextTertiary)
-                }
-            }
-            .padding(.horizontal, Spacing.md)
-            .padding(.top, Spacing.sm)
-            .padding(.bottom, Spacing.xs)
-            .background(Color.kBackground)
-        }
         .sheet(isPresented: $showExplanationSheet) {
             SATExplanationSheet(question: question)
         }
@@ -348,7 +452,7 @@ struct SATQuestionPageView: View {
         } label: {
             Text(checked ? (isLast ? "Session complete" : "Next question") : "Check Answer")
         }
-        .buttonStyle(.kPrimary)
+        .buttonStyle(.kPink)
         .disabled(checked ? isLast : !answered)
         .padding(.top, Spacing.xs)
     }
@@ -424,25 +528,6 @@ struct SATQuestionPageView: View {
         }
     }
 
-    // MARK: - Small helpers
-
-    private func chip(_ text: String, tint: Color) -> some View {
-        Text(text)
-            .font(.kCaption2.weight(.semibold))
-            .foregroundStyle(tint)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(Capsule().fill(tint.opacity(0.12)))
-    }
-
-    private func difficultyTint(_ difficulty: String) -> Color {
-        switch difficulty {
-        case "E": return .kSuccess
-        case "M": return .kGold
-        case "H": return .kError
-        default: return .kTextSecondary
-        }
-    }
 }
 
 // MARK: - Answer row
@@ -741,4 +826,33 @@ struct SATExplanationSheet: View {
             loadError = "Couldn't load an explanation right now. \(error.localizedDescription)"
         }
     }
+}
+
+// MARK: - Pink primary button (for the Check Answer action)
+
+private struct KPinkButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.kHeadline)
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: ComponentSize.Button.medium)
+            .background(
+                RoundedRectangle(cornerRadius: CornerRadius.button, style: .continuous)
+                    .fill(LinearGradient(
+                        colors: [Color(red: 0.85, green: 0.24, blue: 0.52),   // deep pink
+                                 Color(red: 0.96, green: 0.44, blue: 0.66)],  // rose
+                        startPoint: .topLeading, endPoint: .bottomTrailing))
+            )
+            .shadow(color: Color(red: 0.93, green: 0.35, blue: 0.60).opacity(0.4), radius: 16, x: 0, y: 6)
+            .opacity(isEnabled ? 1 : 0.5)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: configuration.isPressed)
+    }
+}
+
+extension ButtonStyle where Self == KPinkButtonStyle {
+    static var kPink: KPinkButtonStyle { KPinkButtonStyle() }
 }
