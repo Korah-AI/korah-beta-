@@ -107,6 +107,13 @@ private struct SizingWebView: UIViewRepresentable {
         let secondary = isDark ? "#a89dc0" : "#5a4a7a"
         let accent = "#8b5cf6"
         let border = isDark ? "rgba(139,92,246,.25)" : "rgba(109,40,217,.2)"
+        // CB figures are dark ink on a transparent canvas, so in dark mode they
+        // disappear against the app background. Back them with a light "paper"
+        // card (padded + rounded) so the inscribed lines/text stay readable,
+        // matching the app's light glass containers. Light mode needs nothing.
+        let figureBacking = isDark
+            ? "background: #faf7ff; border-radius: 10px; padding: 10px; box-sizing: border-box;"
+            : ""
         return """
         <!DOCTYPE html>
         <html>
@@ -126,7 +133,7 @@ private struct SizingWebView: UIViewRepresentable {
         p { margin: 0.4em 0; }
         p:first-child { margin-top: 0; }
         p:last-child { margin-bottom: 0; }
-        img, svg { max-width: 100%; height: auto; }
+        img, svg { max-width: 100%; height: auto; \(figureBacking) }
         figure { margin: 0.5em 0; }
         table { border-collapse: collapse; margin: 0.5em 0; max-width: 100%; }
         th, td { border: 1px solid \(border); padding: 0.35em 0.6em; font-size: 0.95em; }
