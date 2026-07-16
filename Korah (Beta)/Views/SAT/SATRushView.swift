@@ -1,7 +1,7 @@
 import SwiftUI
 
 // MARK: - Practice Rush
-// Endless gamified practice (mirrors sat/rush.html): 3-step setup wizard →
+// Gamified practice rush (mirrors sat/rush.html): 3-step setup wizard →
 // Duolingo-style check/continue loop with streaks → celebration summary.
 
 @MainActor
@@ -16,6 +16,8 @@ final class SATRushSession {
     var selectedSkills: Set<String> = []       // skill codes
     var selectedDifficulties: Set<String> = []
     var randomize = true
+    var timeLimit = 60                         // seconds allowed per question
+    var questionCount = 15                      // how many questions this rush
 
     // Session state
     var phase: Phase = .onboarding
@@ -101,7 +103,7 @@ final class SATRushSession {
             skills: selectedSkills,
             difficulties: selectedDifficulties,
             assessment: "SAT",
-            limit: nil,
+            limit: questionCount,
             random: randomize
         )
         do {
@@ -375,21 +377,43 @@ struct SATRushView: View {
                 .frame(maxWidth: .infinity)
                 .multilineTextAlignment(.center)
 
-            HStack {
-                Button("Select all") { rush.selectAllDomains(); Haptics.light() }
-                    .buttonStyle(.kGhost)
-                Button("Clear") { rush.clearDomains(); Haptics.light() }
-                    .buttonStyle(.kGhost)
+            HStack(spacing: Spacing.md) {
+                Button { rush.selectAllDomains(); Haptics.light() } label: {
+                    Text("Select all")
+                        .font(.kSubheadline.weight(.semibold))
+                        .foregroundStyle(.pink)
+                }
+                .buttonStyle(.plain)
+                Button { rush.clearDomains(); Haptics.light() } label: {
+                    Text("Clear")
+                        .font(.kSubheadline.weight(.semibold))
+                        .foregroundStyle(.red)
+                }
+                .buttonStyle(.plain)
                 Spacer()
             }
 
-            ForEach(rush.sectionInfo.domains) { domain in
-                domainCard(domain)
+            ForEach(Array(rush.sectionInfo.domains.enumerated()), id: \.element.id) { index, domain in
+                domainCard(domain, tint: Self.cardPalette[index % Self.cardPalette.count])
             }
         }
     }
 
-    private func domainCard(_ domain: SATDomainInfo) -> some View {
+    /// A vivid colour per topic chip so no two skills read the same — keyed
+    /// by skill code so the mapping is stable across re-renders.
+    private var skillColors: [String: Color] {
+        var map: [String: Color] = [:]
+        var i = 0
+        for domain in rush.sectionInfo.domains {
+            for skill in domain.skills {
+                map[skill.code] = Self.chipPalette[i % Self.chipPalette.count]
+                i += 1
+            }
+        }
+        return map
+    }
+
+    private func domainCard(_ domain: SATDomainInfo, tint: Color) -> some View {
         let selected = rush.selectedDomains.contains(domain.code)
         return VStack(alignment: .leading, spacing: Spacing.xs) {
             Button {
@@ -399,17 +423,18 @@ struct SATRushView: View {
                 HStack {
                     Text(domain.name)
                         .font(.kHeadline)
-                        .foregroundStyle(Color.kTextPrimary)
+                        .foregroundStyle(.white)
                     Spacer()
                     Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                        .foregroundStyle(selected ? subjectTint : Color.kTextTertiary)
+                        .foregroundStyle(.white.opacity(selected ? 1 : 0.65))
                 }
             }
             .buttonStyle(.plain)
 
             if selected {
                 FlowLayoutChips(items: domain.skills.map { skill in
-                    (skill.code, skill.name, rush.selectedSkills.contains(skill.code))
+                    (skill.code, skill.name, rush.selectedSkills.contains(skill.code),
+                     skillColors[skill.code] ?? tint)
                 }) { code in
                     if rush.selectedSkills.contains(code) { rush.selectedSkills.remove(code) }
                     else { rush.selectedSkills.insert(code) }
@@ -418,15 +443,19 @@ struct SATRushView: View {
             } else {
                 Text(domain.skills.prefix(3).map(\.name).joined(separator: " · "))
                     .font(.kCaption2)
-                    .foregroundStyle(Color.kTextTertiary)
+                    .foregroundStyle(.white.opacity(0.85))
                     .lineLimit(1)
             }
         }
         .padding(Spacing.md)
-        .kGlassEffect(cornerRadius: CornerRadius.lg)
+        .background(
+            LinearGradient(colors: [tint, tint.lightened(by: 0.18)],
+                           startPoint: .topLeading, endPoint: .bottomTrailing)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: CornerRadius.lg, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: CornerRadius.lg, style: .continuous)
-                .stroke(selected ? subjectTint.opacity(0.6) : .clear, lineWidth: 1.5)
+                .stroke(.white.opacity(selected ? 0.9 : 0), lineWidth: 2)
         )
     }
 
@@ -475,6 +504,20 @@ struct SATRushView: View {
                 }
                 .buttonStyle(.plain)
             }
+
+            SnapSlider(title: "How many questions?",
+                       options: Self.countOptions,
+                       value: rush.questionCount,
+                       tint: .teal,
+                       format: { "\($0)" }) { rush.questionCount = $0 }
+                .padding(.top, Spacing.xs)
+
+            SnapSlider(title: "How long per question?",
+                       options: Self.timeOptions,
+                       value: rush.timeLimit,
+                       tint: .orange,
+                       format: Self.timeLabel) { rush.timeLimit = $0 }
+                .padding(.top, Spacing.xs)
 
             Toggle(isOn: $rush.randomize) {
                 Text("Randomize question order")
@@ -537,6 +580,42 @@ struct SATRushView: View {
     private static let mathTint = Color(red: 0.22, green: 0.65, blue: 0.45)     // green
     private static let englishTint = Color(red: 0.30, green: 0.51, blue: 0.94)  // blue
 
+    /// One colour per topic card (Algebra, Advanced Math, …).
+    private static let cardPalette: [Color] = [
+        Color(red: 0.36, green: 0.42, blue: 0.95),  // indigo
+        Color(red: 0.95, green: 0.45, blue: 0.35),  // coral
+        Color(red: 0.20, green: 0.68, blue: 0.55),  // teal-green
+        Color(red: 0.85, green: 0.35, blue: 0.62),  // magenta
+        Color(red: 0.95, green: 0.62, blue: 0.20),  // amber
+        Color(red: 0.30, green: 0.70, blue: 0.78)   // cyan
+    ]
+
+    /// A larger, distinct set for the individual skill chips.
+    private static let chipPalette: [Color] = [
+        Color(red: 0.36, green: 0.42, blue: 0.95),  // indigo
+        Color(red: 0.95, green: 0.45, blue: 0.35),  // coral
+        Color(red: 0.20, green: 0.68, blue: 0.55),  // teal-green
+        Color(red: 0.85, green: 0.35, blue: 0.62),  // magenta
+        Color(red: 0.95, green: 0.62, blue: 0.20),  // amber
+        Color(red: 0.30, green: 0.70, blue: 0.78),  // cyan
+        Color(red: 0.55, green: 0.40, blue: 0.88),  // purple
+        Color(red: 0.90, green: 0.30, blue: 0.45),  // rose
+        Color(red: 0.40, green: 0.62, blue: 0.30),  // moss
+        Color(red: 0.20, green: 0.55, blue: 0.90)   // blue
+    ]
+
+    /// How many questions a rush runs for.
+    private static let countOptions = [10, 15, 20]
+
+    /// Time-per-question choices (30s → 3m) offered in the final setup step.
+    private static let timeOptions = [30, 60, 90, 120, 180]
+
+    private static func timeLabel(_ seconds: Int) -> String {
+        if seconds < 60 { return "\(seconds)s" }
+        let minutes = Double(seconds) / 60
+        return minutes == minutes.rounded() ? "\(Int(minutes))m" : String(format: "%.1fm", minutes)
+    }
+
     private var subjectTint: Color {
         switch rush.subject {
         case "math": return Self.mathTint
@@ -577,13 +656,27 @@ struct SATRushView: View {
         if let question = rush.currentQuestion {
             VStack(spacing: 0) {
                 // Progress + streak header
+                let remaining = max(0, rush.timeLimit - rush.questionElapsed)
                 HStack(spacing: Spacing.sm) {
                     GeometryReader { geo in
+                        let total = CGFloat(max(1, rush.questions.count))
                         ZStack(alignment: .leading) {
                             Capsule().fill(Color.kBorder.opacity(0.5))
-                            Capsule()
-                                .fill(LinearGradient.kPurpleGradient)
-                                .frame(width: geo.size.width * CGFloat(rush.position) / CGFloat(max(1, rush.questions.count)))
+                            if rush.checkedCurrent {
+                                // Between questions: teal shows overall progress / points.
+                                Capsule()
+                                    .fill(LinearGradient(colors: [.teal, Color.teal.lightened(by: 0.2)],
+                                                         startPoint: .leading, endPoint: .trailing))
+                                    .frame(width: geo.size.width * CGFloat(rush.answered) / total)
+                                    .animation(KAnimation.standard, value: rush.answered)
+                            } else {
+                                // While answering: orange counts the time down.
+                                let timeFraction = rush.timeLimit > 0 ? CGFloat(remaining) / CGFloat(rush.timeLimit) : 0
+                                Capsule()
+                                    .fill(Color.orange)
+                                    .frame(width: geo.size.width * timeFraction)
+                                    .animation(.linear(duration: 0.9), value: rush.questionElapsed)
+                            }
                         }
                     }
                     .frame(height: 8)
@@ -597,9 +690,9 @@ struct SATRushView: View {
                             .foregroundStyle(Color.kTextSecondary)
                     }
 
-                    Text(String(format: "%d:%02d", rush.questionElapsed / 60, rush.questionElapsed % 60))
+                    Text(String(format: "%d:%02d", remaining / 60, remaining % 60))
                         .font(.kCaption.monospacedDigit())
-                        .foregroundStyle(Color.kTextTertiary)
+                        .foregroundStyle(remaining <= 10 ? Color.kError : Color.orange)
                 }
                 .padding(.horizontal, Spacing.md)
                 .padding(.vertical, Spacing.xs)
@@ -617,7 +710,8 @@ struct SATRushView: View {
                     .padding(.horizontal, Spacing.md)
                 }
 
-                // Check / Continue button
+                // Check / Continue button — green while checking an answer.
+                let disabled = !rush.checkedCurrent && rush.selectedAnswer.trimmingCharacters(in: .whitespaces).isEmpty
                 Button {
                     if rush.checkedCurrent {
                         rush.advance()
@@ -627,9 +721,21 @@ struct SATRushView: View {
                     }
                 } label: {
                     Text(rush.checkedCurrent ? "Continue" : "Check")
+                        .font(.kBodyBold)
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(rush.checkedCurrent
+                                      ? AnyShapeStyle(LinearGradient.kPurpleGradient)
+                                      : AnyShapeStyle(LinearGradient(colors: [Color.kSuccess, Color.kSuccess.lightened(by: 0.18)],
+                                                                     startPoint: .leading, endPoint: .trailing)))
+                        )
                 }
-                .buttonStyle(.kPrimary)
-                .disabled(!rush.checkedCurrent && rush.selectedAnswer.trimmingCharacters(in: .whitespaces).isEmpty)
+                .buttonStyle(.plain)
+                .disabled(disabled)
+                .opacity(disabled ? 0.4 : 1)
                 .padding(.horizontal, Spacing.md)
                 .padding(.bottom, Spacing.sm)
             }
@@ -891,10 +997,65 @@ struct SATRushCelebrationView: View {
     }
 }
 
+// MARK: - Snapping option slider
+
+/// A slider that snaps to a fixed set of options, showing a large read-out of
+/// the current value plus tick labels beneath.
+struct SnapSlider: View {
+    let title: String
+    let options: [Int]
+    let value: Int
+    let tint: Color
+    let format: (Int) -> String
+    let onChange: (Int) -> Void
+
+    private var index: Int { options.firstIndex(of: value) ?? 0 }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            HStack {
+                Text(title)
+                    .font(.kHeadline)
+                    .foregroundStyle(Color.kTextPrimary)
+                Spacer()
+                Text(format(value))
+                    .font(.kTitle2.weight(.bold))
+                    .foregroundStyle(tint)
+                    .contentTransition(.numericText())
+            }
+
+            Slider(
+                value: Binding(
+                    get: { Double(index) },
+                    set: { newValue in
+                        let i = min(options.count - 1, max(0, Int(newValue.rounded())))
+                        guard options.indices.contains(i), options[i] != value else { return }
+                        withAnimation(KAnimation.quick) { onChange(options[i]) }
+                        Haptics.selection()
+                    }
+                ),
+                in: 0...Double(max(1, options.count - 1)),
+                step: 1
+            )
+            .tint(tint)
+
+            HStack(spacing: 0) {
+                ForEach(Array(options.enumerated()), id: \.element) { i, option in
+                    Text(format(option))
+                        .font(.kBody.weight(option == value ? .bold : .regular))
+                        .foregroundStyle(option == value ? tint : .white)
+                        .frame(maxWidth: .infinity,
+                               alignment: i == 0 ? .leading : (i == options.count - 1 ? .trailing : .center))
+                }
+            }
+        }
+    }
+}
+
 // MARK: - Simple flow layout of skill chips
 
 struct FlowLayoutChips: View {
-    let items: [(code: String, label: String, selected: Bool)]
+    let items: [(code: String, label: String, selected: Bool, color: Color)]
     let onTap: (String) -> Void
 
     var body: some View {
@@ -905,11 +1066,11 @@ struct FlowLayoutChips: View {
                 } label: {
                     Text(item.label)
                         .font(.kCaption)
-                        .foregroundStyle(item.selected ? .white : Color.kTextSecondary)
+                        .foregroundStyle(.white)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
-                        .background(Capsule().fill(item.selected ? Color.kAccent : Color.kSurface))
-                        .overlay(Capsule().stroke(item.selected ? .clear : Color.kBorder, lineWidth: 1))
+                        .background(Capsule().fill(item.color.opacity(item.selected ? 1 : 0.55)))
+                        .overlay(Capsule().stroke(.white.opacity(item.selected ? 0.95 : 0), lineWidth: 1.5))
                         .lineLimit(1)
                 }
                 .buttonStyle(.plain)
