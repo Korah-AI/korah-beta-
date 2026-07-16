@@ -100,7 +100,7 @@ struct SATPracticeView: View {
                         .font(.kTitle2.weight(.bold))
                         .foregroundStyle(.white)
 
-                    Text("Endless drill · streaks · instant feedback")
+                    Text("Short-term studying - streaks - instant feedback")
                         .font(.kFootnote)
                         .foregroundStyle(Color.white.opacity(0.8))
                 }
@@ -272,7 +272,7 @@ struct SATPracticeView: View {
                     .foregroundStyle(missedIds.isEmpty ? Color.kTextTertiary : Color.kGold)
             }
             .padding(Spacing.md)
-            .satCard(tint: .kGold, cornerRadius: CornerRadius.xl)
+            .satCard(tint: .kGold, cornerRadius: CornerRadius.xl, solid: true)
             .opacity(missedIds.isEmpty ? 0.6 : 1)
         }
         .buttonStyle(.plain)

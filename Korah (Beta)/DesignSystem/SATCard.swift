@@ -8,12 +8,12 @@ import SwiftUI
 // Centralized here so every screen renders cards identically.
 
 extension View {
-    func satCard(tint: Color, cornerRadius: CGFloat = 22, logo: String = "newlogo3") -> some View {
+    func satCard(tint: Color, cornerRadius: CGFloat = 22, logo: String = "newlogo3", solid: Bool = false) -> some View {
         self
             .background(
                 ZStack {
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(Color.kSurface.opacity(0.55))
+                        .fill(Color.kSurface.opacity(solid ? 1 : 0.55))
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                         .fill(
                             LinearGradient(
