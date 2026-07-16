@@ -279,11 +279,12 @@ struct SATRushView: View {
             HStack(spacing: 8) {
                 ForEach(1...3, id: \.self) { step in
                     Capsule()
-                        .fill(step == wizardStep ? Color.kAccent : Color.kBorder)
+                        .fill(step == wizardStep ? stepTint : Color.kBorder)
                         .frame(width: step == wizardStep ? 24 : 8, height: 8)
                 }
             }
             .padding(.top, Spacing.md)
+            .animation(KAnimation.quick, value: stepTint)
 
             ScrollView {
                 VStack(spacing: Spacing.md) {
@@ -308,38 +309,60 @@ struct SATRushView: View {
                 .foregroundStyle(Color.kTextPrimary)
 
             subjectCard(key: "math", icon: "x.squareroot", title: "Math",
-                        blurb: "Algebra, advanced math, data analysis, geometry")
+                        blurb: "Algebra, advanced math, data analysis, and geometry",
+                        tint: Self.mathTint)
             subjectCard(key: "english", icon: "book.fill", title: "Reading & Writing",
-                        blurb: "Reading comprehension, grammar, and expression")
+                        blurb: "Reading comprehension, grammar, and expression",
+                        tint: Self.englishTint)
         }
     }
 
-    private func subjectCard(key: String, icon: String, title: String, blurb: String) -> some View {
+    private func subjectCard(key: String, icon: String, title: String, blurb: String,
+                             tint: Color) -> some View {
         let selected = rush.subject == key
         return Button {
             rush.subject = key
             rush.clearDomains()
             Haptics.selection()
         } label: {
-            VStack(spacing: Spacing.xs) {
-                Image(systemName: icon)
-                    .font(.system(size: 30))
-                    .foregroundStyle(Color.kAccent)
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                HStack(alignment: .top) {
+                    Image(systemName: icon)
+                        .font(.system(size: 34, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 68, height: 68)
+                        .background(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(Color.white.opacity(0.22))
+                        )
+                    Spacer()
+                    Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                        .font(.title2)
+                        .foregroundStyle(.white.opacity(selected ? 1 : 0.6))
+                }
+                Spacer(minLength: Spacing.md)
                 Text(title)
-                    .font(.kHeadline)
-                    .foregroundStyle(Color.kTextPrimary)
+                    .font(.kTitle.weight(.bold))
+                    .foregroundStyle(.white)
                 Text(blurb)
-                    .font(.kCaption)
-                    .foregroundStyle(Color.kTextTertiary)
-                    .multilineTextAlignment(.center)
+                    .font(.kSubheadline)
+                    .foregroundStyle(.white.opacity(0.9))
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, minHeight: 180, alignment: .leading)
             .padding(Spacing.lg)
-            .kGlassEffect(cornerRadius: CornerRadius.xl)
+            .background(
+                LinearGradient(colors: [tint, tint.lightened(by: 0.18)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: CornerRadius.xl, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: CornerRadius.xl, style: .continuous)
-                    .stroke(selected ? Color.kAccent : .clear, lineWidth: 2)
+                    .stroke(.white.opacity(selected ? 0.9 : 0), lineWidth: 2.5)
             )
+            .kShadowMedium()
+            .scaleEffect(selected ? 1.01 : 1)
+            .animation(KAnimation.quick, value: selected)
         }
         .buttonStyle(.plain)
     }
@@ -379,7 +402,7 @@ struct SATRushView: View {
                         .foregroundStyle(Color.kTextPrimary)
                     Spacer()
                     Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                        .foregroundStyle(selected ? Color.kAccent : Color.kTextTertiary)
+                        .foregroundStyle(selected ? subjectTint : Color.kTextTertiary)
                 }
             }
             .buttonStyle(.plain)
@@ -403,7 +426,7 @@ struct SATRushView: View {
         .kGlassEffect(cornerRadius: CornerRadius.lg)
         .overlay(
             RoundedRectangle(cornerRadius: CornerRadius.lg, style: .continuous)
-                .stroke(selected ? Color.kAccent.opacity(0.6) : .clear, lineWidth: 1.5)
+                .stroke(selected ? subjectTint.opacity(0.6) : .clear, lineWidth: 1.5)
         )
     }
 
@@ -415,21 +438,40 @@ struct SATRushView: View {
 
             ForEach(SATCatalog.difficulties, id: \.code) { difficulty in
                 let selected = rush.selectedDifficulties.contains(difficulty.code)
+                let tint = Self.difficultyTint(difficulty.code)
                 Button {
                     if selected { rush.selectedDifficulties.remove(difficulty.code) }
                     else { rush.selectedDifficulties.insert(difficulty.code) }
                     Haptics.selection()
                 } label: {
-                    HStack {
+                    HStack(spacing: Spacing.sm) {
+                        Image(systemName: Self.difficultyIcon(difficulty.code))
+                            .font(.headline)
+                            .foregroundStyle(selected ? .white : tint)
+                            .frame(width: 44, height: 44)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .fill(selected ? Color.white.opacity(0.22) : tint.opacity(0.15))
+                            )
                         Text(difficulty.label)
                             .font(.kHeadline)
-                            .foregroundStyle(Color.kTextPrimary)
+                            .foregroundStyle(selected ? .white : Color.kTextPrimary)
                         Spacer()
                         Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(selected ? Color.kAccent : Color.kTextTertiary)
+                            .foregroundStyle(selected ? .white : Color.kTextTertiary)
                     }
                     .padding(Spacing.md)
-                    .kGlassEffect(cornerRadius: CornerRadius.lg)
+                    .background(
+                        RoundedRectangle(cornerRadius: CornerRadius.lg, style: .continuous)
+                            .fill(selected
+                                  ? AnyShapeStyle(LinearGradient(colors: [tint, tint.lightened(by: 0.18)],
+                                                                 startPoint: .leading, endPoint: .trailing))
+                                  : AnyShapeStyle(Color.kSurface))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: CornerRadius.lg, style: .continuous)
+                            .stroke(selected ? .clear : tint.opacity(0.4), lineWidth: 1.5)
+                    )
                 }
                 .buttonStyle(.plain)
             }
@@ -451,19 +493,32 @@ struct SATRushView: View {
                     .buttonStyle(.kSecondary)
                     .frame(width: 100)
             }
-            Button(wizardStep == 3 ? "Start Rush" : "Next") {
+            Button {
                 if wizardStep < 3 {
                     wizardStep += 1
                 } else {
                     Task { await rush.start() }
                 }
                 Haptics.medium()
+            } label: {
+                Text(wizardStep == 3 ? "Start Rush" : "Next")
+                    .font(.kBodyBold)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(LinearGradient(colors: [stepTint, stepTint.lightened(by: 0.18)],
+                                                 startPoint: .leading, endPoint: .trailing))
+                    )
             }
-            .buttonStyle(.kPrimary)
+            .buttonStyle(.plain)
             .disabled(!canAdvance)
+            .opacity(canAdvance ? 1 : 0.4)
         }
         .padding(.horizontal, Spacing.md)
         .padding(.bottom, Spacing.md)
+        .animation(KAnimation.quick, value: stepTint)
     }
 
     private var canAdvance: Bool {
@@ -471,6 +526,47 @@ struct SATRushView: View {
         case 1: return rush.subject != nil
         case 2: return !rush.selectedSkills.isEmpty
         default: return !rush.selectedDifficulties.isEmpty
+        }
+    }
+
+    // MARK: - Wizard palette
+    // Each subject and step reads in its own colour so the flow feels as
+    // vivid as onboarding — Math green, Reading & Writing blue, and a
+    // distinct "Next" tint per step (never the shared purple gradient).
+
+    private static let mathTint = Color(red: 0.22, green: 0.65, blue: 0.45)     // green
+    private static let englishTint = Color(red: 0.30, green: 0.51, blue: 0.94)  // blue
+
+    private var subjectTint: Color {
+        switch rush.subject {
+        case "math": return Self.mathTint
+        case "english": return Self.englishTint
+        default: return .kAccent
+        }
+    }
+
+    /// The "Next" / "Start Rush" tint for the current step — distinct per step.
+    private var stepTint: Color {
+        switch wizardStep {
+        case 1: return subjectTint   // green or blue, matching the picked subject
+        case 2: return .teal
+        default: return .pink
+        }
+    }
+
+    private static func difficultyTint(_ code: String) -> Color {
+        switch code {
+        case "E": return .kSuccess   // Easy — green
+        case "M": return .kGold      // Medium — gold
+        default: return .kError      // Hard — red
+        }
+    }
+
+    private static func difficultyIcon(_ code: String) -> String {
+        switch code {
+        case "E": return "leaf.fill"
+        case "M": return "flame.fill"
+        default: return "bolt.fill"
         }
     }
 
