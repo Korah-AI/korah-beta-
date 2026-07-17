@@ -80,10 +80,6 @@ struct ProfileView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showGoalEditor) {
-                SATGoalEditorSheet(model: model)
-                    .presentationDetents([.medium])
-            }
             .navigationDestination(item: $reviewQuery) { query in
                 SATPlayerView(query: query)
             }
@@ -132,10 +128,13 @@ struct ProfileView: View {
                         },
                         onCancel: { showClearDataConfirm = false }
                     )
+                } else if showGoalEditor {
+                    SATGoalEditorPopup(model: model, onClose: { showGoalEditor = false })
                 }
             }
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showSignOutConfirm)
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showClearDataConfirm)
+            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showGoalEditor)
             }
         }
     }
@@ -697,57 +696,135 @@ final class SATDashboardModel {
 
 // MARK: - Goal editor sheet
 
-struct SATGoalEditorSheet: View {
+struct SATGoalEditorPopup: View {
     let model: SATDashboardModel
-    @Environment(\.dismiss) private var dismiss
+    let onClose: () -> Void
 
-    @State private var englishCurrent = ""
-    @State private var englishGoal = ""
-    @State private var mathCurrent = ""
-    @State private var mathGoal = ""
+    @State private var englishCurrent: Int?
+    @State private var englishGoal: Int?
+    @State private var mathCurrent: Int?
+    @State private var mathGoal: Int?
+
+    // Solid, vivid section tints — matching the Practice Rush subject cards.
+    private static let englishTint = Color(red: 0.30, green: 0.51, blue: 0.94)  // blue
+    private static let mathTint = Color(red: 0.22, green: 0.65, blue: 0.45)     // green
+
+    private var canSave: Bool { englishGoal != nil || mathGoal != nil }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("Reading & Writing (200–800)") {
-                    TextField("Current score", text: $englishCurrent)
-                        .keyboardType(.numberPad)
-                    TextField("Goal score", text: $englishGoal)
-                        .keyboardType(.numberPad)
-                }
-                Section("Math (200–800)") {
-                    TextField("Current score", text: $mathCurrent)
-                        .keyboardType(.numberPad)
-                    TextField("Goal score", text: $mathGoal)
-                        .keyboardType(.numberPad)
-                }
-            }
-            .navigationTitle("Score Goals")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Save") {
+        ZStack {
+            Color.black.opacity(0.55)
+                .ignoresSafeArea()
+                .onTapGesture { onClose() }
+
+            VStack(spacing: Spacing.md) {
+                Text("Score Goals")
+                    .font(.kTitle3.weight(.bold))
+                    .foregroundStyle(Color.kTextPrimary)
+
+                section(title: "Reading & Writing", tint: Self.englishTint,
+                        current: $englishCurrent, goal: $englishGoal)
+                section(title: "Math", tint: Self.mathTint,
+                        current: $mathCurrent, goal: $mathGoal)
+
+                VStack(spacing: Spacing.xs) {
+                    Button {
                         Task {
                             await model.saveGoals(
-                                englishScore: Int(englishCurrent),
-                                englishGoal: Int(englishGoal),
-                                mathScore: Int(mathCurrent),
-                                mathGoal: Int(mathGoal))
-                            dismiss()
+                                englishScore: englishCurrent, englishGoal: englishGoal,
+                                mathScore: mathCurrent, mathGoal: mathGoal)
                         }
+                        Haptics.success()
+                        onClose()
+                    } label: {
+                        Text("Save goals")
+                            .font(.kSubheadline.weight(.bold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.kSuccess))
                     }
-                    .disabled(Int(englishGoal) == nil && Int(mathGoal) == nil)
+                    .disabled(!canSave)
+                    .opacity(canSave ? 1 : 0.5)
+
+                    Button(action: onClose) {
+                        Text("Cancel")
+                            .font(.kSubheadline.weight(.semibold))
+                            .foregroundStyle(Color.kTextSecondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.kSurface))
+                    }
                 }
             }
-            .onAppear {
-                englishCurrent = model.profile?.englishScore.map(String.init) ?? ""
-                englishGoal = model.profile?.englishGoal.map(String.init) ?? ""
-                mathCurrent = model.profile?.mathScore.map(String.init) ?? ""
-                mathGoal = model.profile?.mathGoal.map(String.init) ?? ""
+            .padding(Spacing.lg)
+            .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color.kSurfaceElevated))
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(Color.kBorder.opacity(0.4), lineWidth: 1)
+            )
+            .shadow(color: Color.black.opacity(0.4), radius: 24, x: 0, y: 12)
+            .padding(.horizontal, Spacing.lg)
+            .transition(.scale(scale: 0.9).combined(with: .opacity))
+        }
+        .onAppear {
+            englishCurrent = model.profile?.englishScore
+            englishGoal = model.profile?.englishGoal
+            mathCurrent = model.profile?.mathScore
+            mathGoal = model.profile?.mathGoal
+        }
+    }
+
+    private func section(title: String, tint: Color,
+                         current: Binding<Int?>, goal: Binding<Int?>) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            Text(title)
+                .font(.kHeadline)
+                .foregroundStyle(.white)
+            ScoreSlider(label: "Current", value: current)
+            ScoreSlider(label: "Goal", value: goal)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Spacing.md)
+        .background(RoundedRectangle(cornerRadius: CornerRadius.lg, style: .continuous).fill(tint))
+    }
+}
+
+// MARK: - Score slider
+
+/// A range slider for picking an SAT score (200–800 in steps of 10), styled
+/// for a solid coloured card with a large white read-out — mirrors the
+/// onboarding `SnapSlider`.
+private struct ScoreSlider: View {
+    let label: String
+    @Binding var value: Int?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text(label)
+                    .font(.kCaption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.9))
+                Spacer()
+                Text(value.map(String.init) ?? "—")
+                    .font(.kHeadline.monospacedDigit())
+                    .foregroundStyle(.white)
+                    .contentTransition(.numericText())
             }
+            Slider(
+                value: Binding(
+                    get: { Double(value ?? 200) },
+                    set: { newValue in
+                        let snapped = min(800, max(200, (Int(newValue.rounded()) / 10) * 10))
+                        guard snapped != value else { return }
+                        value = snapped
+                        Haptics.selection()
+                    }
+                ),
+                in: 200...800,
+                step: 10
+            )
+            .tint(.white)
         }
     }
 }
