@@ -366,15 +366,44 @@ final class ChatViewModel {
             try? FirestoreConversationService.shared.saveConversation(existing)
         } else {
             let firstUserContent = messages.first(where: { $0.role == .user })?.content ?? "Chat"
-            let title = String(firstUserContent.prefix(50))
             let conversation = Conversation(
-                title: title,
+                title: String(firstUserContent.prefix(50)),
                 type: .chat,
                 messages: conversationMessages
             )
             currentConversation = conversation
             try? FirestoreConversationService.shared.saveConversation(conversation)
+            generateTitle(from: firstUserContent, for: conversation.id)
         }
+    }
+
+    /// Asks the AI for a 1-3 word title summarizing the opening query, then
+    /// updates and re-saves the conversation. Silently keeps the fallback
+    /// title on failure.
+    private func generateTitle(from firstQuery: String, for conversationID: UUID) {
+        Task {
+            let prompt = [
+                AIChatMessage(role: "system", content: "You write ultra-short chat titles. Reply with ONLY a 1-3 word title in Title Case that summarizes the user's message. No quotes, no punctuation, no trailing words."),
+                AIChatMessage(role: "user", content: String(firstQuery.prefix(500)))
+            ]
+            guard let raw = try? await KorahAIClient.shared.complete(messages: prompt, temperature: 0.3),
+                  let title = Self.sanitizeTitle(raw) else { return }
+            guard var conversation = currentConversation, conversation.id == conversationID else { return }
+            conversation.title = title
+            currentConversation = conversation
+            try? FirestoreConversationService.shared.saveConversation(conversation)
+        }
+    }
+
+    /// Trims the model output to a clean 1-3 word title, or nil if unusable.
+    private static func sanitizeTitle(_ raw: String) -> String? {
+        let cleaned = raw
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\"", with: "")
+            .trimmingCharacters(in: CharacterSet(charactersIn: ".!?"))
+        let words = cleaned.split(whereSeparator: { $0.isWhitespace }).prefix(3)
+        let title = words.joined(separator: " ")
+        return title.isEmpty ? nil : title
     }
 
     private func updateSuggestions() {

@@ -102,8 +102,7 @@ struct ChatView: View {
                 )
             }
             .sheet(isPresented: $showHistory) {
-                ConversationHistoryView(
-                    type: .chat,
+                ChatHistoryView(
                     onSelectConversation: { conversation in
                         viewModel.loadConversation(conversation)
                     },
