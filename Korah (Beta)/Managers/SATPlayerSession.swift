@@ -115,7 +115,14 @@ final class SATPlayerSession {
     func toggleEliminate(key: String, for question: SATQuestion) {
         guard !checked.contains(question.id) else { return }
         var set = eliminated[question.id] ?? []
-        if set.contains(key) { set.remove(key) } else { set.insert(key) }
+        if set.contains(key) {
+            set.remove(key)
+        } else {
+            set.insert(key)
+            if answers[question.id] == key {
+                answers[question.id] = nil
+            }
+        }
         eliminated[question.id] = set
     }
 

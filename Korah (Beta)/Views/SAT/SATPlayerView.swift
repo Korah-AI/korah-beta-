@@ -87,9 +87,13 @@ struct SATPlayerView: View {
                     session.toggleBookmark(question)
                     Haptics.light()
                 } label: {
-                    Image(systemName: session.isBookmarked(question) ? "bookmark.fill" : "bookmark")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(session.isBookmarked(question) ? Color.kGold : Color.kTextTertiary)
+                    HStack(spacing: 4) {
+                        Image(systemName: session.isBookmarked(question) ? "bookmark.fill" : "bookmark")
+                            .font(.body.weight(.semibold))
+                        Text("Mark For Review")
+                            .font(.kCaption.weight(.semibold))
+                    }
+                    .foregroundStyle(session.isBookmarked(question) ? Color.kGold : Color.kTextTertiary)
                 }
             }
             .padding(.horizontal, Spacing.md)
@@ -104,11 +108,12 @@ struct SATPlayerView: View {
     private func chip(_ text: String, tint: Color) -> some View {
         Text(text)
             .font(.kFootnote.weight(.semibold))
-            .foregroundStyle(tint)
+            .foregroundStyle(.white)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(Capsule().fill(tint.opacity(0.14)))
-            .overlay(Capsule().stroke(tint.opacity(0.30), lineWidth: 1))
+            .background(Capsule().fill(tint))
     }
 
     /// A distinct colour per SAT domain so topics are recognisable at a glance.
@@ -553,7 +558,8 @@ struct SATAnswerRow: View {
                         .background(Circle().fill(keyBackground))
                         .overlay(Circle().stroke(borderColor, lineWidth: 1.5))
 
-                    HTMLContentView(html: option.text, fontSize: 16)
+                    HTMLContentView(html: option.text, fontSize: 16,
+                                     textColorOverride: revealState == .none ? nil : .white)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(Spacing.sm)
@@ -566,9 +572,18 @@ struct SATAnswerRow: View {
                     RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
                         .stroke(borderColor, lineWidth: isSelected || revealState != .none ? 1.5 : 1)
                 )
+                .overlay {
+                    if isEliminated && revealState == .none {
+                        Rectangle()
+                            .fill(Color.kTextSecondary.opacity(0.7))
+                            .frame(height: 1.5)
+                            .padding(.horizontal, Spacing.sm)
+                    }
+                }
                 .opacity(isEliminated && revealState == .none ? 0.35 : 1)
             }
             .buttonStyle(.plain)
+            .disabled(isEliminated)
 
             // Eliminate toggle (web's ABC strike-out buttons)
             Button(action: onEliminate) {
@@ -587,24 +602,22 @@ struct SATAnswerRow: View {
 
     private var rowBackground: Color {
         switch revealState {
-        case .correct: return Color.kSuccess.opacity(0.10)
-        case .incorrect: return Color.kError.opacity(0.10)
+        case .correct: return .kSuccess
+        case .incorrect: return .kError
         case .none: return isSelected ? Color.kAccent.opacity(0.10) : Color.kSurface
         }
     }
 
     private var borderColor: Color {
         switch revealState {
-        case .correct: return .kSuccess
-        case .incorrect: return .kError
+        case .correct, .incorrect: return .clear
         case .none: return isSelected ? .kAccent : .kBorder
         }
     }
 
     private var keyColor: Color {
         switch revealState {
-        case .correct: return .kSuccess
-        case .incorrect: return .kError
+        case .correct, .incorrect: return .white
         case .none: return isSelected ? .white : .kTextSecondary
         }
     }
