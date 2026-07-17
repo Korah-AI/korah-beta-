@@ -34,11 +34,18 @@ struct ComposerView: View {
             }
             .padding(.horizontal, Spacing.sm)
             .padding(.vertical, Spacing.xs)
-            .satGlassBar(cornerRadius: CornerRadius.xxl)
+            .background(
+                RoundedRectangle(cornerRadius: CornerRadius.xxl, style: .continuous)
+                    .fill(Color.kSurfaceElevated)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: CornerRadius.xxl, style: .continuous)
+                    .stroke(Color.kBorder, lineWidth: 1)
+            )
             .kShadowMedium()
         }
         .padding(.horizontal, Spacing.md)
-        .padding(.bottom, Spacing.xs)
+        .padding(.bottom, Spacing.md)
     }
     
     // MARK: - Image Preview

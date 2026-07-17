@@ -25,7 +25,7 @@ struct MainTabView: View {
                 .tabItem { Label("Practice", systemImage: "bolt.fill") }
                 .tag(Tab.practice)
 
-            ChatView(onBack: { selectedTab = .sat })
+            ChatView()
                 .tabItem { Label("Ask Korah", systemImage: "bubble.left.and.bubble.right.fill") }
                 .tag(Tab.chat)
 

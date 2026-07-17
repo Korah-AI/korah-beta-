@@ -4,9 +4,6 @@ import SwiftUI
 
 /// Modern flagship chat view for Korah AI tutor
 struct ChatView: View {
-    /// Invoked by the header's back chevron — returns to the SAT home tab.
-    var onBack: (() -> Void)? = nil
-
     @State private var viewModel = ChatViewModel()
     @State private var showImagePicker = false
     @State private var showImageSourceSheet = false
@@ -14,6 +11,7 @@ struct ChatView: View {
     @State private var showClearAlert = false
     @State private var showCameraMode = false
     @State private var cameraIsReady = false
+    @State private var showHistory = false
 
     var body: some View {
         NavigationStack {
@@ -103,6 +101,15 @@ struct ChatView: View {
                     sourceType: imageSource
                 )
             }
+            .sheet(isPresented: $showHistory) {
+                ConversationHistoryView(
+                    type: .chat,
+                    onSelectConversation: { conversation in
+                        viewModel.loadConversation(conversation)
+                    },
+                    onDismiss: { showHistory = false }
+                )
+            }
     }
 
     // MARK: - Camera Mode
@@ -144,7 +151,7 @@ struct ChatView: View {
     /// the Camera / Chat toggle; new-chat and delete actions hide in camera mode.
     private var header: some View {
         ChatHeaderBar(
-            onBack: onBack,
+            onHistory: { showHistory = true },
             showCameraMode: showCameraMode,
             onSelectCamera: {
                 hideKeyboard()
@@ -241,10 +248,10 @@ struct ChatView: View {
 
 // MARK: - Chat Header Bar
 
-/// Floating Liquid Glass toolbar: back-to-home chevron, centered Camera / Chat
+/// Floating Liquid Glass toolbar: chat-history button, centered Camera / Chat
 /// toggle, and new-chat / delete actions (the latter hidden in camera mode).
 private struct ChatHeaderBar: View {
-    var onBack: (() -> Void)?
+    let onHistory: () -> Void
     let showCameraMode: Bool
     let onSelectCamera: () -> Void
     let onSelectChat: () -> Void
@@ -259,10 +266,8 @@ private struct ChatHeaderBar: View {
 
             // Side actions
             HStack(spacing: Spacing.xxs) {
-                if let onBack {
-                    iconButton("chevron.left", tint: Color.kTextPrimary, action: onBack)
-                        .accessibilityLabel("Back to home")
-                }
+                iconButton("clock.arrow.circlepath", tint: Color.kTextPrimary, action: onHistory)
+                    .accessibilityLabel("Chat history")
 
                 Spacer()
 

@@ -9,7 +9,10 @@ struct MessageBubbleView: View {
     var onRetry: (() -> Void)?
     
     @Environment(\.colorScheme) private var colorScheme
-    
+    @State private var feedback: Feedback = .none
+
+    private enum Feedback { case none, up, down }
+
     var body: some View {
         HStack(alignment: .bottom, spacing: Spacing.xs) {
             if message.isUser {
@@ -93,7 +96,7 @@ struct MessageBubbleView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             BubbleShape(isUser: false)
-                .fill(Color.kSurface)
+                .fill(Color.kSurfaceElevated)
         )
         .overlay(
             BubbleShape(isUser: false)
@@ -118,26 +121,45 @@ struct MessageBubbleView: View {
     // MARK: - Message Actions
     
     private var messageActions: some View {
-        HStack(spacing: Spacing.md) {
-            Button {
-                onCopy?()
-            } label: {
-                Label("Copy", systemImage: "doc.on.doc")
-                    .font(.kCaption)
-                    .foregroundStyle(Color.adaptive(light: .Light.textTertiary, dark: .Dark.textTertiary))
+        HStack(spacing: Spacing.lg) {
+            actionIcon(
+                feedback == .up ? "hand.thumbsup.fill" : "hand.thumbsup",
+                tint: feedback == .up ? SATAccent.emerald.solid : Color.kTextTertiary
+            ) {
+                feedback = feedback == .up ? .none : .up
             }
-            
-            if case .error = message.state {
-                Button {
-                    onRetry?()
-                } label: {
-                    Label("Retry", systemImage: "arrow.clockwise")
-                        .font(.kCaption)
-                        .foregroundStyle(Color.adaptive(light: .Light.accent, dark: .Dark.accent))
-                }
+
+            actionIcon(
+                feedback == .down ? "hand.thumbsdown.fill" : "hand.thumbsdown",
+                tint: feedback == .down ? SATAccent.red.solid : Color.kTextTertiary
+            ) {
+                feedback = feedback == .down ? .none : .down
+            }
+
+            actionIcon("arrow.clockwise", tint: Color.kTextTertiary) {
+                onRetry?()
+            }
+
+            actionIcon("doc.on.doc", tint: Color.kTextTertiary) {
+                onCopy?()
             }
         }
         .padding(.top, Spacing.xxs)
+        .padding(.leading, Spacing.xxs)
+    }
+
+    private func actionIcon(_ name: String, tint: Color, action: @escaping () -> Void) -> some View {
+        Button {
+            Haptics.light()
+            action()
+        } label: {
+            Image(systemName: name)
+                .font(.kFootnote)
+                .foregroundStyle(tint)
+                .frame(width: 28, height: 28)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 

@@ -137,6 +137,18 @@ final class ChatViewModel {
         currentConversation = nil
         Haptics.medium()
     }
+
+    /// Load a saved conversation from history into the current chat.
+    /// Subsequent messages update the same Firestore document.
+    func loadConversation(_ conversation: Conversation) {
+        stopStreaming()
+        messages = conversation.messages.map { $0.toChatMessage() }
+        currentConversation = conversation
+        lastMessageID = messages.last?.id
+        errorMessage = nil
+        updateSuggestions()
+        Haptics.light()
+    }
     
     /// Copy message content to clipboard
     func copyMessage(_ message: ChatMessage) {
