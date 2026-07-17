@@ -66,6 +66,12 @@ extension Color {
         .adaptive(light: .Light.accentAssistant, dark: .Dark.accentAssistant)
     }
 
+    /// Bold blue used for the selected tab bar item (blue-600 / blue-500).
+    static var kTabBarSelected: Color {
+        .adaptive(light: Color(red: 0.145, green: 0.388, blue: 0.922),   // #2563eb
+                  dark: Color(red: 0.231, green: 0.510, blue: 0.965))    // #3b82f6
+    }
+
     // MARK: - Semantic (--grn / --gold / --red)
 
     static var kSuccess: Color {
