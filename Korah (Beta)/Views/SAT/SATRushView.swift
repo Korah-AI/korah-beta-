@@ -899,10 +899,19 @@ struct SATRushCelebrationView: View {
     let onAgain: () -> Void
     let onExit: () -> Void
 
+    // Solid, vivid palette — mirrors the setup wizard cards (no gradients).
+    private static let indigo = Color(red: 0.36, green: 0.42, blue: 0.95)
+    private static let coral = Color(red: 0.95, green: 0.45, blue: 0.35)
+    private static let tealGreen = Color(red: 0.20, green: 0.68, blue: 0.55)
+    private static let magenta = Color(red: 0.85, green: 0.35, blue: 0.62)
+    private static let amber = Color(red: 0.95, green: 0.62, blue: 0.20)
+    private static let cyan = Color(red: 0.30, green: 0.70, blue: 0.78)
+    private static let pink = Color(red: 0.93, green: 0.28, blue: 0.55)
+
     var body: some View {
         ScrollView {
             VStack(spacing: Spacing.lg) {
-                Image("korahcheer")
+                Image("newlogo3")
                     .resizable()
                     .scaledToFit()
                     .frame(height: 110)
@@ -910,22 +919,22 @@ struct SATRushCelebrationView: View {
 
                 Text("Rush complete!")
                     .font(.kLargeTitle)
-                    .kGradientText()
+                    .foregroundStyle(.white)
 
                 Text(rush.answered > 0
                      ? "You answered \(rush.answered) question\(rush.answered == 1 ? "" : "s"). Keep the streak going!"
                      : "You didn't answer any questions this time.")
                     .font(.kSubheadline)
-                    .foregroundStyle(Color.kTextSecondary)
+                    .foregroundStyle(.white.opacity(0.85))
                     .multilineTextAlignment(.center)
 
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: Spacing.sm) {
-                    statCard(icon: "target", tint: .kAccent, value: "\(rush.accuracy)%", label: "Accuracy")
-                    statCard(icon: "checkmark.circle.fill", tint: .kSuccess, value: "\(rush.correct)/\(rush.answered)", label: "Correct")
-                    statCard(icon: "clock.fill", tint: .kAccentLight, value: timeString, label: "Time")
-                    statCard(icon: "bolt.fill", tint: .kGold, value: (rush.xp >= 0 ? "+" : "") + "\(rush.xp)", label: "XP earned")
-                    statCard(icon: "flame.fill", tint: .kError, value: "\(rush.maxStreak)", label: "Best streak")
-                    statCard(icon: "books.vertical.fill", tint: .kAccent, value: "\(rush.answered)", label: "Answered")
+                    statCard(icon: "target", tint: Self.indigo, value: "\(rush.accuracy)%", label: "Accuracy")
+                    statCard(icon: "checkmark.circle.fill", tint: Self.tealGreen, value: "\(rush.correct)/\(rush.answered)", label: "Correct")
+                    statCard(icon: "clock.fill", tint: Self.cyan, value: timeString, label: "Time")
+                    statCard(icon: "bolt.fill", tint: Self.amber, value: (rush.xp >= 0 ? "+" : "") + "\(rush.xp)", label: "XP earned")
+                    statCard(icon: "flame.fill", tint: Self.coral, value: "\(rush.maxStreak)", label: "Best streak")
+                    statCard(icon: "books.vertical.fill", tint: Self.magenta, value: "\(rush.answered)", label: "Answered")
                 }
 
                 // Per-domain breakdown
@@ -934,23 +943,24 @@ struct SATRushCelebrationView: View {
                     VStack(alignment: .leading, spacing: Spacing.sm) {
                         Text("By domain")
                             .font(.kHeadline)
-                            .foregroundStyle(Color.kTextPrimary)
-                        ForEach(entries, id: \.key) { name, bucket in
+                            .foregroundStyle(.white)
+                        ForEach(Array(entries.enumerated()), id: \.element.key) { index, entry in
+                            let (name, bucket) = entry
                             let percent = Int((Double(bucket.correct) / Double(bucket.answered) * 100).rounded())
                             VStack(alignment: .leading, spacing: 4) {
                                 HStack {
                                     Text(name)
                                         .font(.kSubheadline)
-                                        .foregroundStyle(Color.kTextSecondary)
+                                        .foregroundStyle(.white)
                                     Spacer()
                                     Text("\(bucket.correct)/\(bucket.answered) · \(percent)%")
                                         .font(.kCaption)
-                                        .foregroundStyle(Color.kTextTertiary)
+                                        .foregroundStyle(.white.opacity(0.8))
                                 }
                                 GeometryReader { geo in
                                     ZStack(alignment: .leading) {
-                                        Capsule().fill(Color.kBorder.opacity(0.5))
-                                        Capsule().fill(LinearGradient.kPurpleGradient)
+                                        Capsule().fill(Color.white.opacity(0.25))
+                                        Capsule().fill(.white)
                                             .frame(width: geo.size.width * CGFloat(percent) / 100)
                                     }
                                 }
@@ -959,13 +969,38 @@ struct SATRushCelebrationView: View {
                         }
                     }
                     .padding(Spacing.md)
-                    .kGlassEffect(cornerRadius: CornerRadius.lg)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: CornerRadius.lg, style: .continuous)
+                            .fill(Self.indigo)
+                    )
                 }
 
-                Button("Practice again") { onAgain() }
-                    .buttonStyle(.kPrimary)
-                Button("Back to SAT home") { onExit() }
-                    .buttonStyle(.kGhost)
+                Button { onAgain() } label: {
+                    Text("Practice again")
+                        .font(.kBodyBold)
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(Self.pink)
+                        )
+                }
+                .buttonStyle(.plain)
+
+                Button { onExit() } label: {
+                    Text("Back to SAT home")
+                        .font(.kBodyBold)
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(Self.tealGreen)
+                        )
+                }
+                .buttonStyle(.plain)
             }
             .padding(Spacing.md)
         }
@@ -981,19 +1016,22 @@ struct SATRushCelebrationView: View {
         VStack(spacing: 6) {
             Image(systemName: icon)
                 .font(.title3)
-                .foregroundStyle(tint)
+                .foregroundStyle(.white)
             Text(value)
                 .font(.kHeadline)
-                .foregroundStyle(Color.kTextPrimary)
+                .foregroundStyle(.white)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             Text(label)
                 .font(.kCaption2)
-                .foregroundStyle(Color.kTextTertiary)
+                .foregroundStyle(.white.opacity(0.85))
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, Spacing.sm)
-        .kGlassEffect(cornerRadius: CornerRadius.md)
+        .padding(.vertical, Spacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
+                .fill(tint)
+        )
     }
 }
 
