@@ -247,32 +247,38 @@ struct SATPracticeView: View {
             startQuery = SATQuery(questionIds: Array(missedIds.shuffled().prefix(10)))
             Haptics.medium()
         } label: {
-            HStack(spacing: Spacing.md) {
-                Image(systemName: "target")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(Color.kGold)
-                    .frame(width: 44, height: 44)
-                    .background(Circle().fill(Color.kGold.opacity(0.15)))
+            ZStack(alignment: .topTrailing) {
+                Circle()
+                    .fill(Color.white.opacity(0.12))
+                    .frame(width: 140, height: 140)
+                    .offset(x: 40, y: -50)
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Adaptive set")
-                        .font(.kHeadline)
-                        .foregroundStyle(Color.kTextPrimary)
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "target")
+                            .font(.caption2.weight(.bold))
+                        Text("ADAPTIVE SET")
+                            .font(.kCaption2.weight(.heavy))
+                            .kerning(1.2)
+                    }
+                    .foregroundStyle(Color.white.opacity(0.85))
+
+                    Text(missedIds.isEmpty ? "Retry your misses" : "Drill your weak spots")
+                        .font(.kTitle2.weight(.bold))
+                        .foregroundStyle(.white)
+
                     Text(missedIds.isEmpty
                          ? "Miss a question and it'll land here to retry."
-                         : "\(min(10, missedIds.count)) questions · targets your weak spots")
+                         : "\(min(10, missedIds.count)) questions · targets what you've missed")
                         .font(.kFootnote)
-                        .foregroundStyle(Color.kTextSecondary)
+                        .foregroundStyle(Color.white.opacity(0.8))
                 }
-
-                Spacer(minLength: Spacing.sm)
-
-                Image(systemName: "chevron.right")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(missedIds.isEmpty ? Color.kTextTertiary : Color.kGold)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(Spacing.lg)
             }
-            .padding(Spacing.md)
-            .satCard(tint: .kGold, cornerRadius: CornerRadius.xl, solid: true)
+            .background(Self.goldGradient)
+            .clipShape(RoundedRectangle(cornerRadius: CornerRadius.xl, style: .continuous))
+            .shadow(color: Self.goldShadow, radius: 20, x: 0, y: 8)
             .opacity(missedIds.isEmpty ? 0.6 : 1)
         }
         .buttonStyle(.plain)
@@ -322,6 +328,13 @@ struct SATPracticeView: View {
         colors: [Color(red: 1.0, green: 0.37, blue: 0.49), Color(red: 1.0, green: 0.62, blue: 0.27)],
         startPoint: .leading, endPoint: .trailing)
     private static let rushShadow = Color(red: 1.0, green: 0.45, blue: 0.38).opacity(0.35)
+
+    // Adaptive set card — a solid amber→gold fill to match the Rush hero's
+    // fully-filled treatment.
+    private static let goldGradient = LinearGradient(
+        colors: [Color(red: 0.85, green: 0.54, blue: 0.02), Color(red: 0.98, green: 0.75, blue: 0.14)],
+        startPoint: .leading, endPoint: .trailing)
+    private static let goldShadow = Color(red: 0.98, green: 0.75, blue: 0.14).opacity(0.35)
 
     // Difficulty chip colours: All / Easy / Medium / Hard.
     private static let chipBlue   = Color(red: 0.30, green: 0.56, blue: 0.96)
