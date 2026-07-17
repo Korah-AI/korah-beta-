@@ -4,6 +4,8 @@
 
 **Never verify Swift compilation.** You will handle all simulation checks yourself. Do not run `xcodebuild`, check compilation errors, or validate the build process. Focus only on code changes.
 
+**UI/UX styling:** when building or restyling any UI, follow `DESIGN_GUIDE.md` (visuals, motion, components) and `COPY_GUIDE.md` (voice, wording) at the repo root. Reference implementations: `Views/SAT/SATRushView.swift` and `Views/Onboarding/OnboardingView.swift`. The app is animated, colorful, and original; never use em dashes in user-facing copy or prompts.
+
 ---
 
 ## Behavioral guidelines to reduce common LLM coding mistakes
