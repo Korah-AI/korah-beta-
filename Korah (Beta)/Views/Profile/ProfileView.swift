@@ -20,6 +20,7 @@ struct ProfileView: View {
     @State private var pfpStore = ProfileImageStore.shared
 
     @State private var showGoalEditor = false
+    @State private var staging: SATStagingConfig?
     @State private var reviewQuery: SATQuery?
     @State private var showSignOutConfirm = false
     @State private var showClearDataConfirm = false
@@ -40,28 +41,49 @@ struct ProfileView: View {
                         emptyProgressState
                     } else {
                         scoreCard
-                        statGrid
-                        sectionCards
+
+                        VStack(alignment: .leading, spacing: Spacing.sm) {
+                            sectionHeader("My Stats", systemImage: "chart.bar.fill", tint: .satStatBlue)
+                            statGrid
+                        }
+
+                        VStack(alignment: .leading, spacing: Spacing.sm) {
+                            sectionHeader("Section Breakdown", systemImage: "chart.bar.xaxis", tint: .satTeal)
+                            sectionCards
+                            if !model.domains.isEmpty {
+                                domainChart
+                            }
+                        }
+
                         if let top = model.suggestions.first {
-                            focusBanner(top)
+                            VStack(alignment: .leading, spacing: Spacing.sm) {
+                                sectionHeader("Focus & Skills", systemImage: "scope", tint: .satCoral)
+                                focusBanner(top)
+                                if !model.suggestions.isEmpty {
+                                    suggestionList
+                                }
+                            }
                         }
-                        if !model.domains.isEmpty {
-                            domainChart
-                        }
-                        if !model.suggestions.isEmpty {
-                            suggestionList
-                        }
-                        if !model.bookmarks.isEmpty {
-                            savedSection
-                        }
-                        if !model.recent.isEmpty {
-                            recentSection
+
+                        if !model.bookmarks.isEmpty || !model.recent.isEmpty {
+                            VStack(alignment: .leading, spacing: Spacing.sm) {
+                                sectionHeader("Saved & Activity", systemImage: "bookmark.fill", tint: .kGold)
+                                if !model.bookmarks.isEmpty {
+                                    savedSection
+                                }
+                                if !model.recent.isEmpty {
+                                    recentSection
+                                }
+                            }
                         }
                     }
 
-                    preferencesCard
-                    dangerCard.id("accountSection")
-                    aboutCard
+                    VStack(alignment: .leading, spacing: Spacing.sm) {
+                        sectionHeader("Settings", systemImage: "gearshape.fill", tint: .korahPink)
+                        preferencesCard
+                        dangerCard.id("accountSection")
+                        aboutCard
+                    }
 
                     Spacer(minLength: 40)
                 }
@@ -130,11 +152,18 @@ struct ProfileView: View {
                     )
                 } else if showGoalEditor {
                     SATGoalEditorPopup(model: model, onClose: { showGoalEditor = false })
+                } else if let staging {
+                    SATStagingPopup(
+                        config: staging,
+                        onStart: { ids in reviewQuery = SATQuery(questionIds: ids) },
+                        onClose: { self.staging = nil }
+                    )
                 }
             }
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showSignOutConfirm)
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showClearDataConfirm)
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showGoalEditor)
+            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: staging != nil)
             }
         }
     }
@@ -225,6 +254,21 @@ struct ProfileView: View {
         .padding(.vertical, Spacing.section)
     }
 
+    // MARK: - Section header
+
+    /// A small labelled divider between groups of cards — mirrors
+    /// `SATHomeView.sectionHeader` so both dashboards read the same way.
+    private func sectionHeader(_ title: String, systemImage: String, tint: Color) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: systemImage)
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(tint)
+            Text(title)
+                .font(.kHeadline)
+                .foregroundStyle(Color.kTextPrimary)
+        }
+    }
+
     // MARK: - Score progress
 
     private var scoreCard: some View {
@@ -282,7 +326,14 @@ struct ProfileView: View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: Spacing.sm) {
             statCard(icon: "checkmark.circle.fill", tint: .kSuccess,
                      value: "\(model.totals.answered)",
-                     label: "Questions Answered")
+                     label: "Questions Answered",
+                     action: {
+                         staging = SATStagingConfig(
+                            title: "Questions Attempted",
+                            systemImage: "checkmark.circle.fill",
+                            tint: .kSuccess,
+                            load: { await SATStaging.attempted() })
+                     })
             statCard(icon: "target", tint: .satStatBlue,
                      value: model.totals.answered > 0 ? "\(Int((model.totals.accuracy * 100).rounded()))%" : "—",
                      label: "Accuracy")
@@ -305,13 +356,27 @@ struct ProfileView: View {
     /// Mirrors `SATHomeView.statCard`: small label, large value, spacer,
     /// icon pinned bottom-trailing — at the same fixed height so every
     /// card in the grid lines up identically.
-    private func statCard(icon: String, tint: Color, value: String, label: String) -> some View {
-        SATGradientCard(title: label, systemImage: icon, tint: tint, compact: true) {
+    @ViewBuilder
+    private func statCard(icon: String, tint: Color, value: String, label: String,
+                          hint: String? = nil, action: (() -> Void)? = nil) -> some View {
+        let card = SATGradientCard(title: label, systemImage: icon, tint: tint, compact: true) {
             Text(value)
                 .font(.jakarta(24, relativeTo: .title2).weight(.bold))
                 .foregroundStyle(Color.kTextPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
+
+            if let hint {
+                Text(hint)
+                    .font(.kCaption.weight(.bold))
+                    .foregroundStyle(tint)
+            }
+        }
+        if let action {
+            Button(action: action) { card }
+                .buttonStyle(.plain)
+        } else {
+            card
         }
     }
 
@@ -340,11 +405,11 @@ struct ProfileView: View {
                 .foregroundStyle(Color.kTextPrimary)
 
             SATCardButton(title: missed.isEmpty ? "Practice" : "Review \(missed.count)", tint: tint) {
-                if missed.isEmpty {
-                    reviewQuery = SATQuery(sections: [section])
-                } else {
-                    reviewQuery = SATQuery(questionIds: Array(missed.prefix(20)))
-                }
+                staging = SATStagingConfig(
+                    title: label,
+                    systemImage: "chart.bar.fill",
+                    tint: tint,
+                    load: { await SATStaging.section(section) })
             }
         }
     }
@@ -364,7 +429,12 @@ struct ProfileView: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             SATCardButton(title: "Practice this skill", tint: .satCoral) {
-                reviewQuery = model.practiceQuery(for: top)
+                let query = model.practiceQuery(for: top)
+                staging = SATStagingConfig(
+                    title: top.skillName,
+                    systemImage: "scope",
+                    tint: .satCoral,
+                    load: { await SATStaging.bank(query) })
             }
         }
     }
@@ -436,7 +506,12 @@ struct ProfileView: View {
                         .font(.kCaption)
                         .foregroundStyle(Color.kTextSecondary)
                     Button("Practice") {
-                        reviewQuery = model.practiceQuery(for: suggestion)
+                        let query = model.practiceQuery(for: suggestion)
+                        staging = SATStagingConfig(
+                            title: suggestion.skillName,
+                            systemImage: "lightbulb.fill",
+                            tint: .kGold,
+                            load: { await SATStaging.bank(query) })
                     }
                     .font(.kCaption.bold())
                     .foregroundStyle(Color.kGold)
@@ -476,8 +551,11 @@ struct ProfileView: View {
             }
 
             SATCardButton(title: "Practice all saved", tint: .kGold) {
-                let ids = model.bookmarks.map(\.questionId).prefix(50)
-                reviewQuery = SATQuery(questionIds: Array(ids))
+                staging = SATStagingConfig(
+                    title: "Saved Questions",
+                    systemImage: "bookmark.fill",
+                    tint: .kGold,
+                    load: { await SATStaging.bookmarks() })
             }
         }
     }

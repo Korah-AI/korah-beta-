@@ -27,6 +27,7 @@ struct SATHomeView: View {
 
     // UI state
     @State private var path = NavigationPath()
+    @State private var staging: SATStagingConfig?
     @State private var now = Date()
     @State private var tipIndex = 0
     @State private var vocabIndex = 0
@@ -63,6 +64,16 @@ struct SATHomeView: View {
             .task { await load() }
             .refreshable { await load() }
             .onReceive(ticker) { now = $0 }
+            .overlay {
+                if let staging {
+                    SATStagingPopup(
+                        config: staging,
+                        onStart: { ids in path.append(HomeDestination.practice(PracticePlan(questionIds: ids))) },
+                        onClose: { self.staging = nil }
+                    )
+                }
+            }
+            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: staging != nil)
         }
     }
 
@@ -136,29 +147,53 @@ struct SATHomeView: View {
                          value: "\(totals.answered)",
                          icon: "checkmark.circle.fill",
                          tint: .satStatBlue,
-                         action: { path.append(HomeDestination.bank) })
+                         caption: totals.answered > 0 ? nil : "Nothing yet",
+                         hint: totals.answered > 0 ? "Review now →" : nil,
+                         enabled: totals.answered > 0,
+                         action: {
+                            staging = SATStagingConfig(
+                                title: "Questions Attempted",
+                                systemImage: "checkmark.circle.fill",
+                                tint: .satStatBlue,
+                                load: { await SATStaging.attempted() })
+                         })
 
                 statTile(label: "Current Accuracy",
                          value: totals.answered > 0 ? "\(Int((totals.accuracy * 100).rounded()))%" : "—",
                          icon: "chart.bar.fill",
                          tint: .kSuccess,
+                         hint: "View progress →",
                          action: { onOpenProfile() })
 
                 statTile(label: "Saved Questions",
                          value: "\(savedIds.count)",
                          icon: "bookmark.fill",
                          tint: .satTeal,
-                         caption: savedIds.isEmpty ? "Nothing saved yet" : "Tap to review",
+                         caption: savedIds.isEmpty ? "Nothing saved yet" : nil,
+                         hint: savedIds.isEmpty ? nil : "Review now →",
                          enabled: !savedIds.isEmpty,
-                         action: { path.append(HomeDestination.practice(PracticePlan(questionIds: savedIds))) })
+                         action: {
+                            staging = SATStagingConfig(
+                                title: "Saved Questions",
+                                systemImage: "bookmark.fill",
+                                tint: .satTeal,
+                                load: { await SATStaging.bookmarks() })
+                         })
 
                 statTile(label: "Recent Errors",
                          value: "\(missedIds.count)",
                          icon: "clock.arrow.circlepath",
                          tint: .satCoral,
-                         caption: missedIds.isEmpty ? "No errors yet" : "Tap to review",
+                         caption: missedIds.isEmpty ? "No errors yet" : nil,
+                         hint: missedIds.isEmpty ? nil : "Fix them now →",
                          enabled: !missedIds.isEmpty,
-                         action: { path.append(HomeDestination.practice(PracticePlan(questionIds: missedIds))) })
+                         action: {
+                            staging = SATStagingConfig(
+                                title: "Recent Errors",
+                                systemImage: "clock.arrow.circlepath",
+                                tint: .satCoral,
+                                load: { await SATStaging.errors() })
+                         })
             }
         }
     }
@@ -167,7 +202,7 @@ struct SATHomeView: View {
     /// this same shape (label, big value, optional caption) so the grid reads
     /// as one neat block instead of mismatched card heights.
     private func statTile(label: String, value: String, icon: String, tint: Color,
-                          caption: String? = nil, enabled: Bool = true,
+                          caption: String? = nil, hint: String? = nil, enabled: Bool = true,
                           action: @escaping () -> Void) -> some View {
         Button(action: action) {
             SATGradientCard(title: label, systemImage: icon, tint: tint, compact: true) {
@@ -181,6 +216,12 @@ struct SATHomeView: View {
                     Text(caption)
                         .font(.kCaption)
                         .foregroundStyle(Color.kTextTertiary)
+                }
+
+                if let hint {
+                    Text(hint)
+                        .font(.kCaption.weight(.bold))
+                        .foregroundStyle(tint)
                 }
             }
         }
@@ -260,7 +301,12 @@ struct SATHomeView: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             SATCardButton(title: "Start Practicing", tint: .satCoral) {
-                path.append(HomeDestination.practice(focusPlan))
+                let query = focusPlan.query
+                staging = SATStagingConfig(
+                    title: focusTitle,
+                    systemImage: "target",
+                    tint: .satCoral,
+                    load: { await SATStaging.bank(query) })
             }
         }
     }
