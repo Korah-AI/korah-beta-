@@ -17,6 +17,8 @@ struct SATPracticeView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Spacing.md) {
+                    header
+
                     subtitle
 
                     rushHero
@@ -36,8 +38,7 @@ struct SATPracticeView: View {
                 .padding(.top, Spacing.xs)
             }
             .kBackground(withStars: true)
-            .navigationTitle("Practice")
-            .navigationBarTitleDisplayMode(.large)
+            .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(item: $startQuery) { query in
                 SATPlayerView(query: query)
             }
@@ -54,6 +55,39 @@ struct SATPracticeView: View {
                 await loadMissed()
             }
         }
+    }
+
+    // MARK: - Header
+
+    private var header: some View {
+        HStack(alignment: .center, spacing: Spacing.sm) {
+            Text("Practice")
+                .font(.kLargeTitle)
+                .foregroundStyle(Color.kTextPrimary)
+            Spacer(minLength: 0)
+            bankButton
+        }
+    }
+
+    private var bankButton: some View {
+        Button {
+            showBank = true
+            Haptics.light()
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "square.stack.3d.up.fill")
+                    .font(.subheadline.weight(.bold))
+                Text("Go To Questionbank")
+                    .font(.kSubheadline.weight(.bold))
+                Image(systemName: "chevron.down")
+                    .font(.caption2.weight(.bold))
+            }
+            .foregroundStyle(Color.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(Capsule().fill(Self.chipBlue))
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Subtitle
