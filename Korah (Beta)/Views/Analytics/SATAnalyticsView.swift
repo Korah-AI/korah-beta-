@@ -16,6 +16,8 @@ struct SATAnalyticsView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Spacing.lg) {
+                    header
+
                     if model.isLoading && !model.hasLoadedOnce {
                         SATProfileSkeleton()
                     } else if model.allAttempts.isEmpty {
@@ -29,11 +31,7 @@ struct SATAnalyticsView: View {
                 .animation(KAnimation.standard, value: model.range)
             }
             .kBackground(withStars: true)
-            .navigationTitle("Analytics")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) { rangeMenu }
-            }
+            .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(item: $reviewQuery) { query in
                 SATPlayerView(query: query)
             }
@@ -52,37 +50,17 @@ struct SATAnalyticsView: View {
         }
     }
 
-    // MARK: - Range chip
+    // MARK: - Header
 
-    private var rangeMenu: some View {
-        Menu {
-            ForEach(AnalyticsRange.allCases) { range in
-                Button {
-                    Haptics.light()
-                    withAnimation(KAnimation.standard) { model.range = range }
-                } label: {
-                    if model.range == range {
-                        Label(range.rawValue, systemImage: "checkmark")
-                    } else {
-                        Text(range.rawValue)
-                    }
-                }
-            }
-        } label: {
-            HStack(spacing: 5) {
-                Image(systemName: "calendar")
-                    .font(.caption.weight(.bold))
-                Text(model.range.rawValue)
-                    .font(.kCaption.weight(.bold))
-                Image(systemName: "chevron.down")
-                    .font(.caption2.weight(.bold))
-            }
-            .foregroundStyle(Color.kAccentLight)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .background(Capsule().fill(Color.kAccent.opacity(0.14)))
-            .overlay(Capsule().stroke(Color.kAccent.opacity(0.3), lineWidth: 1))
+    private var header: some View {
+        HStack(alignment: .center, spacing: Spacing.sm) {
+            Text("Analytics")
+                .font(.kLargeTitle)
+                .foregroundStyle(Color.kTextPrimary)
+            AnalyticsRangeDropdown(selection: $model.range)
+            Spacer(minLength: 0)
         }
+        .zIndex(1)
     }
 
     // MARK: - Empty state
@@ -97,7 +75,7 @@ struct SATAnalyticsView: View {
                 .foregroundStyle(Color.kTextPrimary)
             Text("Answer a few questions and this page turns into your full progress report.")
                 .font(.kSubheadline)
-                .foregroundStyle(Color.kTextSecondary)
+                .foregroundStyle(Color.kTextPrimary)
                 .multilineTextAlignment(.center)
             Button("Try 10 questions") {
                 staging = SATStagingConfig(
@@ -242,7 +220,7 @@ struct SATAnalyticsView: View {
                         .contentTransition(.numericText())
                     Text("A rough pace from your score gap and calendar, not a promise. Consistency beats volume.")
                         .font(.kCaption2)
-                        .foregroundStyle(Color.kTextTertiary)
+                        .foregroundStyle(Color.kTextPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -253,7 +231,7 @@ struct SATAnalyticsView: View {
                             tint: .kSuccess) {
                 Text("Set your current and goal scores on the Profile tab and this card starts pacing you to test day.")
                     .font(.kSubheadline)
-                    .foregroundStyle(Color.kTextSecondary)
+                    .foregroundStyle(Color.kTextPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -269,7 +247,7 @@ struct SATAnalyticsView: View {
                 .contentTransition(.numericText())
             Text(label)
                 .font(.kCaption2)
-                .foregroundStyle(Color.kTextTertiary)
+                .foregroundStyle(Color.kTextPrimary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -289,12 +267,12 @@ struct SATAnalyticsView: View {
             if model.weekBuckets.isEmpty {
                 Text("No attempts in this range yet.")
                     .font(.kSubheadline)
-                    .foregroundStyle(Color.kTextSecondary)
+                    .foregroundStyle(Color.kTextPrimary)
             } else {
                 AnalyticsTrendChart(buckets: model.weekBuckets)
                 Text("Darker segments are harder questions. Wrong stacks under correct.")
                     .font(.kCaption2)
-                    .foregroundStyle(Color.kTextTertiary)
+                    .foregroundStyle(Color.kTextPrimary)
             }
         }
     }
@@ -310,7 +288,7 @@ struct SATAnalyticsView: View {
                 .contentTransition(.numericText())
             Text(label)
                 .font(.kCaption)
-                .foregroundStyle(Color.kTextSecondary)
+                .foregroundStyle(Color.kTextPrimary)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
@@ -355,7 +333,7 @@ struct SATAnalyticsView: View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
                 .font(.kCaption2.weight(.bold))
-                .foregroundStyle(highlighted ? Color.satTeal : Color.kTextTertiary)
+                .foregroundStyle(highlighted ? Color.satTeal : Color.kTextPrimary)
                 .textCase(.uppercase)
             Text("\(attempts)")
                 .font(.jakarta(22, relativeTo: .title2).weight(.bold))
@@ -363,7 +341,7 @@ struct SATAnalyticsView: View {
                 .contentTransition(.numericText())
             Text(accuracy.map { "\(AnalyticsFormat.percent($0)) accuracy" } ?? "No attempts")
                 .font(.kCaption2)
-                .foregroundStyle(Color.kTextTertiary)
+                .foregroundStyle(Color.kTextPrimary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Spacing.sm)
@@ -384,7 +362,7 @@ struct SATAnalyticsView: View {
             Text(text)
                 .font(.kCaption)
         }
-        .foregroundStyle(value > 0 ? Color.kSuccess : value < 0 ? Color.kError : Color.kTextTertiary)
+        .foregroundStyle(value > 0 ? Color.kSuccess : value < 0 ? Color.kError : Color.kTextPrimary)
     }
 
     // MARK: - Study time donuts
@@ -443,7 +421,7 @@ struct SATAnalyticsView: View {
                         .frame(width: 16)
                     Text(SATCatalog.difficultyLabels[row.difficulty] ?? row.difficulty)
                         .font(.kCaption)
-                        .foregroundStyle(Color.kTextSecondary)
+                        .foregroundStyle(Color.kTextPrimary)
                     Spacer(minLength: 4)
                     Text(row.attempts > 0 ? AnalyticsFormat.shortDuration(row.averageSeconds) : "—")
                         .font(.kCaption.monospacedDigit().weight(.semibold))
@@ -496,7 +474,7 @@ struct SATAnalyticsView: View {
                                 .lineLimit(2)
                             Text("\(SATCatalog.sectionLabels[topic.section] ?? topic.section) · \(topic.attempts) attempt\(topic.attempts == 1 ? "" : "s")")
                                 .font(.kCaption2)
-                                .foregroundStyle(Color.kTextTertiary)
+                                .foregroundStyle(Color.kTextPrimary)
                         }
                         Spacer(minLength: 4)
                         Text("\(Int((topic.missRate * 100).rounded()))% missed")
@@ -562,7 +540,7 @@ struct SATAnalyticsView: View {
                                 .foregroundStyle(Color.kTextPrimary)
                             Text("\(domain.attempts)")
                                 .font(.kCaption2.monospacedDigit())
-                                .foregroundStyle(Color.kTextTertiary)
+                                .foregroundStyle(Color.kTextPrimary)
                             Spacer()
                             Text(AnalyticsFormat.percent(domain.accuracy))
                                 .font(.kCaption.monospacedDigit().weight(.bold))
@@ -578,12 +556,12 @@ struct SATAnalyticsView: View {
                                     .frame(width: 5, height: 5)
                                 Text(skill.skillName)
                                     .font(.kCaption2)
-                                    .foregroundStyle(Color.kTextSecondary)
+                                    .foregroundStyle(Color.kTextPrimary)
                                     .lineLimit(1)
                                 Spacer(minLength: 4)
                                 Text("\(AnalyticsFormat.percent(skill.accuracy)) · \(skill.attempts)")
                                     .font(.kCaption2.monospacedDigit())
-                                    .foregroundStyle(Color.kTextTertiary)
+                                    .foregroundStyle(Color.kTextPrimary)
                             }
                             .padding(.leading, 2)
                         }
@@ -627,7 +605,7 @@ struct SATAnalyticsView: View {
                             Text(skill.daysSinceSeen.map { "\(skill.domain) · \($0) days ago" }
                                  ?? "\(skill.domain) · never attempted")
                                 .font(.kCaption2)
-                                .foregroundStyle(Color.kTextTertiary)
+                                .foregroundStyle(Color.kTextPrimary)
                         }
                         Spacer(minLength: 4)
                         Button("Practice") {
@@ -663,7 +641,7 @@ struct SATAnalyticsView: View {
                      ? "Retries beat first tries. Reviews are sticking, so keep redoing misses."
                      : "Retries score below first tries. Read the explanation before re-attempting.")
                     .font(.kCaption)
-                    .foregroundStyle(Color.kTextSecondary)
+                    .foregroundStyle(Color.kTextPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -677,7 +655,7 @@ struct SATAnalyticsView: View {
                 .contentTransition(.numericText())
             Text(label)
                 .font(.kCaption2)
-                .foregroundStyle(Color.kTextTertiary)
+                .foregroundStyle(Color.kTextPrimary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -717,7 +695,7 @@ struct SATAnalyticsView: View {
                                 .foregroundStyle(Color.kTextPrimary)
                             Text("\(SATCatalog.difficultyLabels[attempt.difficulty] ?? attempt.difficulty) · \(attempt.date.formatted(.relative(presentation: .named)))")
                                 .font(.kCaption2)
-                                .foregroundStyle(Color.kTextTertiary)
+                                .foregroundStyle(Color.kTextPrimary)
                         }
                         Spacer()
                         Text(attempt.xp >= 0 ? "+\(attempt.xp) XP" : "\(attempt.xp) XP")
@@ -740,6 +718,79 @@ struct SATAnalyticsView: View {
             systemImage: "scope",
             tint: tint,
             load: { await SATStaging.bank(query) })
+    }
+}
+
+// MARK: - Range dropdown
+// Custom pink-filled dropdown for the time-range filter, replacing the
+// system Menu so it can sit inline next to the "Analytics" title.
+
+private struct AnalyticsRangeDropdown: View {
+    @Binding var selection: AnalyticsRange
+    @State private var isOpen = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Button {
+                Haptics.light()
+                withAnimation(KAnimation.quick) { isOpen.toggle() }
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "calendar")
+                        .font(.caption.weight(.bold))
+                    Text(selection.rawValue)
+                        .font(.kCaption.weight(.bold))
+                    Image(systemName: "chevron.down")
+                        .font(.caption2.weight(.bold))
+                        .rotationEffect(.degrees(isOpen ? 180 : 0))
+                }
+                .foregroundStyle(Color.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(Capsule().fill(Color.korahPink))
+            }
+            .buttonStyle(.plain)
+
+            if isOpen {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(AnalyticsRange.allCases) { range in
+                        Button {
+                            Haptics.selection()
+                            withAnimation(KAnimation.quick) {
+                                selection = range
+                                isOpen = false
+                            }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Text(range.rawValue)
+                                    .font(.kCaption.weight(range == selection ? .bold : .regular))
+                                Spacer(minLength: 8)
+                                if range == selection {
+                                    Image(systemName: "checkmark")
+                                        .font(.caption2.weight(.bold))
+                                }
+                            }
+                            .foregroundStyle(range == selection ? Color.korahPink : Color.kTextPrimary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .frame(width: 140)
+                .background(
+                    RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
+                        .fill(Color.kSurfaceElevated)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
+                        .stroke(Color.korahPink.opacity(0.3), lineWidth: 1)
+                )
+                .kShadowMedium()
+                .transition(.scale(scale: 0.95, anchor: .top).combined(with: .opacity))
+            }
+        }
     }
 }
 
