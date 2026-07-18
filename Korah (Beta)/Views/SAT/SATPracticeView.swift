@@ -38,15 +38,6 @@ struct SATPracticeView: View {
             .kBackground(withStars: true)
             .navigationTitle("Practice")
             .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink {
-                        SATBankView()
-                    } label: {
-                        Image(systemName: "square.grid.2x2")
-                    }
-                }
-            }
             .navigationDestination(item: $startQuery) { query in
                 SATPlayerView(query: query)
             }
