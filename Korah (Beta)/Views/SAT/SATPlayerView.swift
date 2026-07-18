@@ -490,10 +490,23 @@ struct SATQuestionPageView: View {
             Button {
                 showExplanationSheet = true
             } label: {
-                Label("Step-by-step with Korah", systemImage: "sparkles")
-                    .font(.kSubheadline)
+                HStack(spacing: Spacing.xs) {
+                    Image("newlogo2")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 22, height: 22)
+                    Text("Step-by-step with Korah")
+                        .font(.kHeadline)
+                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: ComponentSize.Button.medium)
+                .background(
+                    RoundedRectangle(cornerRadius: CornerRadius.button, style: .continuous)
+                        .fill(SATAccent.violet.solid)
+                )
             }
-            .buttonStyle(.kSecondary)
+            .buttonStyle(.plain)
         }
         .padding(Spacing.md)
         .background(
@@ -734,7 +747,14 @@ struct SATExplanationSheet: View {
     @State private var explanation: SATExplanation?
     @State private var loadError: String?
     @State private var isLoading = false
+    @State private var chat: SATFollowUpChat
+    @FocusState private var chatFocused: Bool
     @Environment(\.dismiss) private var dismiss
+
+    init(question: SATQuestion) {
+        self.question = question
+        _chat = State(initialValue: SATFollowUpChat(question: question))
+    }
 
     enum Source: String, CaseIterable {
         case korah = "Korah"
@@ -773,6 +793,11 @@ struct SATExplanationSheet: View {
                     Button("Done") { dismiss() }
                 }
             }
+            .safeAreaInset(edge: .bottom) {
+                if source == .korah && explanation != nil {
+                    chatComposer
+                }
+            }
         }
         .task { await loadKorahExplanation() }
     }
@@ -780,14 +805,7 @@ struct SATExplanationSheet: View {
     @ViewBuilder
     private var korahContent: some View {
         if isLoading {
-            HStack(spacing: Spacing.sm) {
-                ProgressView().tint(Color.kAccent)
-                Text("Generating step-by-step explanation…")
-                    .font(.kSubheadline)
-                    .foregroundStyle(Color.kTextSecondary)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, Spacing.xl)
+            korahSkeleton
         } else if let explanation {
             if let summary = explanation.summary, !summary.isEmpty {
                 LatexMarkdownView(content: summary, isStreaming: false)
@@ -809,6 +827,8 @@ struct SATExplanationSheet: View {
                 .padding(Spacing.md)
                 .kGlassEffect(cornerRadius: CornerRadius.lg)
             }
+
+            followUpChat
         } else if let loadError {
             Text(loadError)
                 .font(.kSubheadline)
@@ -816,6 +836,124 @@ struct SATExplanationSheet: View {
             Button("Try again") { Task { await loadKorahExplanation(force: true) } }
                 .buttonStyle(.kSecondary)
         }
+    }
+
+    // MARK: - Loading skeleton (mirrors the summary + step-card layout)
+
+    private var korahSkeleton: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            SkeletonBox(height: 15)
+            SkeletonBox(height: 15).frame(width: 200)
+            ForEach(0..<3, id: \.self) { _ in
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    HStack(spacing: Spacing.xs) {
+                        SkeletonBox(cornerRadius: CornerRadius.xxl, height: 22).frame(width: 22)
+                        SkeletonBox(height: 16).frame(width: 130)
+                    }
+                    SkeletonBox(height: 13)
+                    SkeletonBox(height: 13).frame(width: 240)
+                }
+                .padding(Spacing.md)
+                .kGlassEffect(cornerRadius: CornerRadius.lg)
+            }
+        }
+    }
+
+    // MARK: - Follow-up chat (compact ask-Korah below the steps)
+
+    private var followUpChat: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            Divider().opacity(0.5)
+
+            HStack(spacing: Spacing.xs) {
+                Image("newlogo2")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 20, height: 20)
+                Text("Ask Korah a follow-up")
+                    .font(.kHeadline)
+                    .foregroundStyle(Color.kTextPrimary)
+            }
+
+            if chat.messages.isEmpty {
+                Text("Still stuck on something? Ask anything about this question.")
+                    .font(.kCaption)
+                    .foregroundStyle(Color.kTextSecondary)
+            }
+
+            ForEach(chat.messages) { message in
+                chatBubble(message)
+            }
+        }
+        .padding(.top, Spacing.xs)
+    }
+
+    @ViewBuilder
+    private func chatBubble(_ message: SATFollowUpChat.Msg) -> some View {
+        if message.role == "user" {
+            HStack {
+                Spacer(minLength: 40)
+                Text(message.text)
+                    .font(.kSubheadline)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, Spacing.sm)
+                    .padding(.vertical, Spacing.xs)
+                    .background(
+                        RoundedRectangle(cornerRadius: CornerRadius.bubble, style: .continuous)
+                            .fill(SATAccent.violet.solid)
+                    )
+            }
+        } else {
+            HStack {
+                if message.text.isEmpty && message.isStreaming {
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
+                        SkeletonBox(height: 13).frame(width: 200)
+                        SkeletonBox(height: 13).frame(width: 150)
+                    }
+                    .padding(Spacing.sm)
+                    .kGlassEffect(cornerRadius: CornerRadius.bubble)
+                } else {
+                    LatexMarkdownView(content: message.text, isStreaming: message.isStreaming)
+                        .padding(Spacing.sm)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .kGlassEffect(cornerRadius: CornerRadius.bubble)
+                }
+                Spacer(minLength: 24)
+            }
+        }
+    }
+
+    private var chatComposer: some View {
+        HStack(spacing: Spacing.xs) {
+            TextField("Ask about this question…", text: $chat.input, axis: .vertical)
+                .font(.kSubheadline)
+                .lineLimit(1...4)
+                .focused($chatFocused)
+                .padding(.horizontal, Spacing.md)
+                .padding(.vertical, 10)
+                .background(Capsule().fill(Color.kSurface))
+                .overlay(Capsule().stroke(Color.kBorder, lineWidth: 1))
+                .onSubmit { chat.send() }
+
+            Button {
+                if chat.isStreaming {
+                    chat.stop()
+                } else {
+                    chat.send()
+                    chatFocused = false
+                }
+            } label: {
+                Image(systemName: chat.isStreaming ? "stop.fill" : "arrow.up")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .frame(width: 40, height: 40)
+                    .background(Circle().fill(SATAccent.violet.solid))
+            }
+            .disabled(!chat.isStreaming && chat.input.trimmingCharacters(in: .whitespaces).isEmpty)
+        }
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, Spacing.xs)
+        .background(.bar)
     }
 
     @ViewBuilder
@@ -842,6 +980,95 @@ struct SATExplanationSheet: View {
         } catch {
             loadError = "Couldn't load an explanation right now. \(error.localizedDescription)"
         }
+    }
+}
+
+// MARK: - Follow-up chat model
+// A lightweight streaming chat seeded with the current question's context, so
+// the student can keep asking Korah about the same problem after the worked
+// steps. Mirrors MathChatModel but without the Desmos plumbing.
+
+@MainActor
+@Observable
+final class SATFollowUpChat {
+    struct Msg: Identifiable, Equatable {
+        let id = UUID()
+        let role: String        // "user" | "assistant"
+        var text: String
+        var isStreaming = false
+    }
+
+    var messages: [Msg] = []
+    var input = ""
+    var isStreaming = false
+
+    private let systemPrompt: String
+    private var streamTask: Task<Void, Never>?
+
+    init(question: SATQuestion) {
+        let context = SATExplanationService.shared.contextBlock(for: question)
+        systemPrompt = """
+        You are Korah, a friendly SAT tutor helping a student with one specific SAT question they just reviewed. Answer their follow-up questions about it clearly.
+
+        Keep replies short and conversational: a few sentences or a couple of quick steps, then stop and let them ask again. Use Markdown and KaTeX ($inline$ or $$display$$) for any math.
+
+        Here is the question in context:
+        \(context)
+        """
+    }
+
+    func send() {
+        let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, !isStreaming else { return }
+        input = ""
+        messages.append(Msg(role: "user", text: text))
+        Haptics.light()
+
+        let assistant = Msg(role: "assistant", text: "", isStreaming: true)
+        let assistantId = assistant.id
+        messages.append(assistant)
+        isStreaming = true
+
+        var api: [AIChatMessage] = [AIChatMessage(role: "system", content: systemPrompt)]
+        for message in messages where message.id != assistantId {
+            api.append(AIChatMessage(role: message.role, content: message.text))
+        }
+
+        streamTask = Task {
+            do {
+                let full = try await KorahAIClient.shared.stream(
+                    messages: api, temperature: 0.4
+                ) { [weak self] _, accumulated in
+                    Task { @MainActor [weak self] in
+                        self?.update(id: assistantId, text: accumulated, streaming: true)
+                    }
+                }
+                update(id: assistantId, text: full, streaming: false)
+            } catch {
+                if let index = messages.firstIndex(where: { $0.id == assistantId }) {
+                    if messages[index].text.isEmpty {
+                        messages[index].text = "Couldn't respond right now. Please try again."
+                    }
+                    messages[index].isStreaming = false
+                }
+            }
+            isStreaming = false
+        }
+    }
+
+    func stop() {
+        streamTask?.cancel()
+        streamTask = nil
+        isStreaming = false
+        if let index = messages.lastIndex(where: { $0.role == "assistant" }) {
+            messages[index].isStreaming = false
+        }
+    }
+
+    private func update(id: UUID, text: String, streaming: Bool) {
+        guard let index = messages.firstIndex(where: { $0.id == id }) else { return }
+        messages[index].text = text
+        messages[index].isStreaming = streaming
     }
 }
 
