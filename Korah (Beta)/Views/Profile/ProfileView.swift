@@ -62,15 +62,6 @@ struct ProfileView: View {
             .kBackground(withStars: true)
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showGoalEditor = true
-                    } label: {
-                        Image(systemName: "target")
-                    }
-                }
-            }
             .navigationDestination(item: $reviewQuery) { query in
                 SATPlayerView(query: query)
             }
