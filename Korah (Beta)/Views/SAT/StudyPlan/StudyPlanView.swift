@@ -14,6 +14,7 @@ struct StudyPlanView: View {
 
     @State private var displayedMonth = Date()
     @State private var selectedDate: String?
+    @State private var showPlanMenu = false
     @State private var showReplaceConfirm = false
     @State private var didAutoFocus = false
 
@@ -31,22 +32,87 @@ struct StudyPlanView: View {
         .toolbar {
             if service.plan != nil {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { showReplaceConfirm = true } label: {
+                    Button {
+                        Haptics.light()
+                        withAnimation(KAnimation.quick) { showPlanMenu.toggle() }
+                    } label: {
                         Image(systemName: "arrow.triangle.2.circlepath")
                     }
                 }
             }
         }
-        .confirmationDialog("Start a new plan?", isPresented: $showReplaceConfirm, titleVisibility: .visible) {
-            Button("Replace my plan", role: .destructive) {
-                Task {
-                    try? await service.deletePlan()
-                    onCreateNew()
-                }
+        .overlay {
+            if showPlanMenu {
+                Color.black.opacity(0.001)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        withAnimation(KAnimation.quick) { showPlanMenu = false }
+                    }
             }
-            Button("Keep this one", role: .cancel) {}
         }
+        .overlay(alignment: .topTrailing) {
+            if showPlanMenu {
+                planMenu
+                    .padding(.top, 6)
+                    .padding(.trailing, Spacing.md)
+            }
+        }
+        .overlay {
+            if showReplaceConfirm {
+                KConfirmationPopup(
+                    icon: "arrow.triangle.2.circlepath",
+                    title: "Start a new plan?",
+                    message: "This replaces your current plan. Progress on completed sessions won't carry over.",
+                    confirmTitle: "Start New Plan",
+                    onConfirm: {
+                        showReplaceConfirm = false
+                        Task {
+                            try? await service.deletePlan()
+                            onCreateNew()
+                        }
+                    },
+                    onCancel: { showReplaceConfirm = false }
+                )
+            }
+        }
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showReplaceConfirm)
         .onAppear { autoFocus() }
+    }
+
+    // MARK: - Plan menu (custom dropdown)
+
+    private var planMenu: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                Haptics.selection()
+                withAnimation(KAnimation.quick) { showPlanMenu = false }
+                showReplaceConfirm = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.caption.weight(.bold))
+                    Text("Start a new plan")
+                        .font(.kSubheadline.weight(.semibold))
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(Color.kError)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(width: 190)
+        .background(
+            RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
+                .fill(Color.kSurfaceElevated)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
+                .stroke(Color.kError.opacity(0.3), lineWidth: 1)
+        )
+        .kShadowMedium()
+        .transition(.scale(scale: 0.95, anchor: .topTrailing).combined(with: .opacity))
     }
 
     // MARK: - Content
@@ -57,7 +123,7 @@ struct StudyPlanView: View {
                 StudyPlanFeedbackCard(feedback: plan.feedback)
                 progressCard(plan)
                 calendarCard(plan)
-                dayDetail(plan)
+                eventsList(plan)
                 Spacer(minLength: 32)
             }
             .padding(.horizontal, Spacing.md)
@@ -73,18 +139,18 @@ struct StudyPlanView: View {
             HStack {
                 Text("\(done) of \(total) session\(total == 1 ? "" : "s") done")
                     .font(.kSubheadline.weight(.semibold))
-                    .foregroundStyle(Color.kTextPrimary)
+                    .foregroundStyle(.white)
                     .contentTransition(.numericText())
                 Spacer()
                 Text("Test day \(testDayLabel(plan))")
                     .font(.kCaption)
-                    .foregroundStyle(Color.kGold)
+                    .foregroundStyle(.white.opacity(0.85))
             }
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color.white.opacity(0.08))
+                    Capsule().fill(Color.white.opacity(0.18))
                     Capsule()
-                        .fill(Color.kSuccess)
+                        .fill(.white)
                         .frame(width: geo.size.width * fraction)
                 }
             }
@@ -92,7 +158,11 @@ struct StudyPlanView: View {
             .animation(KAnimation.standard, value: fraction)
         }
         .padding(Spacing.md)
-        .satDarkCard()
+        .background(
+            LinearGradient(colors: [StudyPlanSetupView.indigo, StudyPlanSetupView.indigo.lightened(by: 0.18)],
+                           startPoint: .leading, endPoint: .trailing)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 
     private func testDayLabel(_ plan: StudyPlan) -> String {
@@ -104,54 +174,75 @@ struct StudyPlanView: View {
 
     private func calendarCard(_ plan: StudyPlan) -> some View {
         let sessionsByDate = plan.sessionsByDate
-        return VStack(alignment: .leading, spacing: Spacing.sm) {
+        let tint = StudyPlanSetupView.indigo
+        return VStack(spacing: 0) {
+            // Gradient header (month/year + chevrons), filled to match the
+            // SATHomeView dashboard cards rather than the flat dark body.
             HStack {
                 Text(displayedMonth.formatted(.dateTime.month(.wide).year()))
                     .font(.kTitle2.weight(.bold))
-                    .foregroundStyle(Color.kTextPrimary)
+                    .foregroundStyle(.white)
                     .contentTransition(.numericText())
                 Spacer()
                 Button { stepMonth(-1) } label: {
                     Image(systemName: "chevron.left")
                         .font(.subheadline.weight(.bold))
-                        .foregroundStyle(Color.kTextSecondary)
+                        .foregroundStyle(.white)
                         .frame(width: 32, height: 32)
-                        .background(Circle().fill(Color.white.opacity(0.08)))
+                        .background(Circle().fill(Color.white.opacity(0.2)))
                 }
                 .buttonStyle(.plain)
                 Button { stepMonth(1) } label: {
                     Image(systemName: "chevron.right")
                         .font(.subheadline.weight(.bold))
-                        .foregroundStyle(Color.kTextSecondary)
+                        .foregroundStyle(.white)
                         .frame(width: 32, height: 32)
-                        .background(Circle().fill(Color.white.opacity(0.08)))
+                        .background(Circle().fill(Color.white.opacity(0.2)))
                 }
                 .buttonStyle(.plain)
             }
+            .padding(Spacing.md)
+            .background(
+                LinearGradient(colors: [tint, tint.lightened(by: 0.18)],
+                               startPoint: .leading, endPoint: .trailing)
+            )
 
-            // Weekday header (today's column tinted)
-            HStack(spacing: 6) {
-                ForEach(Array(StudyPlanDates.dayLabels.enumerated()), id: \.offset) { index, label in
-                    Text(label)
-                        .font(.kCaption.weight(.semibold))
-                        .foregroundStyle(index == todayColumn ? Color.kAccentLight : Color.kTextTertiary)
-                        .frame(maxWidth: .infinity)
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                // Weekday header (today's column tinted)
+                HStack(spacing: 6) {
+                    ForEach(Array(StudyPlanDates.dayLabels.enumerated()), id: \.offset) { index, label in
+                        Text(label)
+                            .font(.kCaption.weight(.semibold))
+                            .foregroundStyle(index == todayColumn ? Color.kAccentLight : Color.kTextPrimary)
+                            .frame(maxWidth: .infinity)
+                    }
                 }
-            }
 
-            let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 7)
-            LazyVGrid(columns: columns, spacing: 6) {
-                ForEach(Array(monthCells.enumerated()), id: \.offset) { _, day in
-                    if let day {
-                        dayCell(day, plan: plan, sessions: sessionsByDate[StudyPlanDates.dayString(day)] ?? [])
-                    } else {
-                        Color.clear.frame(height: 44)
+                let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 7)
+                LazyVGrid(columns: columns, spacing: 6) {
+                    ForEach(Array(monthCells.enumerated()), id: \.offset) { _, day in
+                        if let day {
+                            dayCell(day, plan: plan, sessions: sessionsByDate[StudyPlanDates.dayString(day)] ?? [])
+                        } else {
+                            Color.clear.frame(height: 44)
+                        }
                     }
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(Spacing.md)
+            .background(
+                ZStack {
+                    Color.kSurfaceElevated
+                    tint.opacity(0.14)
+                }
+            )
         }
-        .padding(Spacing.md)
-        .satDarkCard()
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(tint.opacity(0.35), lineWidth: 1)
+        )
         .animation(KAnimation.quick, value: selectedDate)
     }
 
@@ -211,60 +302,46 @@ struct StudyPlanView: View {
         return StudyPlanSetupView.indigo
     }
 
-    // MARK: - Day detail
+    // MARK: - Events list
 
-    @ViewBuilder
-    private func dayDetail(_ plan: StudyPlan) -> some View {
-        if let selectedDate, let day = StudyPlanDates.date(from: selectedDate) {
-            let sessions = plan.sessionsByDate[selectedDate] ?? []
-            VStack(alignment: .leading, spacing: Spacing.sm) {
-                HStack {
-                    Text(day.formatted(.dateTime.weekday(.wide).month(.wide).day()))
-                        .font(.kHeadline)
+    /// Every session in the plan, sorted chronologically. Tapping a calendar
+    /// day no longer filters this list — it just pulses the matching rows so
+    /// the full plan stays visible at all times.
+    private func eventsList(_ plan: StudyPlan) -> some View {
+        let sessions = plan.sessions.sorted {
+            $0.date == $1.date ? $0.start < $1.start : $0.date < $1.date
+        }
+        return VStack(alignment: .leading, spacing: Spacing.sm) {
+            Text("All sessions")
+                .font(.kHeadline)
+                .foregroundStyle(Color.kTextPrimary)
+
+            if selectedDate == plan.testDate {
+                HStack(spacing: Spacing.sm) {
+                    Image(systemName: "flag.fill")
+                        .font(.headline)
+                        .foregroundStyle(Color.kGold)
+                    Text("Test day. You've got this!")
+                        .font(.kSubheadline.weight(.semibold))
                         .foregroundStyle(Color.kTextPrimary)
-                    Spacer()
-                    if !sessions.isEmpty {
-                        Text("\(sessions.reduce(0) { $0 + $1.durationMin }) min")
-                            .font(.kCaption.weight(.bold))
-                            .foregroundStyle(Color.kTextTertiary)
-                    }
                 }
+                .padding(Spacing.md)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
+                        .fill(Color.kGold.opacity(0.12))
+                )
+            }
 
-                if selectedDate == plan.testDate {
-                    HStack(spacing: Spacing.sm) {
-                        Image(systemName: "flag.fill")
-                            .font(.headline)
-                            .foregroundStyle(Color.kGold)
-                        Text("Test day. You've got this!")
-                            .font(.kSubheadline.weight(.semibold))
-                            .foregroundStyle(Color.kTextPrimary)
-                    }
-                    .padding(Spacing.md)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(
-                        RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
-                            .fill(Color.kGold.opacity(0.12))
-                    )
-                }
-
-                ForEach(sessions) { session in
-                    StudyPlanSessionRow(session: session) {
-                        service.setCompleted(sessionId: session.id, completed: !session.completed)
-                        session.completed ? Haptics.light() : Haptics.success()
-                    }
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            ForEach(sessions) { session in
+                StudyPlanSessionRow(session: session, showsDate: true, pulsate: session.date == selectedDate) {
+                    service.setCompleted(sessionId: session.id, completed: !session.completed)
+                    session.completed ? Haptics.light() : Haptics.success()
                 }
             }
-            .padding(Spacing.md)
-            .satCard(tint: StudyPlanSetupView.indigo)
-        } else {
-            Text("Tap a colored day to see what's planned.")
-                .font(.kSubheadline)
-                .foregroundStyle(Color.kTextTertiary)
-                .frame(maxWidth: .infinity)
-                .multilineTextAlignment(.center)
-                .padding(.top, Spacing.xs)
         }
+        .padding(Spacing.md)
+        .satDarkCard()
     }
 
     // MARK: - Empty state
@@ -338,12 +415,12 @@ struct StudyPlanFeedbackCard: View {
     var body: some View {
         SATGradientCard(title: "Korah's take",
                         subtitle: "Your plan at a glance",
-                        systemImage: "sparkles",
+                        iconImage: "newlogo3",
                         tint: StudyPlanSetupView.indigo) {
             if !feedback.headline.isEmpty {
                 Text(feedback.headline)
                     .font(.kBodyBold)
-                    .foregroundStyle(Color.kTextPrimary)
+                    .foregroundStyle(.white)
                     .fixedSize(horizontal: false, vertical: true)
             }
             ForEach(Array(feedback.priorities.enumerated()), id: \.offset) { _, priority in
@@ -354,14 +431,14 @@ struct StudyPlanFeedbackCard: View {
                         .padding(.top, 2)
                     Text(priority)
                         .font(.kSubheadline)
-                        .foregroundStyle(Color.kTextSecondary)
+                        .foregroundStyle(.white)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
             if !feedback.weeklyFocus.isEmpty {
                 Text(feedback.weeklyFocus)
                     .font(.kCaption)
-                    .foregroundStyle(Color.kTextTertiary)
+                    .foregroundStyle(.white)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -373,7 +450,10 @@ struct StudyPlanFeedbackCard: View {
 struct StudyPlanSessionRow: View {
     let session: StudyPlanSession
     var showsDate = false
+    var pulsate = false
     var onToggle: (() -> Void)? = nil
+
+    @State private var pulseUp = false
 
     private var tint: Color {
         session.subject == "math" ? StudyPlanView.mathTint : StudyPlanView.englishTint
@@ -394,20 +474,20 @@ struct StudyPlanSessionRow: View {
     var body: some View {
         HStack(spacing: Spacing.sm) {
             RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(tint)
+                .fill(.white.opacity(0.6))
                 .frame(width: 4, height: 44)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(timeLine)
                     .font(.kCaption.weight(.bold))
-                    .foregroundStyle(tint)
+                    .foregroundStyle(.white)
                 Text(session.skillName)
                     .font(.kSubheadline.weight(.semibold))
-                    .foregroundStyle(Color.kTextPrimary)
-                    .strikethrough(session.completed, color: Color.kTextTertiary)
+                    .foregroundStyle(.white)
+                    .strikethrough(session.completed, color: .white.opacity(0.7))
                 Text(session.activity)
                     .font(.kCaption)
-                    .foregroundStyle(Color.kTextSecondary)
+                    .foregroundStyle(.white.opacity(0.85))
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 8)
@@ -418,7 +498,7 @@ struct StudyPlanSessionRow: View {
                 } label: {
                     Image(systemName: session.completed ? "checkmark.circle.fill" : "circle")
                         .font(.title3)
-                        .foregroundStyle(session.completed ? Color.kSuccess : Color.kTextTertiary)
+                        .foregroundStyle(session.completed ? .white : .white.opacity(0.55))
                         .frame(width: 44, height: 44)
                 }
                 .buttonStyle(.plain)
@@ -428,9 +508,28 @@ struct StudyPlanSessionRow: View {
         .padding(.horizontal, Spacing.sm)
         .background(
             RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
-                .fill(Color.white.opacity(session.completed ? 0.03 : 0.06))
+                .fill(tint)
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
+                .stroke(.white.opacity(pulsate ? (pulseUp ? 0.95 : 0.35) : 0.15), lineWidth: pulsate ? 2 : 1)
+        )
+        .scaleEffect(pulsate && pulseUp ? 1.02 : 1)
         .opacity(session.completed ? 0.7 : 1)
         .animation(KAnimation.quick, value: session.completed)
+        .onAppear { updatePulse(pulsate) }
+        .onChange(of: pulsate) { _, newValue in updatePulse(newValue) }
+    }
+
+    private func updatePulse(_ active: Bool) {
+        if active {
+            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+                pulseUp = true
+            }
+        } else {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                pulseUp = false
+            }
+        }
     }
 }

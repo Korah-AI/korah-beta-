@@ -73,7 +73,10 @@ extension View {
 struct SATGradientCard<Content: View>: View {
     let title: String
     var subtitle: String? = nil
-    let systemImage: String
+    var systemImage: String? = nil
+    /// An asset catalog image to use for the header icon instead of an SF
+    /// Symbol (e.g. the Korah logo). Takes priority over `systemImage`.
+    var iconImage: String? = nil
     let tint: Color
     var cornerRadius: CGFloat = 22
     /// Shrinks the header title/icon for tightly-packed grid tiles (e.g. the
@@ -82,12 +85,13 @@ struct SATGradientCard<Content: View>: View {
     var compact: Bool = false
     let content: Content
 
-    init(title: String, subtitle: String? = nil, systemImage: String,
+    init(title: String, subtitle: String? = nil, systemImage: String? = nil, iconImage: String? = nil,
          tint: Color, cornerRadius: CGFloat = 22, compact: Bool = false,
          @ViewBuilder content: () -> Content) {
         self.title = title
         self.subtitle = subtitle
         self.systemImage = systemImage
+        self.iconImage = iconImage
         self.tint = tint
         self.cornerRadius = cornerRadius
         self.compact = compact
@@ -112,14 +116,26 @@ struct SATGradientCard<Content: View>: View {
                     }
                 }
                 Spacer(minLength: 8)
-                Image(systemName: systemImage)
-                    .font(compact ? .caption.weight(.semibold) : .headline.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: compact ? 26 : 36, height: compact ? 26 : 36)
-                    .background(
-                        RoundedRectangle(cornerRadius: compact ? 8 : 10, style: .continuous)
-                            .fill(Color.white.opacity(0.2))
-                    )
+                if let iconImage {
+                    Image(iconImage)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: compact ? 20 : 26, height: compact ? 20 : 26)
+                        .frame(width: compact ? 26 : 36, height: compact ? 26 : 36)
+                        .background(
+                            RoundedRectangle(cornerRadius: compact ? 8 : 10, style: .continuous)
+                                .fill(Color.white.opacity(0.2))
+                        )
+                } else if let systemImage {
+                    Image(systemName: systemImage)
+                        .font(compact ? .caption.weight(.semibold) : .headline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: compact ? 26 : 36, height: compact ? 26 : 36)
+                        .background(
+                            RoundedRectangle(cornerRadius: compact ? 8 : 10, style: .continuous)
+                                .fill(Color.white.opacity(0.2))
+                        )
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(compact ? Spacing.sm : Spacing.md)
