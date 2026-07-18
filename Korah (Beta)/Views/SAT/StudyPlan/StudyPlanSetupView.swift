@@ -123,7 +123,7 @@ struct StudyPlanSetupView: View {
     private var canAdvance: Bool {
         switch step {
         case 1: return !intake.source.isEmpty
-        case 2: return true
+        case 2: return intake.source == "self" || (screenshotImage != nil && !analyzingScreenshot)
         case 3: return intake.testDate > Date()
         default: return !intake.studyDays.isEmpty
         }
@@ -148,7 +148,7 @@ struct StudyPlanSetupView: View {
 
             startCard(key: "sat", icon: "doc.text.fill",
                       title: "I've taken the SAT",
-                      blurb: "Enter your section scores and we'll plan from there",
+                      blurb: "Upload your score report and Korah plans from your results",
                       tint: Self.indigo)
             startCard(key: "practice", icon: "camera.viewfinder",
                       title: "I've taken a practice test",
@@ -213,12 +213,10 @@ struct StudyPlanSetupView: View {
     @ViewBuilder
     private var levelStep: some View {
         switch intake.source {
-        case "sat":
-            scoresStep(title: "What did you score?")
-        case "practice":
+        case "sat", "practice":
             VStack(spacing: Spacing.md) {
                 screenshotPickerCard
-                scoresStep(title: "Confirm your scores")
+                scoresStep(title: screenshotImage == nil ? "What did you score?" : "Confirm your scores")
             }
         default:
             confidenceStep
@@ -231,25 +229,22 @@ struct StudyPlanSetupView: View {
                 .font(.kTitle2)
                 .foregroundStyle(Color.kTextPrimary)
 
-            SnapSlider(title: "Math",
-                       options: Self.scoreOptions,
-                       value: mathScore,
-                       tint: Self.mathTint,
-                       format: { "\($0)" }) { mathScore = $0 }
-
-            SnapSlider(title: "Reading & Writing",
-                       options: Self.scoreOptions,
-                       value: englishScore,
-                       tint: Self.englishTint,
-                       format: { "\($0)" }) { englishScore = $0 }
+            ScoreSlider(title: "Math", value: $mathScore, tint: Self.mathTint)
+            ScoreSlider(title: "Reading & Writing", value: $englishScore, tint: Self.englishTint)
         }
     }
 
     private var screenshotPickerCard: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
-            Text("Share a screenshot of your report")
+            Text(intake.source == "sat" ? "Upload your score report" : "Share a screenshot of your report")
                 .font(.kTitle2)
                 .foregroundStyle(Color.kTextPrimary)
+                .frame(maxWidth: .infinity)
+                .multilineTextAlignment(.center)
+
+            Text("Korah reads the scores and fills them in for you.")
+                .font(.kCaption)
+                .foregroundStyle(Color.kTextTertiary)
                 .frame(maxWidth: .infinity)
                 .multilineTextAlignment(.center)
 
@@ -809,7 +804,6 @@ struct StudyPlanSetupView: View {
         Color(red: 0.20, green: 0.55, blue: 0.90),  // blue
     ]
 
-    private static let scoreOptions = Array(stride(from: 200, through: 800, by: 10))
     private static let hourOptions = [2, 3, 4, 5, 6, 8, 10, 12]
 
     /// Official upcoming SAT dates (keep in sync with SATHomeView.examDates).
@@ -823,6 +817,55 @@ struct StudyPlanSetupView: View {
         ]
         let cal = Calendar.current
         return components.compactMap { cal.date(from: $0) }.filter { $0 > Date() }.prefix(3).map { $0 }
+    }
+}
+
+// MARK: - Section score slider (200-800, step 10)
+// SnapSlider labels every option under the track, which turns 61 score stops
+// into soup. Same header + tinted read-out look, endpoint labels only.
+
+private struct ScoreSlider: View {
+    let title: String
+    @Binding var value: Int
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            HStack {
+                Text(title)
+                    .font(.kHeadline)
+                    .foregroundStyle(Color.kTextPrimary)
+                Spacer()
+                Text("\(value)")
+                    .font(.kTitle2.weight(.bold))
+                    .foregroundStyle(tint)
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+            }
+
+            Slider(
+                value: Binding(
+                    get: { Double(value) },
+                    set: { newValue in
+                        let snapped = Int((newValue / 10).rounded()) * 10
+                        guard snapped != value else { return }
+                        withAnimation(.snappy(duration: 0.2)) { value = snapped }
+                        Haptics.selection()
+                    }
+                ),
+                in: 200...800,
+                step: 10
+            )
+            .tint(tint)
+
+            HStack {
+                Text("200")
+                Spacer()
+                Text("800")
+            }
+            .font(.kCaption)
+            .foregroundStyle(Color.kTextTertiary)
+        }
     }
 }
 
