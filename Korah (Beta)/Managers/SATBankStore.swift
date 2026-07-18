@@ -72,7 +72,7 @@ final class SATBankStore {
     private(set) var isLoadingStats = false
     private(set) var skillProgress: [String: SATSkillStat] = [:]
     private(set) var bookmarkedIds: Set<String> = []
-    private(set) var outcomes: [String: (correct: Bool, timeSpent: Int)] = [:]
+    private(set) var outcomes: [String: (correct: Bool, timeSpent: Int, attempts: Int, hadIncorrect: Bool)] = [:]
 
     private init() {}
 

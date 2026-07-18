@@ -38,6 +38,14 @@ final class SATPlayerSession {
     private(set) var bookmarked: Set<String> = []
     private(set) var earnedXP: [String: Int] = [:]
 
+    /// Whether the latest check for a question was correct — populated live
+    /// by `check()` and restored from Firestore on `load()` so questions
+    /// answered in a prior session still show their result here.
+    private(set) var correctness: [String: Bool] = [:]
+    /// Question ids that had at least one incorrect attempt before their
+    /// latest (current) result — drives the "correct after retries" pill.
+    private(set) var hadIncorrectAttempt: Set<String> = []
+
     /// "Explain" toggled open before checking (preview) — per current question.
     var explanationShown = false
 
@@ -62,11 +70,16 @@ final class SATPlayerSession {
     func load() async {
         loadState = .loading
         do {
-            let response = try await SATService.shared.fetchQuestions(query)
+            // Bank progress (prior attempt outcomes) may not have been
+            // loaded yet depending on how the player was entered — refresh
+            // it so previously answered questions restore correctly below.
             let bank = SATBankStore.shared
+            await bank.loadProgress()
+            let response = try await SATService.shared.fetchQuestions(query)
             questions = bank.hasQuestionLevelFilters
                 ? response.questions.filter(bank.matchesQuestionFilters)
                 : response.questions
+            restorePriorOutcomes(bank: bank)
             loadState = questions.isEmpty ? .empty : .ready
             currentIndex = 0
             restartStopwatch()
@@ -74,6 +87,19 @@ final class SATPlayerSession {
             await hydrate(around: 0, radius: 6)
         } catch {
             loadState = .error(error.localizedDescription)
+        }
+    }
+
+    /// Restore checked/correct state for questions already attempted in a
+    /// previous session, keyed by the same canonical id used when the
+    /// attempt was recorded (detailKey, falling back to id).
+    private func restorePriorOutcomes(bank: SATBankStore) {
+        for question in questions {
+            let key = question.detailKey.isEmpty ? question.id : question.detailKey
+            guard let outcome = bank.outcomes[key] else { continue }
+            checked.insert(question.id)
+            correctness[question.id] = outcome.correct
+            if outcome.hadIncorrect { hadIncorrectAttempt.insert(question.id) }
         }
     }
 
@@ -89,15 +115,24 @@ final class SATPlayerSession {
     func eliminatedKeys(for question: SATQuestion) -> Set<String> { eliminated[question.id] ?? [] }
 
     func isCorrect(_ question: SATQuestion) -> Bool {
+        if let known = correctness[question.id] { return known }
         guard let answer = answers[question.id] else { return false }
         return SATAnswerCheck.isCorrect(question: question, answer: answer)
     }
 
-    /// Navigator pill state: unanswered | attempted | correct | incorrect
+    /// Navigator pill state: unanswered | attempted | correct | incorrect |
+    /// correctAfterRetry. `checked` (not `answers`) is the source of truth
+    /// for correct/incorrect since it's restored from Firestore even when
+    /// the exact prior answer text isn't known.
     func pillState(for question: SATQuestion) -> String {
+        if checked.contains(question.id) {
+            if isCorrect(question) {
+                return hadIncorrectAttempt.contains(question.id) ? "correctAfterRetry" : "correct"
+            }
+            return "incorrect"
+        }
         guard let answer = answers[question.id], !answer.isEmpty else { return "unanswered" }
-        guard checked.contains(question.id) else { return "attempted" }
-        return isCorrect(question) ? "correct" : "incorrect"
+        return "attempted"
     }
 
     var answeredCount: Int { checked.count }
@@ -134,6 +169,8 @@ final class SATPlayerSession {
         checked.insert(question.id)
         guard firstCheck else { return }
         let correct = SATAnswerCheck.isCorrect(question: question, answer: answer)
+        if !correct { hadIncorrectAttempt.insert(question.id) }
+        correctness[question.id] = correct
         let elapsed = stopwatchElapsed
         Task {
             let xp = (try? await SATAnalyticsService.shared.recordAttempt(

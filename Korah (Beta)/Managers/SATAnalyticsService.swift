@@ -217,19 +217,29 @@ final class SATAnalyticsService {
         }
     }
 
-    /// Latest attempt outcome per question, keyed by canonical id.
-    func getLatestOutcomes() async throws -> [String: (correct: Bool, timeSpent: Int)] {
+    /// Latest attempt outcome per question, keyed by canonical id. Also tracks
+    /// the total number of attempts and whether any attempt before the latest
+    /// one was incorrect (used to flag "correct after retries" in the UI).
+    func getLatestOutcomes() async throws -> [String: (correct: Bool, timeSpent: Int, attempts: Int, hadIncorrect: Bool)] {
         guard let uid else { return [:] }
         let snap = try await userDoc(uid).collection("satAttempts")
             .order(by: "ts", descending: true)
             .getDocuments()
-        var map: [String: (Bool, Int)] = [:]
+        var map: [String: (correct: Bool, timeSpent: Int, attempts: Int, hadIncorrect: Bool)] = [:]
         for doc in snap.documents {
             let data = doc.data()
             let id = (data["detailKey"] as? String).flatMap { $0.isEmpty ? nil : $0 }
                 ?? (data["questionId"] as? String) ?? ""
-            guard !id.isEmpty, map[id] == nil else { continue }
-            map[id] = (data["correct"] as? Bool ?? false, data["timeSpent"] as? Int ?? 0)
+            guard !id.isEmpty else { continue }
+            let correct = data["correct"] as? Bool ?? false
+            if let existing = map[id] {
+                // Docs are newest-first, so anything after the first hit for
+                // this id is an earlier attempt.
+                map[id] = (existing.correct, existing.timeSpent, existing.attempts + 1, existing.hadIncorrect || !correct)
+            } else {
+                let timeSpent = data["timeSpent"] as? Int ?? 0
+                map[id] = (correct, timeSpent, 1, false)
+            }
         }
         return map
     }

@@ -661,14 +661,17 @@ struct SATNavigatorSheet: View {
     }
 
     private var legend: some View {
-        HStack(spacing: Spacing.md) {
-            legendItem(color: .kSuccess, label: "Correct")
-            legendItem(color: .kError, label: "Incorrect")
-            legendItem(color: .kAccent, label: "Attempted")
-            Spacer()
-            Text("\(session.questions.count) total")
-                .font(.kCaption)
-                .foregroundStyle(Color.kTextTertiary)
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            HStack(spacing: Spacing.md) {
+                legendItem(color: .kSuccess, label: "Correct")
+                legendItem(color: .kError, label: "Incorrect")
+                legendItem(color: .kGold, label: "Attempted")
+                Spacer()
+                Text("\(session.questions.count) total")
+                    .font(.kCaption)
+                    .foregroundStyle(Color.kTextTertiary)
+            }
+            legendItem(color: .kAccent, label: "Correct after 2+ attempts")
         }
     }
 
@@ -686,8 +689,9 @@ struct SATNavigatorSheet: View {
         let isCurrent = index == session.currentIndex
         let color: Color = switch state {
         case "correct": .kSuccess
+        case "correctAfterRetry": .kAccent
         case "incorrect": .kError
-        case "attempted": .kAccent
+        case "attempted": .kGold
         default: .kTextTertiary
         }
 
