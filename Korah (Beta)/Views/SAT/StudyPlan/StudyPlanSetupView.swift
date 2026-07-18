@@ -244,7 +244,7 @@ struct StudyPlanSetupView: View {
 
             Text("Korah reads the scores and fills them in for you.")
                 .font(.kCaption)
-                .foregroundStyle(Color.kTextTertiary)
+                .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .multilineTextAlignment(.center)
 
@@ -262,19 +262,19 @@ struct StudyPlanSetupView: View {
                         Text(screenshotLabel)
                     }
                     .font(.kSubheadline.weight(.semibold))
-                    .foregroundStyle(analyzingScreenshot ? Color.kTextTertiary : Self.indigo)
+                    .foregroundStyle(.white)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(Spacing.md)
                 .background(
                     RoundedRectangle(cornerRadius: CornerRadius.lg, style: .continuous)
-                        .fill(Color.kSurface)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: CornerRadius.lg, style: .continuous)
-                        .stroke(Self.indigo.opacity(0.4), style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
+                        .fill(
+                            LinearGradient(colors: [Self.indigo, Self.indigo.lightened(by: 0.18)],
+                                           startPoint: .leading, endPoint: .trailing)
+                        )
                 )
             }
+            .opacity(analyzingScreenshot ? 0.6 : 1)
             .disabled(analyzingScreenshot)
             .onChange(of: pickedScreenshot) { _, item in
                 guard let item else { return }
@@ -284,7 +284,7 @@ struct StudyPlanSetupView: View {
             if let screenshotNote {
                 Text(screenshotNote)
                     .font(.kCaption)
-                    .foregroundStyle(Color.kTextTertiary)
+                    .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .multilineTextAlignment(.center)
             }
@@ -373,7 +373,7 @@ struct StudyPlanSetupView: View {
             Text(label)
                 .font(.kCaption.weight(.bold))
                 .tracking(0.5)
-                .foregroundStyle(Color.kTextTertiary)
+                .foregroundStyle(.white)
 
             ForEach(Array(domains.enumerated()), id: \.element.id) { index, domain in
                 confidenceRow(domain, tint: Self.chipPalette[(offset + index) % Self.chipPalette.count])
@@ -546,7 +546,7 @@ struct StudyPlanSetupView: View {
                         } label: {
                             Text(label)
                                 .font(.kCaption.weight(.bold))
-                                .foregroundStyle(selected ? .white : Color.kTextSecondary)
+                                .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 44)
                                 .background(
@@ -573,7 +573,7 @@ struct StudyPlanSetupView: View {
             if !intake.studyDays.isEmpty {
                 Text(scheduleSummary)
                     .font(.kSubheadline)
-                    .foregroundStyle(Color.kTextSecondary)
+                    .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .multilineTextAlignment(.center)
                     .padding(.top, Spacing.xs)
@@ -864,7 +864,7 @@ private struct ScoreSlider: View {
                 Text("800")
             }
             .font(.kCaption)
-            .foregroundStyle(Color.kTextTertiary)
+            .foregroundStyle(.white)
         }
     }
 }

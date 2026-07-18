@@ -162,39 +162,56 @@ struct SATHomeView: View {
             path.append(hasPlan ? HomeDestination.plan : HomeDestination.planSetup)
             Haptics.medium()
         } label: {
-            VStack(spacing: Spacing.sm) {
-                Image("korahcheer")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 84, height: 84)
-                    .shadow(color: .black.opacity(0.18), radius: 8, y: 4)
+            ZStack(alignment: .topTrailing) {
+                Circle()
+                    .fill(Color.white.opacity(0.12))
+                    .frame(width: 140, height: 140)
+                    .offset(x: 40, y: -50)
 
-                Text(hasPlan ? "Check out your study plan." : "Create a study plan")
-                    .font(.kTitle.weight(.bold))
-                    .foregroundStyle(.white)
-                    .multilineTextAlignment(.center)
+                VStack(spacing: Spacing.sm) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "calendar.badge.clock")
+                            .font(.caption2.weight(.bold))
+                        Text("STUDY PLAN")
+                            .font(.kCaption2.weight(.heavy))
+                            .kerning(1.2)
+                    }
+                    .foregroundStyle(Color.white.opacity(0.85))
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                Text(hasPlan ? studyPlanSubtitle
-                             : "Get a personalized plan built around your test date and skill level.")
-                    .font(.kSubheadline)
-                    .foregroundStyle(.white.opacity(0.9))
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
+                    Image("newlogo2")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 84, height: 84)
+                        .shadow(color: .black.opacity(0.18), radius: 8, y: 4)
 
-                HStack(spacing: 6) {
-                    Text(hasPlan ? "Open my study plan" : "Create my study plan")
-                    Image(systemName: "arrow.right")
-                        .font(.footnote.weight(.bold))
+                    Text(hasPlan ? "Check out your study plan." : "Create a study plan")
+                        .font(.kTitle.weight(.bold))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+
+                    Text(hasPlan ? studyPlanSubtitle
+                                 : "Get a personalized plan built around your test date and skill level.")
+                        .font(.kSubheadline)
+                        .foregroundStyle(.white.opacity(0.9))
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    HStack(spacing: 6) {
+                        Text(hasPlan ? "Open my study plan" : "Create my study plan")
+                        Image(systemName: "arrow.right")
+                            .font(.footnote.weight(.bold))
+                    }
+                    .font(.kSubheadline.weight(.bold))
+                    .foregroundStyle(Self.planIndigo)
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.vertical, 12)
+                    .background(Capsule().fill(.white))
+                    .padding(.top, Spacing.xs)
                 }
-                .font(.kSubheadline.weight(.bold))
-                .foregroundStyle(Self.planIndigo)
-                .padding(.horizontal, Spacing.lg)
-                .padding(.vertical, 12)
-                .background(Capsule().fill(.white))
-                .padding(.top, Spacing.xs)
+                .frame(maxWidth: .infinity)
+                .padding(Spacing.lg)
             }
-            .frame(maxWidth: .infinity)
-            .padding(Spacing.lg)
             .background(
                 LinearGradient(colors: [Self.planIndigo, Self.planIndigo.lightened(by: 0.18)],
                                startPoint: .topLeading, endPoint: .bottomTrailing)
