@@ -16,6 +16,9 @@ struct SATHomeView: View {
 
     @Environment(AuthManager.self) private var authManager
 
+    /// Live study plan (drives the planner card's two states).
+    private var planService: StudyPlanService { .shared }
+
     // Live analytics
     @State private var totals = SATTotals()
     @State private var profile: SATProfile?
@@ -41,6 +44,7 @@ struct SATHomeView: View {
                 VStack(alignment: .leading, spacing: Spacing.lg) {
                     hero
                     countdownCard
+                    studyPlanCard
                     statsSection
                     askKorahCard
                     scoreJourneyCard
@@ -59,9 +63,22 @@ struct SATHomeView: View {
                 case .bank:      SATBankView()
                 case .rush:      SATRushView()
                 case .practice(let plan): SATPlayerView(query: plan.query)
+                case .planSetup:
+                    StudyPlanSetupView(onDone: {
+                        path.removeLast()
+                        path.append(HomeDestination.plan)
+                    })
+                case .plan:
+                    StudyPlanView(onCreateNew: {
+                        path.removeLast()
+                        path.append(HomeDestination.planSetup)
+                    })
                 }
             }
-            .task { await load() }
+            .task {
+                planService.startListening()
+                await load()
+            }
             .refreshable { await load() }
             .onReceive(ticker) { now = $0 }
             .overlay {
@@ -133,6 +150,78 @@ struct SATHomeView: View {
                 .font(.kCaption)
                 .foregroundStyle(Color.kTextTertiary)
         }
+    }
+
+    // MARK: - Study plan
+
+    /// Filled hero card for the study planner. Before a plan exists it invites
+    /// you to create one; afterwards it flips to "Check out your study plan."
+    private var studyPlanCard: some View {
+        let hasPlan = planService.plan != nil
+        return Button {
+            path.append(hasPlan ? HomeDestination.plan : HomeDestination.planSetup)
+            Haptics.medium()
+        } label: {
+            VStack(spacing: Spacing.sm) {
+                Image("korahcheer")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 84, height: 84)
+                    .shadow(color: .black.opacity(0.18), radius: 8, y: 4)
+
+                Text(hasPlan ? "Check out your study plan." : "Create a study plan")
+                    .font(.kTitle.weight(.bold))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+
+                Text(hasPlan ? studyPlanSubtitle
+                             : "Get a personalized plan built around your test date and skill level.")
+                    .font(.kSubheadline)
+                    .foregroundStyle(.white.opacity(0.9))
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 6) {
+                    Text(hasPlan ? "Open my study plan" : "Create my study plan")
+                    Image(systemName: "arrow.right")
+                        .font(.footnote.weight(.bold))
+                }
+                .font(.kSubheadline.weight(.bold))
+                .foregroundStyle(Self.planIndigo)
+                .padding(.horizontal, Spacing.lg)
+                .padding(.vertical, 12)
+                .background(Capsule().fill(.white))
+                .padding(.top, Spacing.xs)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(Spacing.lg)
+            .background(
+                LinearGradient(colors: [Self.planIndigo, Self.planIndigo.lightened(by: 0.18)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: CornerRadius.xl, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: CornerRadius.xl, style: .continuous)
+                    .stroke(Color.white.opacity(0.14), lineWidth: 1)
+            )
+            .kShadowMedium()
+        }
+        .buttonStyle(.plain)
+        .animation(KAnimation.quick, value: hasPlan)
+    }
+
+    /// One line about the next scheduled session, so the card stays useful.
+    private var studyPlanSubtitle: String {
+        guard let plan = planService.plan else { return "" }
+        let todayKey = StudyPlanDates.dayString(now)
+        guard let next = plan.sessions.first(where: { $0.date >= todayKey && !$0.completed }),
+              let date = StudyPlanDates.date(from: next.date) else {
+            return "Every session counts. Keep it rolling!"
+        }
+        let dayLabel = Calendar.current.isDateInToday(date)
+            ? "Today"
+            : date.formatted(.dateTime.weekday(.wide))
+        return "Up next: \(next.skillName) · \(dayLabel) at \(next.startTimeLabel)"
     }
 
     // MARK: - Stats
@@ -629,6 +718,8 @@ enum HomeDestination: Hashable {
     case bank
     case rush
     case practice(PracticePlan)
+    case planSetup
+    case plan
 }
 
 /// Value-type description of a practice session, safe to store in NavigationPath.
@@ -690,4 +781,9 @@ private extension Color {
     static let satTeal = Color(red: 0.20, green: 0.68, blue: 0.66)
     /// Pink/rose used for the "Ask Korah" card.
     static let korahPink = Color(red: 0.93, green: 0.35, blue: 0.60)
+}
+
+private extension SATHomeView {
+    /// Indigo owned by the study planner card (distinct from satStatBlue).
+    static let planIndigo = Color(red: 0.36, green: 0.42, blue: 0.95)
 }

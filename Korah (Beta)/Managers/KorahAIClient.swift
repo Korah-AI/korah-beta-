@@ -65,6 +65,52 @@ final class KorahAIClient: Sendable {
         return content
     }
 
+    /// Non-streaming completion with an attached image (base64 data URL).
+    /// Sends OpenAI-style content parts, which /api/r converts to Gemini
+    /// inlineData for vision. Used for practice report score extraction.
+    func completeWithImage(system: String,
+                           userText: String,
+                           imageDataURL: String,
+                           temperature: Double = 0.1,
+                           jsonResponse: Bool = true) async throws -> String {
+        guard let url = URL(string: APIConfig.chatURL) else { throw KorahAIError.invalidURL }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addDeviceIDHeader()
+        request.timeoutInterval = 120
+
+        var body: [String: Any] = [
+            "model": APIConfig.chatModel,
+            "temperature": temperature,
+            "messages": [
+                ["role": "system", "content": system],
+                ["role": "user", "content": [
+                    ["type": "text", "text": userText],
+                    ["type": "image_url", "image_url": ["url": imageDataURL]],
+                ]],
+            ],
+            "stream": false,
+        ]
+        if jsonResponse {
+            body["response_format"] = ["type": "json_object"]
+        }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw KorahAIError.emptyResponse }
+        guard (200...299).contains(http.statusCode) else { throw KorahAIError.badStatus(http.statusCode) }
+
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let choices = json["choices"] as? [[String: Any]],
+              let message = choices.first?["message"] as? [String: Any],
+              let content = message["content"] as? String,
+              !content.isEmpty else {
+            throw KorahAIError.emptyResponse
+        }
+        return content
+    }
+
     /// SSE streaming completion. `onDelta` receives (delta, accumulated).
     /// Returns the full accumulated text.
     @discardableResult

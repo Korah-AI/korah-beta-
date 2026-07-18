@@ -147,10 +147,10 @@ struct KorahApp: App {
     /// SwiftUI's `.tint()` alone left the tab bar untinted on cold launch and
     /// only correct after backgrounding/foregrounding forced a rebuild.
     private func setupTabBarAppearance() {
-        // `Color.kAccent` is backed by a dynamic UIColor (see Color.adaptive),
-        // so this bridges back to a dynamic UIColor that stays correct in
-        // light/dark rather than being frozen at init() time.
-        let accent = UIColor(Color.kAccent)
+        // `Color.kTabBarSelected` is backed by a dynamic UIColor (see
+        // Color.adaptive), so this bridges back to a dynamic UIColor that
+        // stays correct in light/dark rather than being frozen at init() time.
+        let accent = UIColor(Color.kTabBarSelected)
 
         let appearance = UITabBarAppearance()
         appearance.configureWithDefaultBackground()
