@@ -84,7 +84,7 @@ final class SATAnalyticsService {
 
     @discardableResult
     func recordAttempt(question: SATQuestion, correct: Bool, timeSpent: Int,
-                       assessment: String = "SAT") async throws -> Int {
+                       assessment: String = "SAT", mode: String = "player") async throws -> Int {
         guard let uid else { return 0 }
         let questionId = question.detailKey.isEmpty ? question.id : question.detailKey
         let diff = ["E", "M", "H"].contains(question.difficulty) ? question.difficulty : "E"
@@ -113,6 +113,7 @@ final class SATAnalyticsService {
             "xp": xp,
             "ts": now,
             "timeSpent": timeSpent,
+            "mode": mode,
         ], forDocument: attemptRef)
 
         // Skill aggregate
@@ -186,6 +187,21 @@ final class SATAnalyticsService {
         guard let uid else { return [] }
         let snap = try await userDoc(uid).collection("satSkills").getDocuments()
         return snap.documents.compactMap { try? $0.data(as: SATSkillStat.self) }
+    }
+
+    /// Every attempt in the log, newest first — the Analytics tab derives all
+    /// of its trends/time splits from this in memory so range filtering is
+    /// instant with a single fetch.
+    func getAllAttempts() async throws -> [SATAttempt] {
+        guard let uid else { return [] }
+        let snap = try await userDoc(uid).collection("satAttempts")
+            .order(by: "ts", descending: true)
+            .getDocuments()
+        return snap.documents.compactMap { doc in
+            var attempt = try? doc.data(as: SATAttempt.self)
+            attempt?.id = doc.documentID
+            return attempt
+        }
     }
 
     func getRecentAttempts(limit: Int = 20) async throws -> [SATAttempt] {
@@ -291,29 +307,6 @@ final class SATAnalyticsService {
         return Array(scored.prefix(top))
     }
 
-    /// Accuracy grouped by domain for the dashboard breakdown.
-    struct DomainAccuracy: Identifiable {
-        let domain: String
-        let section: String
-        let attempts: Int
-        let correct: Int
-        var accuracy: Double { attempts > 0 ? Double(correct) / Double(attempts) : 0 }
-        var id: String { domain }
-    }
-
-    func getDomainBreakdown() async throws -> [DomainAccuracy] {
-        let skillStats = try await getAllSkillStats()
-        var map: [String: (section: String, attempts: Int, correct: Int)] = [:]
-        for stat in skillStats {
-            let key = stat.domain.isEmpty ? "Unknown" : stat.domain
-            var current = map[key] ?? (stat.section, 0, 0)
-            current.attempts += stat.attempts
-            current.correct += stat.correct
-            map[key] = current
-        }
-        return map.map { DomainAccuracy(domain: $0.key, section: $0.value.section,
-                                        attempts: $0.value.attempts, correct: $0.value.correct) }
-    }
 }
 
 // MARK: - Shared ISO formatter (web writes new Date().toISOString())

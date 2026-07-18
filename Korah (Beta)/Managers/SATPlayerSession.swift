@@ -138,7 +138,7 @@ final class SATPlayerSession {
         Task {
             let xp = (try? await SATAnalyticsService.shared.recordAttempt(
                 question: question, correct: correct, timeSpent: elapsed,
-                assessment: assessment)) ?? 0
+                assessment: assessment, mode: "player")) ?? 0
             earnedXP[question.id] = xp
         }
     }

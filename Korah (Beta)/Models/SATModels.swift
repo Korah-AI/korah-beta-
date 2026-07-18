@@ -191,10 +191,14 @@ struct SATAttempt: Codable, Identifiable {
     var xp: Int = 0
     var ts: String = ""
     var timeSpent: Int = 0
+    /// Which surface recorded it: "player" | "rush". Optional because older
+    /// docs have no mode key (a non-optional would fail the whole decode);
+    /// nil counts as player time in the activity split.
+    var mode: String?
 
     enum CodingKeys: String, CodingKey {
         case questionId, detailKey, legacyQuestionId, type, skillCd, domain
-        case section, difficulty, assessment, correct, xp, ts, timeSpent
+        case section, difficulty, assessment, correct, xp, ts, timeSpent, mode
     }
 }
 

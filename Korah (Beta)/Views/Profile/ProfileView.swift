@@ -1,13 +1,12 @@
 import SwiftUI
-import Charts
 import FirebaseFirestore
 import PhotosUI
 
-// MARK: - Profile tab (Progress dashboard + settings)
-// Now the home of the SAT progress analytics that used to live in
-// SATDashboardView: score goals, totals, section + domain accuracy, focus
-// suggestions, saved questions, recent activity — followed by the account
-// preferences, sign out, and clear-data controls.
+// MARK: - Profile tab (Goals, stats & settings)
+// Score goals and headline stats, followed by the account preferences, sign
+// out, and clear-data controls. The full progress report (trends, topic
+// accuracy, pacing, saved questions, recent activity) lives on the Analytics
+// tab — see Views/Analytics/SATAnalyticsView.swift.
 
 struct ProfileView: View {
     @Environment(AuthManager.self) private var authManager
@@ -45,36 +44,6 @@ struct ProfileView: View {
                         VStack(alignment: .leading, spacing: Spacing.sm) {
                             sectionHeader("My Stats", systemImage: "chart.bar.fill", tint: .satStatBlue)
                             statGrid
-                        }
-
-                        VStack(alignment: .leading, spacing: Spacing.sm) {
-                            sectionHeader("Section Breakdown", systemImage: "chart.bar.xaxis", tint: .satTeal)
-                            sectionCards
-                            if !model.domains.isEmpty {
-                                domainChart
-                            }
-                        }
-
-                        if let top = model.suggestions.first {
-                            VStack(alignment: .leading, spacing: Spacing.sm) {
-                                sectionHeader("Focus & Skills", systemImage: "scope", tint: .satCoral)
-                                focusBanner(top)
-                                if !model.suggestions.isEmpty {
-                                    suggestionList
-                                }
-                            }
-                        }
-
-                        if !model.bookmarks.isEmpty || !model.recent.isEmpty {
-                            VStack(alignment: .leading, spacing: Spacing.sm) {
-                                sectionHeader("Saved & Activity", systemImage: "bookmark.fill", tint: .kGold)
-                                if !model.bookmarks.isEmpty {
-                                    savedSection
-                                }
-                                if !model.recent.isEmpty {
-                                    recentSection
-                                }
-                            }
                         }
                     }
 
@@ -380,221 +349,6 @@ struct ProfileView: View {
         }
     }
 
-    // MARK: - Section cards
-
-    private var sectionCards: some View {
-        HStack(spacing: Spacing.sm) {
-            sectionCard(section: "english", label: "Reading & Writing")
-            sectionCard(section: "math", label: "Math")
-        }
-    }
-
-    /// A per-section accuracy tile with a Practice / Review button.
-    private func sectionCard(section: String, label: String) -> some View {
-        let tint: Color = section == "english" ? .satStatBlue : .kSuccess
-        let domains = model.domains.filter { $0.section == section }
-        let attempts = domains.reduce(0) { $0 + $1.attempts }
-        let weighted = attempts > 0
-            ? domains.reduce(0.0) { $0 + $1.accuracy * Double($1.attempts) } / Double(attempts)
-            : 0
-        let missed = section == "english" ? model.missedEnglish : model.missedMath
-
-        return SATGradientCard(title: label, systemImage: "chart.bar.fill", tint: tint) {
-            Text(attempts > 0 ? "\(Int((weighted * 100).rounded()))%" : "—")
-                .font(.jakarta(30, relativeTo: .title).weight(.bold))
-                .foregroundStyle(Color.kTextPrimary)
-
-            SATCardButton(title: missed.isEmpty ? "Practice" : "Review \(missed.count)", tint: tint) {
-                staging = SATStagingConfig(
-                    title: label,
-                    systemImage: "chart.bar.fill",
-                    tint: tint,
-                    load: { await SATStaging.section(section) })
-            }
-        }
-    }
-
-    // MARK: - Focus banner
-
-    private func focusBanner(_ top: SATAnalyticsService.SkillSuggestion) -> some View {
-        SATGradientCard(title: "Focus Skill",
-                        subtitle: top.skillName,
-                        systemImage: "scope",
-                        tint: .satCoral) {
-            Text(top.attempts > 0
-                 ? "\(top.domain) · \(Int((top.accuracy * 100).rounded()))% over \(top.attempts) attempt\(top.attempts == 1 ? "" : "s")"
-                 : "\(top.domain) · not yet practiced")
-                .font(.kSubheadline)
-                .foregroundStyle(Color.kTextSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            SATCardButton(title: "Practice this skill", tint: .satCoral) {
-                let query = model.practiceQuery(for: top)
-                staging = SATStagingConfig(
-                    title: top.skillName,
-                    systemImage: "scope",
-                    tint: .satCoral,
-                    load: { await SATStaging.bank(query) })
-            }
-        }
-    }
-
-    // MARK: - Domain chart (Swift Charts)
-
-    private var domainChart: some View {
-        SATGradientCard(title: "Accuracy by domain",
-                        systemImage: "chart.bar.xaxis",
-                        tint: .satTeal) {
-            Chart(model.domains.sorted { $0.attempts > $1.attempts }) { domain in
-                BarMark(
-                    x: .value("Accuracy", domain.accuracy * 100),
-                    y: .value("Domain", domain.domain)
-                )
-                .foregroundStyle(by: .value("Domain", domain.domain))
-                .cornerRadius(4)
-                .annotation(position: .trailing) {
-                    Text("\(Int((domain.accuracy * 100).rounded()))%")
-                        .font(.kCaption2)
-                        .foregroundStyle(Color.kTextTertiary)
-                }
-            }
-            // Solid, distinct colour per domain (no gradient).
-            .chartForegroundStyleScale(range: Self.domainBarColors)
-            .chartLegend(.hidden)
-            // Extend past 100 so the trailing "%" annotation on a maxed-out
-            // bar has room to sit inside the card instead of spilling past
-            // its border.
-            .chartXScale(domain: 0...120)
-            .chartXAxis(.hidden)
-            .chartYAxis {
-                AxisMarks { _ in
-                    AxisValueLabel()
-                        .font(.caption2)
-                        .foregroundStyle(Color.kTextSecondary)
-                }
-            }
-            .frame(height: CGFloat(model.domains.count) * 42 + 20)
-        }
-    }
-
-    // MARK: - Suggestions
-
-    private var suggestionList: some View {
-        SATGradientCard(title: "Suggested skills",
-                        systemImage: "lightbulb.fill",
-                        tint: .kGold) {
-            ForEach(Array(model.suggestions.enumerated()), id: \.element.id) { index, suggestion in
-                HStack(spacing: Spacing.sm) {
-                    Text("\(index + 1)")
-                        .font(.kCaption.bold())
-                        .foregroundStyle(Color.kGold)
-                        .frame(width: 24, height: 24)
-                        .background(Circle().fill(Color.kGold.opacity(0.12)))
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(suggestion.skillName)
-                            .font(.kSubheadline)
-                            .foregroundStyle(Color.kTextPrimary)
-                            .lineLimit(2)
-                        Text("\(suggestion.domain) · \(SATCatalog.sectionLabels[suggestion.section] ?? suggestion.section)")
-                            .font(.kCaption2)
-                            .foregroundStyle(Color.kTextTertiary)
-                    }
-                    Spacer()
-                    Text(suggestion.attempts > 0
-                         ? "\(Int((suggestion.accuracy * 100).rounded()))%"
-                         : "New")
-                        .font(.kCaption)
-                        .foregroundStyle(Color.kTextSecondary)
-                    Button("Practice") {
-                        let query = model.practiceQuery(for: suggestion)
-                        staging = SATStagingConfig(
-                            title: suggestion.skillName,
-                            systemImage: "lightbulb.fill",
-                            tint: .kGold,
-                            load: { await SATStaging.bank(query) })
-                    }
-                    .font(.kCaption.bold())
-                    .foregroundStyle(Color.kGold)
-                }
-                .padding(.vertical, 4)
-            }
-        }
-    }
-
-    // MARK: - Saved questions
-
-    private var savedSection: some View {
-        SATGradientCard(title: "Saved questions",
-                        systemImage: "bookmark.fill",
-                        tint: .kGold) {
-            ForEach(model.bookmarks.prefix(6)) { bookmark in
-                HStack(spacing: Spacing.sm) {
-                    Image(systemName: "bookmark.fill")
-                        .font(.caption)
-                        .foregroundStyle(Color.kGold)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(bookmark.domain.isEmpty ? "Question" : bookmark.domain)
-                            .font(.kSubheadline)
-                            .foregroundStyle(Color.kTextPrimary)
-                        Text(SATCatalog.sectionLabels[bookmark.section] ?? bookmark.section)
-                            .font(.kCaption2)
-                            .foregroundStyle(Color.kTextTertiary)
-                    }
-                    Spacer()
-                    Button("Open") {
-                        reviewQuery = SATQuery(questionIds: [bookmark.questionId])
-                    }
-                    .font(.kCaption.bold())
-                    .foregroundStyle(Color.kGold)
-                }
-                .padding(.vertical, 3)
-            }
-
-            SATCardButton(title: "Practice all saved", tint: .kGold) {
-                staging = SATStagingConfig(
-                    title: "Saved Questions",
-                    systemImage: "bookmark.fill",
-                    tint: .kGold,
-                    load: { await SATStaging.bookmarks() })
-            }
-        }
-    }
-
-    // MARK: - Recent activity
-
-    private var recentSection: some View {
-        SATGradientCard(title: "Recent activity",
-                        systemImage: "clock.arrow.circlepath",
-                        tint: .satStatBlue) {
-            ForEach(model.recent) { attempt in
-                HStack(spacing: Spacing.sm) {
-                    Image(systemName: attempt.correct ? "checkmark.circle.fill" : "xmark.circle.fill")
-                        .font(.caption)
-                        .foregroundStyle(attempt.correct ? Color.kSuccess : Color.kError)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(attempt.domain.isEmpty ? "Question" : attempt.domain)
-                            .font(.kSubheadline)
-                            .foregroundStyle(Color.kTextPrimary)
-                        Text("\(SATCatalog.difficultyLabels[attempt.difficulty] ?? attempt.difficulty) · \(relativeTime(attempt.ts))")
-                            .font(.kCaption2)
-                            .foregroundStyle(Color.kTextTertiary)
-                    }
-                    Spacer()
-                    Text(attempt.xp >= 0 ? "+\(attempt.xp) XP" : "\(attempt.xp) XP")
-                        .font(.kCaption.bold())
-                        .foregroundStyle(attempt.correct ? Color.kSuccess : Color.kError)
-                }
-                .padding(.vertical, 3)
-            }
-        }
-    }
-
-    private func relativeTime(_ iso: String) -> String {
-        guard let date = ISO8601DateFormatter.satShared.date(from: iso)
-                ?? ISO8601DateFormatter().date(from: iso) else { return "" }
-        return date.formatted(.relative(presentation: .named))
-    }
-
     // MARK: - Preferences
 
     private var preferencesCard: some View {
@@ -722,12 +476,6 @@ struct ProfileView: View {
 final class SATDashboardModel {
     private(set) var profile: SATProfile?
     private(set) var totals = SATTotals()
-    private(set) var suggestions: [SATAnalyticsService.SkillSuggestion] = []
-    private(set) var domains: [SATAnalyticsService.DomainAccuracy] = []
-    private(set) var recent: [SATAttempt] = []
-    private(set) var bookmarks: [SATBookmark] = []
-    private(set) var missedEnglish: [String] = []
-    private(set) var missedMath: [String] = []
     private(set) var isLoading = false
     private(set) var hasLoadedOnce = false
 
@@ -737,31 +485,9 @@ final class SATDashboardModel {
         let service = SATAnalyticsService.shared
         async let profileTask = try? service.getProfile()
         async let totalsTask = try? service.getTotals()
-        async let suggestionsTask = try? service.suggestSkills(top: 6)
-        async let domainsTask = try? service.getDomainBreakdown()
-        async let recentTask = try? service.getRecentAttempts(limit: 8)
-        async let bookmarksTask = try? service.getBookmarks()
-        async let missedTask = try? service.getMissedBySection(limitPerSection: 50)
 
         profile = await profileTask
         totals = await totalsTask ?? SATTotals()
-        suggestions = await suggestionsTask ?? []
-        domains = (await domainsTask ?? []).filter { $0.attempts > 0 }
-        recent = await recentTask ?? []
-        bookmarks = (await bookmarksTask ?? []).sorted { $0.ts > $1.ts }
-        if let missed = await missedTask {
-            missedEnglish = missed.english
-            missedMath = missed.math
-        }
-    }
-
-    func practiceQuery(for suggestion: SATAnalyticsService.SkillSuggestion) -> SATQuery {
-        SATQuery(
-            sections: [suggestion.section],
-            domains: [suggestion.domain],
-            skills: [suggestion.skillCd],
-            limit: 10
-        )
     }
 
     func saveGoals(englishScore: Int?, englishGoal: Int?, mathScore: Int?, mathGoal: Int?) async {
@@ -914,23 +640,6 @@ private extension Color {
     static let satCoral = Color(red: 0.91, green: 0.36, blue: 0.27)
     /// Blue used for the "attempted" and momentum accents.
     static let satStatBlue = Color(red: 0.38, green: 0.56, blue: 0.96)
-    /// Teal used for the account header and domain chart.
-    static let satTeal = Color(red: 0.20, green: 0.68, blue: 0.66)
     /// Pink/rose used for the "All-Time Practice" stat and preferences card.
     static let korahPink = Color(red: 0.93, green: 0.35, blue: 0.60)
-}
-
-private extension ProfileView {
-    /// A rotating palette of muted, distinct colours so each bar in the
-    /// "Accuracy by domain" chart reads as its own solid colour.
-    static let domainBarColors: [Color] = [
-        Color(red: 0.38, green: 0.56, blue: 0.96),  // blue
-        Color(red: 0.24, green: 0.72, blue: 0.51),  // green
-        Color(red: 0.95, green: 0.70, blue: 0.28),  // gold
-        Color(red: 0.91, green: 0.42, blue: 0.36),  // coral
-        Color(red: 0.72, green: 0.45, blue: 0.28),  // terracotta
-        Color(red: 0.30, green: 0.72, blue: 0.78),  // teal
-        Color(red: 0.90, green: 0.47, blue: 0.72),  // pink
-        Color(red: 0.56, green: 0.62, blue: 0.72),  // slate
-    ]
 }

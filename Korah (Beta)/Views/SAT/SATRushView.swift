@@ -148,7 +148,8 @@ final class SATRushSession {
         let elapsed = questionElapsed
         Task {
             let earned = (try? await SATAnalyticsService.shared.recordAttempt(
-                question: question, correct: isCorrect, timeSpent: elapsed)) ?? 0
+                question: question, correct: isCorrect, timeSpent: elapsed,
+                mode: "rush")) ?? 0
             xp += earned
         }
     }
