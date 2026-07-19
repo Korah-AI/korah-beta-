@@ -58,7 +58,7 @@ struct SignupView: View {
                         VStack(spacing: 16) {
                             BentoInputField(
                                 text: $firstName,
-                                placeholder: "First Name",
+                                placeholder: "Display Name",
                                 isSecure: false,
                                 focused: $focusedField,
                                 field: .firstName

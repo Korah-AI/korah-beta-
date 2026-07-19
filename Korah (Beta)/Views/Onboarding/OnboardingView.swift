@@ -28,6 +28,12 @@ struct OnboardingView: View {
     @State private var direction = 1
     private let pageCount = 8
 
+    /// One color per slide, matching each page's tint, so the progress dots
+    /// read as a little rainbow rather than a row of identical pills.
+    private let pageTints: [Color] = [
+        .kAccent, .teal, .orange, .kSuccess, .pink, .blue, .kAccentLight, .kGold
+    ]
+
     // Collected data
     /// Index into `examDates`; `examDates.count` means "Not sure yet".
     @State private var dateChoice: Int? = nil
@@ -98,7 +104,7 @@ struct OnboardingView: View {
             HStack(spacing: 6) {
                 ForEach(0..<pageCount, id: \.self) { i in
                     Capsule()
-                        .fill(i == page ? Color.kAccent : Color.kBorder)
+                        .fill(pageTints[i].opacity(i == page ? 1 : 0.3))
                         .frame(width: i == page ? 22 : 7, height: 7)
                 }
             }
@@ -242,7 +248,7 @@ struct OnboardingView: View {
         OnboardingPage(
             tint: Color.kSuccess, logo: "newlogo5",
             title: "Where do you want to be?",
-            description: "Pick a target for each section — you can change it anytime.",
+            description: "Pick a target for each section. You can change it anytime.",
             primaryTitle: "Continue", primaryAction: next,
             demo: {
                 GoalDemo(current: currentTotal, goal: goalTotal)
@@ -273,7 +279,7 @@ struct OnboardingView: View {
         OnboardingPage(
             tint: .blue, logo: "newlogo11",
             title: "Every question, one bank",
-            description: "Thousands of real SAT questions, filterable by section, skill, and difficulty — with your saved and missed lists.",
+            description: "Thousands of real SAT questions, filterable by section, skill, and difficulty, with your saved and missed lists.",
             primaryTitle: "Continue", primaryAction: next
         ) {
             BankDemo()
@@ -295,7 +301,7 @@ struct OnboardingView: View {
         OnboardingPage(
             tint: Color.kGold, logo: "newlogo2",
             title: "And it's all 100% free",
-            description: "No subscription, no paywall, no catch. Everything you just saw is free — forever.",
+            description: "No subscription, no paywall, no catch. Everything you just saw is free, forever.",
             primaryTitle: "Get Started",
             primaryAction: finish
         ) {
@@ -305,60 +311,56 @@ struct OnboardingView: View {
 }
 
 // MARK: - Welcome hero card
-// The first slide is one clean solid-purple hero — no white demo panel, no
-// watermark, no split body — just the pulsing icon, the welcome copy, and a
-// white button. Same card frame as every other slide so transitions match.
+// The first slide sits on the plain app background with a single liquid-glass
+// card floating in the center: the pulsing icon, the welcome copy, and the
+// "Let's go" button all grouped together rather than pinned to the edges.
 
 private struct WelcomeHeroCard: View {
     let onContinue: () -> Void
 
     var body: some View {
-        ZStack {
-            LinearGradient(colors: [Color.kAccent, Color.kAccent.lightened(by: 0.18)],
-                           startPoint: .topLeading, endPoint: .bottomTrailing)
+        VStack {
+            Spacer(minLength: 0)
 
             VStack(spacing: Spacing.lg) {
-                Spacer()
-
                 WelcomeDemo()
-                    .padding(.bottom, Spacing.md)
+                    .frame(width: 260, height: 200)
 
-                Text("Welcome to Korah")
-                    .font(.kLargeTitle)
-                    .foregroundStyle(.white)
-                    .multilineTextAlignment(.center)
+                VStack(spacing: Spacing.sm) {
+                    Text("Welcome to Korah")
+                        .font(.kLargeTitle)
+                        .foregroundStyle(Color.kTextPrimary)
+                        .multilineTextAlignment(.center)
 
-                Text("Your personal SAT coach. Set a goal, practice smart, and watch your score climb.")
-                    .font(.kCallout)
-                    .foregroundStyle(.white.opacity(0.88))
-                    .multilineTextAlignment(.center)
-                    .kLineSpacing()
-                    .padding(.horizontal, Spacing.md)
-
-                Spacer()
+                    Text("Yeah, we're the most goated SAT app. You set a goal, we help you get there.")
+                        .font(.kCallout)
+                        .foregroundStyle(Color.kTextSecondary)
+                        .multilineTextAlignment(.center)
+                        .kLineSpacing()
+                        .padding(.horizontal, Spacing.sm)
+                }
 
                 Button(action: onContinue) {
                     Text("Let's go")
                         .font(.kBodyBold)
-                        .foregroundStyle(Color.kAccent)
+                        .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 15)
                         .background(
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(.white)
+                                .fill(Color.kAccent)
                         )
                 }
                 .buttonStyle(.plain)
+                .padding(.top, Spacing.xs)
             }
-            .padding(Spacing.lg)
+            .padding(Spacing.xl)
+            .frame(maxWidth: .infinity)
+            .kGlassEffect(cornerRadius: 32)
+            .kShadowMedium()
+
+            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 32, style: .continuous)
-                .stroke(Color.kAccent.opacity(0.35), lineWidth: 1)
-        )
-        .kShadowMedium()
     }
 }
 
@@ -393,72 +395,80 @@ private struct OnboardingPage<Demo: View, Controls: View>: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Solid tinted hero (two-tone, like SATGradientCard headers) with
-            // this page's Korah logo watermarked in the corner and the demo
-            // centered.
-            ZStack {
-                LinearGradient(colors: [tint, tint.lightened(by: 0.18)],
-                               startPoint: .topLeading, endPoint: .bottomTrailing)
+            Spacer(minLength: 0)
 
-                Image(logo)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 150, height: 150)
-                    .rotationEffect(.degrees(-12))
-                    .offset(x: 38, y: 30)
-                    .opacity(0.16)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity,
-                           alignment: .bottomTrailing)
-
+            VStack(spacing: 0) {
+                // Tinted hero (two-tone, like SATGradientCard headers), now
+                // sized to the demo so the card floats in the center instead of
+                // stretching to fill the whole screen. This page's Korah logo
+                // sits behind it as a faint watermark.
                 demo
                     .frame(maxWidth: 340)
                     .padding(.horizontal, Spacing.lg)
                     .padding(.vertical, Spacing.lg)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(maxWidth: .infinity)
+                    .background(
+                        ZStack {
+                            LinearGradient(colors: [tint, tint.lightened(by: 0.18)],
+                                           startPoint: .topLeading, endPoint: .bottomTrailing)
 
-            // Solid card body: copy + inputs + button.
-            VStack(alignment: .leading, spacing: Spacing.sm) {
-                Text(title)
-                    .font(.kTitle)
-                    .foregroundStyle(Color.kTextPrimary)
-                    .fixedSize(horizontal: false, vertical: true)
+                            Image(logo)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 150, height: 150)
+                                .rotationEffect(.degrees(-12))
+                                .offset(x: 38, y: 30)
+                                .opacity(0.08)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity,
+                                       alignment: .bottomTrailing)
+                        }
+                    )
 
-                Text(description)
-                    .font(.kCallout)
-                    .foregroundStyle(Color.kTextSecondary)
-                    .kLineSpacing()
-                    .fixedSize(horizontal: false, vertical: true)
+                // Solid card body: copy + inputs + button.
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    Text(title)
+                        .font(.kTitle)
+                        .foregroundStyle(Color.kTextPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
 
-                controls
-                    .padding(.top, Spacing.xxs)
+                    Text(description)
+                        .font(.kCallout)
+                        .foregroundStyle(Color.kTextSecondary)
+                        .kLineSpacing()
+                        .fixedSize(horizontal: false, vertical: true)
 
-                Button(action: primaryAction) {
-                    Text(primaryTitle)
-                        .font(.kBodyBold)
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 15)
-                        .background(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(tint)
-                        )
+                    controls
+                        .padding(.top, Spacing.xxs)
+
+                    Button(action: primaryAction) {
+                        Text(primaryTitle)
+                            .font(.kBodyBold)
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 15)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .fill(tint)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(primaryDisabled)
+                    .opacity(primaryDisabled ? 0.4 : 1)
+                    .padding(.top, Spacing.xs)
                 }
-                .buttonStyle(.plain)
-                .disabled(primaryDisabled)
-                .opacity(primaryDisabled ? 0.4 : 1)
-                .padding(.top, Spacing.xs)
+                .padding(Spacing.lg)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.kSurface)
             }
-            .padding(Spacing.lg)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.kSurface)
+            .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 32, style: .continuous)
+                    .stroke(tint.opacity(0.35), lineWidth: 1)
+            )
+            .kShadowMedium()
+
+            Spacer(minLength: 0)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 32, style: .continuous)
-                .stroke(tint.opacity(0.35), lineWidth: 1)
-        )
-        .kShadowMedium()
     }
 }
 
@@ -554,8 +564,7 @@ private extension View {
 
     func demoEyebrow(_ tint: Color) -> some View {
         self
-            .font(.kCaption2.weight(.bold))
-            .tracking(1.2)
+            .font(.kCaption.weight(.semibold))
             .foregroundStyle(tint)
     }
 }
@@ -577,7 +586,7 @@ private struct WelcomeDemo: View {
             ForEach(Array(sparkles.enumerated()), id: \.offset) { i, s in
                 Image(systemName: "sparkle")
                     .font(.system(size: s.size))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.kGold)
                     .offset(x: s.x, y: s.y)
                     .opacity(twinkle ? 1 : 0.2)
                     .scaleEffect(twinkle ? 1 : 0.6)
@@ -955,7 +964,7 @@ private struct BankDemo: View {
     }
 }
 
-/// Looping Ask Korah exchange: question bubble, typing dots, answer bubble.
+/// Looping Ask Korah exchange: question bubble, thinking shimmer, answer bubble.
 private struct ChatDemo: View {
     @State private var stage = 0   // 0 empty · 1 user · 2 typing · 3 answer
 
@@ -984,15 +993,22 @@ private struct ChatDemo: View {
                 }
 
                 if stage == 2 {
-                    TypingDots()
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
-                        .background(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(Color.demoRow)
-                        )
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .transition(.opacity)
+                    HStack(spacing: 7) {
+                        Image("newlogo2")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 18, height: 18)
+
+                        ThinkingShimmer(text: "Korah is thinking")
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Color.demoRow)
+                    )
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .transition(.opacity)
                 }
 
                 if stage >= 3 {
@@ -1030,25 +1046,40 @@ private struct ChatDemo: View {
     }
 }
 
-private struct TypingDots: View {
-    @State private var bounce = false
+/// A bright band sweeping across faint text, masked to the glyphs — the same
+/// "Korah is thinking" treatment the real chat uses instead of bouncing dots.
+/// The base sits dim so the sweeping purple highlight clearly pops as it moves.
+private struct ThinkingShimmer: View {
+    let text: String
+    @State private var phase: CGFloat = -1
+
+    private let font = Font.kCaption.weight(.bold)
 
     var body: some View {
-        HStack(spacing: 4) {
-            ForEach(0..<3, id: \.self) { i in
-                Circle()
-                    .fill(Color.demoInkSoft)
-                    .frame(width: 6, height: 6)
-                    .offset(y: bounce ? -3 : 2)
-                    .animation(
-                        .easeInOut(duration: 0.45)
-                            .repeatForever(autoreverses: true)
-                            .delay(Double(i) * 0.15),
-                        value: bounce
+        Text(text)
+            .font(font)
+            .foregroundStyle(Color.demoInkSoft.opacity(0.25))
+            .overlay(
+                GeometryReader { geo in
+                    LinearGradient(
+                        colors: [.clear, Color.demoPurple, Color.demoInk, Color.demoPurple, .clear],
+                        startPoint: .leading,
+                        endPoint: .trailing
                     )
+                    .frame(width: geo.size.width * 0.85)
+                    .offset(x: phase * geo.size.width * 1.5)
+                    .mask(
+                        Text(text)
+                            .font(font)
+                            .frame(width: geo.size.width, alignment: .leading)
+                    )
+                }
+            )
+            .onAppear {
+                withAnimation(.linear(duration: 1.0).repeatForever(autoreverses: false)) {
+                    phase = 1
+                }
             }
-        }
-        .onAppear { bounce = true }
     }
 }
 
