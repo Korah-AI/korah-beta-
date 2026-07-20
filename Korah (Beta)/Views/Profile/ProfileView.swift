@@ -195,7 +195,7 @@ struct ProfileView: View {
 
     private var emptyProgressState: some View {
         VStack(spacing: Spacing.md) {
-            Image("korahwave")
+            Image("newlogo5")
                 .resizable()
                 .scaledToFit()
                 .frame(height: 110)
@@ -206,9 +206,18 @@ struct ProfileView: View {
                 .font(.kSubheadline)
                 .foregroundStyle(Color.kTextSecondary)
                 .multilineTextAlignment(.center)
-            Button("Set score goals") { showGoalEditor = true }
-                .buttonStyle(.kSecondary)
-                .frame(maxWidth: 220)
+            Button { showGoalEditor = true } label: {
+                Text("Set score goals")
+                    .font(.kHeadline)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: ComponentSize.Button.medium)
+                    .background(
+                        RoundedRectangle(cornerRadius: CornerRadius.button, style: .continuous)
+                            .fill(Color.korahPink)
+                    )
+            }
+            .frame(maxWidth: 220)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Spacing.section)

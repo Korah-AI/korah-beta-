@@ -77,14 +77,23 @@ struct SATAnalyticsView: View {
                 .font(.kSubheadline)
                 .foregroundStyle(Color.kTextPrimary)
                 .multilineTextAlignment(.center)
-            Button("Try 10 questions") {
+            Button {
                 staging = SATStagingConfig(
                     title: "Quick 10",
                     systemImage: "bolt.fill",
                     tint: .kAccent,
                     load: { await SATStaging.bank(SATQuery(sections: ["english", "math"], limit: 10, random: true)) })
+            } label: {
+                Text("Try 10 questions")
+                    .font(.kHeadline)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: ComponentSize.Button.medium)
+                    .background(
+                        RoundedRectangle(cornerRadius: CornerRadius.button, style: .continuous)
+                            .fill(Color.korahPink)
+                    )
             }
-            .buttonStyle(.kPrimary)
             .frame(maxWidth: 220)
             .padding(.top, Spacing.xs)
         }
