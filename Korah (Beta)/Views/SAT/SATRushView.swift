@@ -729,7 +729,9 @@ struct SATRushView: View {
                         .background(
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
                                 .fill(rush.checkedCurrent
-                                      ? AnyShapeStyle(LinearGradient.kPurpleGradient)
+                                      ? AnyShapeStyle(LinearGradient(colors: [Color(red: 0.85, green: 0.24, blue: 0.52),
+                                                                              Color(red: 0.96, green: 0.44, blue: 0.66)],
+                                                                     startPoint: .topLeading, endPoint: .bottomTrailing))
                                       : AnyShapeStyle(LinearGradient(colors: [Color.kSuccess, Color.kSuccess.lightened(by: 0.18)],
                                                                      startPoint: .leading, endPoint: .trailing)))
                         )
@@ -831,6 +833,8 @@ struct SATRushView: View {
         let selected = rush.selectedAnswer == option.key
         let revealCorrect = rush.checkedCurrent && option.key == question.correctAnswer
         let revealWrong = rush.checkedCurrent && selected && option.key != question.correctAnswer
+        let revealed = revealCorrect || revealWrong
+        let revealTint = revealCorrect ? Color.kSuccess : Color.kError
 
         return Button {
             guard !rush.checkedCurrent else { return }
@@ -840,21 +844,22 @@ struct SATRushView: View {
             HStack(alignment: .top, spacing: Spacing.sm) {
                 Text(option.key)
                     .font(.kHeadline)
-                    .foregroundStyle(revealCorrect ? Color.kSuccess : revealWrong ? Color.kError : selected ? .white : Color.kTextSecondary)
+                    .foregroundStyle(revealed || selected ? .white : Color.kTextSecondary)
                     .frame(width: 30, height: 30)
                     .background(Circle().fill(selected && !rush.checkedCurrent ? Color.kAccent : .clear))
-                    .overlay(Circle().stroke(revealCorrect ? Color.kSuccess : revealWrong ? Color.kError : Color.kBorder, lineWidth: 1.5))
-                HTMLContentView(html: option.text, fontSize: 15)
+                    .overlay(Circle().stroke(revealed ? .clear : Color.kBorder, lineWidth: 1.5))
+                HTMLContentView(html: option.text, fontSize: 15,
+                                 textColorOverride: revealed ? .white : nil)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(Spacing.sm)
             .background(
                 RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
-                    .fill(revealCorrect ? Color.kSuccess.opacity(0.1) : revealWrong ? Color.kError.opacity(0.1) : selected ? Color.kAccent.opacity(0.1) : Color.kSurface)
+                    .fill(revealed ? revealTint : selected ? Color.kAccent.opacity(0.1) : Color.kSurface)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous)
-                    .stroke(revealCorrect ? Color.kSuccess : revealWrong ? Color.kError : selected ? Color.kAccent : Color.kBorder, lineWidth: selected || revealCorrect || revealWrong ? 1.5 : 1)
+                    .stroke(revealed ? .clear : selected ? Color.kAccent : Color.kBorder, lineWidth: selected || revealed ? 1.5 : 1)
             )
         }
         .buttonStyle(.plain)
