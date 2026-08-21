@@ -602,16 +602,15 @@ struct SATHomeView: View {
     }
 
     /// The user's own planned test date (from onboarding) when set and still
-    /// upcoming; otherwise the next official SAT date (falls back to a fixed
-    /// 2026 date).
+    /// upcoming; otherwise the next official SAT date. If every announced date
+    /// has passed, falls back to `now` so the countdown reads zeros instead of
+    /// pointing at a test that already happened.
     private var examDate: Date {
         if let ts = profile?.testDate,
            let chosen = Self.parseTimestamp(ts), chosen > now {
             return chosen
         }
-        let cal = Calendar.current
-        let upcoming = Self.examDates.compactMap { cal.date(from: $0) }
-        return upcoming.first { $0 > now } ?? cal.date(from: DateComponents(year: 2026, month: 8, day: 22))!
+        return SATExamDates.next ?? now
     }
 
     private var countdown: (days: Int, hours: Int, minutes: Int, seconds: Int) {
@@ -683,14 +682,6 @@ struct SATHomeView: View {
     }
 
     // MARK: - Static content
-
-    private static let examDates: [DateComponents] = [
-        DateComponents(year: 2026, month: 8, day: 22),
-        DateComponents(year: 2026, month: 10, day: 3),
-        DateComponents(year: 2026, month: 11, day: 7),
-        DateComponents(year: 2026, month: 12, day: 5),
-        DateComponents(year: 2027, month: 3, day: 13),
-    ]
 
     private static let quotes: [Quote] = [
         Quote(text: "Is it better to cook, or to get cooked?", author: "Korah, 2026"),

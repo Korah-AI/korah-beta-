@@ -806,18 +806,8 @@ struct StudyPlanSetupView: View {
 
     private static let hourOptions = [2, 3, 4, 5, 6, 8, 10, 12]
 
-    /// Official upcoming SAT dates (keep in sync with SATHomeView.examDates).
-    private static var upcomingExamDates: [Date] {
-        let components = [
-            DateComponents(year: 2026, month: 8, day: 22),
-            DateComponents(year: 2026, month: 10, day: 3),
-            DateComponents(year: 2026, month: 11, day: 7),
-            DateComponents(year: 2026, month: 12, day: 5),
-            DateComponents(year: 2027, month: 3, day: 13),
-        ]
-        let cal = Calendar.current
-        return components.compactMap { cal.date(from: $0) }.filter { $0 > Date() }.prefix(3).map { $0 }
-    }
+    /// The next few official SAT dates. See `SATExamDates` for the list.
+    private static var upcomingExamDates: [Date] { SATExamDates.upcoming(limit: 3) }
 }
 
 // MARK: - Section score slider (200-800, step 10)
