@@ -27,6 +27,18 @@ extension Color {
         .adaptive(light: .Light.surfaceElevated, dark: .Dark.surfaceElevated)
     }
 
+    // MARK: - Fixed grey card (onboarding + auth)
+
+    /// Cards that float on the galaxy background (onboarding slides, the
+    /// login/signup bento) use a fixed light grey and fixed dark ink in both
+    /// themes, instead of the theme's translucent purple surface.
+    static let kCardGrey = Color(red: 0.871, green: 0.871, blue: 0.890)      // #dedee3
+    /// Controls sitting on top of a `kCardGrey` card.
+    static let kCardGreyRaised = Color(red: 0.804, green: 0.804, blue: 0.831) // #cdcdd4
+    static let kCardGreyStroke = Color(red: 0.722, green: 0.722, blue: 0.761) // #b8b8c2
+    static let kCardInk = Color(red: 0.102, green: 0.039, blue: 0.235)
+    static let kCardInkSoft = Color(red: 0.353, green: 0.290, blue: 0.478)
+
     // MARK: - Text (--tx / --tx2 / --tx3)
 
     static var kTextPrimary: Color {

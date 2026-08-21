@@ -48,10 +48,10 @@ struct SignupView: View {
                         VStack(spacing: 8) {
                             Text("Create Account")
                                 .font(.system(size: 32, weight: .semibold, design: .rounded))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(Color.kCardInk)
                             Text("Join Korah and study smarter")
                                 .font(.system(size: 15))
-                                .foregroundStyle(.white.opacity(0.6))
+                                .foregroundStyle(Color.kCardInkSoft)
                         }
                         
                         // Form Fields
@@ -124,7 +124,7 @@ struct SignupView: View {
                                 }
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 60)
-                                .background(Color.black.opacity(0.4))
+                                .background(Color.kCardInk)
                                 .clipShape(RoundedRectangle(cornerRadius: 30))
                                 .foregroundStyle(.white)
                                 .font(.system(size: 18, weight: .medium))
@@ -142,7 +142,7 @@ struct SignupView: View {
                                 }
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 60)
-                                .background(Color.black.opacity(0.3))
+                                .background(Color.kCardInk.opacity(0.88))
                                 .clipShape(RoundedRectangle(cornerRadius: 30))
                                 .foregroundStyle(.white)
                                 .font(.system(size: 18, weight: .medium))
@@ -159,7 +159,7 @@ struct SignupView: View {
                                 }
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 60)
-                                .background(Color.black.opacity(0.3))
+                                .background(Color.kCardInk.opacity(0.88))
                                 .clipShape(RoundedRectangle(cornerRadius: 30))
                                 .foregroundStyle(.white)
                                 .font(.system(size: 18, weight: .medium))
@@ -178,11 +178,11 @@ struct SignupView: View {
                         // Footer
                         HStack(spacing: 4) {
                             Text("Already have an account?")
-                                .foregroundStyle(.white.opacity(0.6))
+                                .foregroundStyle(Color.kCardInkSoft)
                             
                             Button("Sign in") { dismiss() }
                                 .fontWeight(.semibold)
-                                .foregroundStyle(.white)
+                                .foregroundStyle(Color.kCardInk)
                         }
                         .font(.system(size: 14))
                     }
@@ -190,10 +190,10 @@ struct SignupView: View {
                     .padding(.vertical, 40)
                     .background {
                         RoundedRectangle(cornerRadius: 48, style: .continuous)
-                            .fill(Color.kSurface)
+                            .fill(Color.kCardGrey)
                             .overlay {
                                 RoundedRectangle(cornerRadius: 48, style: .continuous)
-                                    .stroke(Color.kBorder, lineWidth: 1)
+                                    .stroke(Color.kCardGreyStroke, lineWidth: 1)
                             }
                     }
                     .padding(.horizontal, 24)
@@ -255,9 +255,9 @@ private struct BentoInputField: View {
         ZStack(alignment: .trailing) {
             Group {
                 if isSecure {
-                    SecureField("", text: $text, prompt: Text(placeholder).foregroundStyle(.white.opacity(0.3)))
+                    SecureField("", text: $text, prompt: Text(placeholder).foregroundStyle(Color.kCardInkSoft.opacity(0.6)))
                 } else {
-                    TextField("", text: $text, prompt: Text(placeholder).foregroundStyle(.white.opacity(0.3)))
+                    TextField("", text: $text, prompt: Text(placeholder).foregroundStyle(Color.kCardInkSoft.opacity(0.6)))
                         .textInputAutocapitalization(placeholder.contains("Name") ? .words : .never)
                         .keyboardType(placeholder.contains("Email") ? .emailAddress : .default)
                         .autocorrectionDisabled()
@@ -266,14 +266,14 @@ private struct BentoInputField: View {
             .focused(focused, equals: field)
             .padding(.horizontal, 20)
             .frame(height: 60)
-            .background(Color.white.opacity(0.05))
+            .background(Color.kCardGreyRaised)
             .clipShape(RoundedRectangle(cornerRadius: 18))
-            .foregroundStyle(.white)
+            .foregroundStyle(Color.kCardInk)
             .font(.system(size: 16))
             
             if showHelpIcon {
                 Image(systemName: "questionmark.circle.fill")
-                    .foregroundStyle(.white.opacity(0.2))
+                    .foregroundStyle(Color.kCardInkSoft.opacity(0.45))
                     .padding(.trailing, 14)
                     .font(.system(size: 16))
             }

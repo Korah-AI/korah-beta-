@@ -44,22 +44,16 @@ struct OnboardingView: View {
     @State private var goalRW: Double = 650
     @State private var goalsSeeded = false
 
-    /// Upcoming official SAT dates (mirrors SATHomeView.examDates).
-    private static let examDates: [Date] = {
-        let cal = Calendar.current
-        let components = [
-            DateComponents(year: 2026, month: 8, day: 22),
-            DateComponents(year: 2026, month: 10, day: 3),
-            DateComponents(year: 2026, month: 11, day: 7),
-            DateComponents(year: 2026, month: 12, day: 5),
-            DateComponents(year: 2027, month: 3, day: 13),
-        ]
-        return components.compactMap { cal.date(from: $0) }.filter { $0 > Date() }
-    }()
+    /// Exam dates still ahead of us, snapshotted when onboarding opens so the
+    /// chip indices stay stable while the user is picking. Held per-instance
+    /// rather than in a `static let` so a fresh run always re-reads the list.
+    @State private var examDates: [Date] = SATExamDates.upcoming()
 
     var body: some View {
         ZStack {
-            Color.kBackground.ignoresSafeArea()
+            // Same galaxy + shooting stars field the rest of the app uses.
+            TwinklingStarsBackground(starCount: 80)
+                .ignoresSafeArea()
 
             VStack(spacing: Spacing.sm) {
                 header
@@ -91,10 +85,10 @@ struct OnboardingView: View {
                     Button(action: back) {
                         Image(systemName: "chevron.left")
                             .font(.subheadline.weight(.bold))
-                            .foregroundStyle(Color.kTextSecondary)
+                            .foregroundStyle(Color.cardInk)
                             .frame(width: 34, height: 34)
-                            .background(Circle().fill(Color.kSurface))
-                            .overlay(Circle().stroke(Color.kBorder, lineWidth: 1))
+                            .background(Circle().fill(Color.cardSurface))
+                            .overlay(Circle().stroke(Color.cardStroke, lineWidth: 1))
                     }
                     .transition(.opacity)
                 }
@@ -151,7 +145,7 @@ struct OnboardingView: View {
             englishScore: hasTakenTest ? Int(currentRW) : nil,
             mathGoal: Int(goalMath),
             englishGoal: Int(goalRW),
-            testDate: dateChoice.flatMap { $0 < Self.examDates.count ? Self.examDates[$0] : nil }
+            testDate: dateChoice.flatMap { $0 < examDates.count ? examDates[$0] : nil }
         )
         onFinish(profile)
         withAnimation(.easeInOut(duration: 0.4)) {
@@ -168,15 +162,15 @@ struct OnboardingView: View {
     private var goalTotal: Int { Int(goalMath + goalRW) }
 
     private var selectedDaysAway: Int? {
-        guard let idx = dateChoice, idx < Self.examDates.count else { return nil }
+        guard let idx = dateChoice, idx < examDates.count else { return nil }
         let days = Calendar.current.dateComponents([.day], from: Date(),
-                                                   to: Self.examDates[idx]).day ?? 0
+                                                   to: examDates[idx]).day ?? 0
         return max(0, days)
     }
 
     private var selectedDateLabel: String? {
-        guard let idx = dateChoice, idx < Self.examDates.count else { return nil }
-        return Self.examDates[idx]
+        guard let idx = dateChoice, idx < examDates.count else { return nil }
+        return examDates[idx]
             .formatted(.dateTime.weekday(.wide).month(.wide).day())
     }
 
@@ -198,16 +192,16 @@ struct OnboardingView: View {
                 CountdownDemo(days: selectedDaysAway, dateLabel: selectedDateLabel)
             },
             controls: {
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())],
-                          spacing: 10) {
-                    ForEach(0...Self.examDates.count, id: \.self) { idx in
-                        let label = idx < Self.examDates.count
-                            ? Self.examDates[idx].formatted(.dateTime.month(.abbreviated).day().year())
-                            : "Not sure yet"
-                        SelectableChip(label: label, selected: dateChoice == idx, tint: .teal) {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                dateChoice = idx
-                            }
+                // Plain (non-lazy) rows: a LazyVGrid here rendered its cells
+                // outside the page's slide transition, so the chips stayed put
+                // while the rest of the card slid in.
+                TwoColumnRows(count: examDates.count + 1, spacing: 10) { idx in
+                    let label = idx < examDates.count
+                        ? examDates[idx].formatted(.dateTime.month(.abbreviated).day().year())
+                        : "Not sure yet"
+                    SelectableChip(label: label, selected: dateChoice == idx, tint: .teal) {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            dateChoice = idx
                         }
                     }
                 }
@@ -222,7 +216,7 @@ struct OnboardingView: View {
             description: "Your latest real or practice test score. Rough guesses are fine.",
             primaryTitle: "Continue", primaryAction: next,
             demo: {
-                ScoreMeterDemo(eyebrow: "YOUR STARTING SCORE", total: currentTotal,
+                ScoreMeterDemo(eyebrow: "Your starting score", total: currentTotal,
                                tint: .orange)
             },
             controls: {
@@ -230,7 +224,7 @@ struct OnboardingView: View {
                     Toggle(isOn: $hasTakenTest.animation(.easeInOut(duration: 0.25))) {
                         Text("I've taken the SAT or a practice test")
                             .font(.kSubheadline)
-                            .foregroundStyle(Color.kTextPrimary)
+                            .foregroundStyle(Color.cardInk)
                     }
                     .tint(.orange)
 
@@ -329,12 +323,12 @@ private struct WelcomeHeroCard: View {
                 VStack(spacing: Spacing.sm) {
                     Text("Welcome to Korah")
                         .font(.kLargeTitle)
-                        .foregroundStyle(Color.kTextPrimary)
+                        .foregroundStyle(Color.cardInk)
                         .multilineTextAlignment(.center)
 
                     Text("Yeah, we're the most goated SAT app. You set a goal, we help you get there.")
                         .font(.kCallout)
-                        .foregroundStyle(Color.kTextSecondary)
+                        .foregroundStyle(Color.cardInkSoft)
                         .multilineTextAlignment(.center)
                         .kLineSpacing()
                         .padding(.horizontal, Spacing.sm)
@@ -356,7 +350,14 @@ private struct WelcomeHeroCard: View {
             }
             .padding(Spacing.xl)
             .frame(maxWidth: .infinity)
-            .kGlassEffect(cornerRadius: 32)
+            .background(
+                RoundedRectangle(cornerRadius: 32, style: .continuous)
+                    .fill(Color.cardSurface)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 32, style: .continuous)
+                    .stroke(Color.cardStroke, lineWidth: 1)
+            )
             .kShadowMedium()
 
             Spacer(minLength: 0)
@@ -428,12 +429,12 @@ private struct OnboardingPage<Demo: View, Controls: View>: View {
                 VStack(alignment: .leading, spacing: Spacing.sm) {
                     Text(title)
                         .font(.kTitle)
-                        .foregroundStyle(Color.kTextPrimary)
+                        .foregroundStyle(Color.cardInk)
                         .fixedSize(horizontal: false, vertical: true)
 
                     Text(description)
                         .font(.kCallout)
-                        .foregroundStyle(Color.kTextSecondary)
+                        .foregroundStyle(Color.cardInkSoft)
                         .kLineSpacing()
                         .fixedSize(horizontal: false, vertical: true)
 
@@ -458,12 +459,12 @@ private struct OnboardingPage<Demo: View, Controls: View>: View {
                 }
                 .padding(Spacing.lg)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.kSurface)
+                .background(Color.cardSurface)
             }
             .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 32, style: .continuous)
-                    .stroke(tint.opacity(0.35), lineWidth: 1)
+                    .stroke(Color.cardStroke, lineWidth: 1)
             )
             .kShadowMedium()
 
@@ -496,19 +497,43 @@ private struct SelectableChip: View {
         Button(action: action) {
             Text(label)
                 .font(.kSubheadline.weight(.semibold))
-                .foregroundStyle(selected ? Color.kTextPrimary : Color.kTextSecondary)
+                .foregroundStyle(selected ? .white : Color.cardInkSoft)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
                 .background(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(selected ? tint.opacity(0.22) : Color.kSurfaceElevated)
+                        .fill(selected ? tint : Color.cardRaised)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(selected ? tint : Color.kBorder, lineWidth: 1)
+                        .stroke(selected ? tint : Color.cardStroke, lineWidth: 1)
                 )
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// Two-column layout built from plain stacks. `LazyVGrid` is excluded from the
+/// page slide transition (its cells materialize in place), so any grid inside a
+/// slide has to be non-lazy for the whole card to travel together.
+private struct TwoColumnRows<Cell: View>: View {
+    let count: Int
+    let spacing: CGFloat
+    @ViewBuilder let cell: (Int) -> Cell
+
+    var body: some View {
+        VStack(spacing: spacing) {
+            ForEach(Array(stride(from: 0, to: count, by: 2)), id: \.self) { row in
+                HStack(spacing: spacing) {
+                    cell(row)
+                    if row + 1 < count {
+                        cell(row + 1)
+                    } else {
+                        Color.clear.frame(maxWidth: .infinity, maxHeight: 0)
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -522,7 +547,7 @@ private struct ScoreSliderRow: View {
             HStack {
                 Text(label)
                     .font(.kSubheadline)
-                    .foregroundStyle(Color.kTextPrimary)
+                    .foregroundStyle(Color.cardInk)
                 Spacer()
                 Text("\(Int(value))")
                     .font(.kHeadline.weight(.bold))
@@ -542,6 +567,15 @@ private struct ScoreSliderRow: View {
 // regardless of app theme — so they use fixed light-mode ink colors.
 
 private extension Color {
+    // Onboarding cards float on the galaxy background, so they use the shared
+    // fixed grey card palette (same one the login/signup bento uses) rather
+    // than the theme's translucent purple glass.
+    static let cardSurface = Color.kCardGrey
+    static let cardRaised = Color.kCardGreyRaised
+    static let cardStroke = Color.kCardGreyStroke
+    static let cardInk = Color.kCardInk
+    static let cardInkSoft = Color.kCardInkSoft
+
     static let demoInk = Color(red: 0.10, green: 0.04, blue: 0.24)      // dark purple text
     static let demoInkSoft = Color(red: 0.35, green: 0.29, blue: 0.48)  // muted text
     static let demoRow = Color(red: 0.96, green: 0.95, blue: 0.99)      // light row fill
@@ -562,9 +596,11 @@ private extension View {
             .shadow(color: .black.opacity(0.18), radius: 14, x: 0, y: 8)
     }
 
+    /// Label above each mini UI. Sentence case in the app's own type, not the
+    /// tracked all-caps eyebrow it used to be.
     func demoEyebrow(_ tint: Color) -> some View {
         self
-            .font(.kCaption.weight(.semibold))
+            .font(.kSubheadline.weight(.semibold))
             .foregroundStyle(tint)
     }
 }
@@ -624,8 +660,8 @@ private struct CountdownDemo: View {
         VStack(spacing: 2) {
             HStack(spacing: 5) {
                 Image(systemName: "calendar")
-                    .font(.system(size: 10, weight: .bold))
-                Text("TEST DAY COUNTDOWN")
+                    .font(.system(size: 12, weight: .bold))
+                Text("Test day countdown")
             }
             .demoEyebrow(.teal)
 
@@ -712,7 +748,7 @@ private struct GoalDemo: View {
 
     var body: some View {
         VStack(spacing: 4) {
-            Text("YOUR TARGET")
+            Text("Your target")
                 .demoEyebrow(Color.demoGreen)
 
             Text("\(goal)")
@@ -771,8 +807,8 @@ private struct RushDemo: View {
             HStack {
                 HStack(spacing: 5) {
                     Image(systemName: "bolt.fill")
-                        .font(.system(size: 10, weight: .bold))
-                    Text("PRACTICE RUSH")
+                        .font(.system(size: 12, weight: .bold))
+                    Text("Practice Rush")
                 }
                 .demoEyebrow(.pink)
                 Spacer()
@@ -796,33 +832,31 @@ private struct RushDemo: View {
                 .font(.kSubheadline.weight(.semibold))
                 .foregroundStyle(Color.demoInk)
 
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())],
-                      spacing: 8) {
-                ForEach(choices.indices, id: \.self) { i in
-                    let isCorrectPick = picked && i == correctIndex
-                    HStack(spacing: 5) {
-                        Text(choices[i])
-                            .font(.kCaption.weight(.semibold))
-                        if isCorrectPick {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 9, weight: .bold))
-                        }
+            // Non-lazy so the choices travel with the slide transition instead
+            // of materializing in place once the page settles.
+            TwoColumnRows(count: choices.count, spacing: 8) { i in
+                let isCorrectPick = picked && i == correctIndex
+                HStack(spacing: 5) {
+                    Text(choices[i])
+                        .font(.kCaption.weight(.semibold))
+                    if isCorrectPick {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 9, weight: .bold))
                     }
-                    .foregroundStyle(isCorrectPick ? Color.demoGreen : Color.demoInkSoft)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(isCorrectPick ? Color.demoGreen.opacity(0.12)
-                                                : Color.demoRow)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(isCorrectPick ? Color.demoGreen : Color.demoTrack,
-                                    lineWidth: 1)
-                    )
-                    .scaleEffect(isCorrectPick ? 1.04 : 1)
                 }
+                .foregroundStyle(isCorrectPick ? .white : Color.demoInkSoft)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(isCorrectPick ? Color.demoGreen : Color.demoRow)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(isCorrectPick ? Color.demoGreen : Color.demoTrack,
+                                lineWidth: 1)
+                )
+                .scaleEffect(isCorrectPick ? 1.04 : 1)
             }
         }
         .padding(Spacing.md)
@@ -878,8 +912,8 @@ private struct BankDemo: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 5) {
                 Image(systemName: "books.vertical.fill")
-                    .font(.system(size: 10, weight: .bold))
-                Text("QUESTION BANK")
+                    .font(.system(size: 12, weight: .bold))
+                Text("Question Bank")
             }
             .demoEyebrow(.blue)
 
@@ -971,9 +1005,11 @@ private struct ChatDemo: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 5) {
-                Image(systemName: "bubble.left.and.bubble.right.fill")
-                    .font(.system(size: 10, weight: .bold))
-                Text("ASK KORAH")
+                Image("newlogo12")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 16, height: 16)
+                Text("Ask Korah")
             }
             .demoEyebrow(Color.demoPurple)
 
@@ -1108,9 +1144,8 @@ private struct FreeDemo: View {
                             .font(.kCaption.weight(.semibold))
                             .foregroundStyle(Color.demoInk)
                         Spacer()
-                        Text("FREE")
-                            .font(.kCaption2.weight(.bold))
-                            .tracking(1)
+                        Text("Free")
+                            .font(.kCaption.weight(.bold))
                             .foregroundStyle(Color.demoGold)
                     }
                     .padding(.horizontal, 12)
