@@ -23,6 +23,7 @@ struct ProfileView: View {
     @State private var reviewQuery: SATQuery?
     @State private var showSignOutConfirm = false
     @State private var showClearDataConfirm = false
+    @State private var showDeleteAccount = false
     @State private var isClearingData = false
     @State private var clearDataMessage: String?
     @State private var pfpPickerItem: PhotosPickerItem?
@@ -110,6 +111,8 @@ struct ProfileView: View {
                         },
                         onCancel: { showClearDataConfirm = false }
                     )
+                } else if showDeleteAccount {
+                    DeleteAccountPopup(onClose: { showDeleteAccount = false })
                 } else if showGoalEditor {
                     SATGoalEditorPopup(model: model, onClose: { showGoalEditor = false })
                 } else if let staging {
@@ -122,6 +125,7 @@ struct ProfileView: View {
             }
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showSignOutConfirm)
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showClearDataConfirm)
+            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showDeleteAccount)
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showGoalEditor)
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: staging != nil)
             }
@@ -420,6 +424,24 @@ struct ProfileView: View {
                     Spacer()
                 }
                 .font(.kSubheadline)
+            }
+
+            Divider().overlay(Color.kBorder.opacity(0.4))
+
+            Button {
+                showDeleteAccount = true
+            } label: {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Label("Delete account", systemImage: "person.crop.circle.badge.xmark")
+                            .foregroundStyle(Color.kError)
+                            .font(.kSubheadline)
+                        Text("Permanently erases your account and everything in it")
+                            .font(.kCaption2)
+                            .foregroundStyle(Color.kTextTertiary)
+                    }
+                    Spacer()
+                }
             }
         }
     }

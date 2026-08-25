@@ -26,6 +26,16 @@ final class ProfileImageStore {
         self.image = image
     }
 
+    /// Removes the saved photo from disk. Used by account deletion so a
+    /// re-signup on the same device never inherits the old avatar.
+    func delete(for userId: String) {
+        try? FileManager.default.removeItem(at: fileURL(for: userId))
+        if loadedUserId == userId {
+            loadedUserId = nil
+            image = nil
+        }
+    }
+
     private func fileURL(for userId: String) -> URL {
         let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         return dir.appendingPathComponent("pfp_\(userId).jpg")

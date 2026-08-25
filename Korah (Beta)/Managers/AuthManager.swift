@@ -16,6 +16,10 @@ final class AuthManager {
     var isLoading = false
     var errorMessage: String?
 
+    /// One-time code from an Apple reauth, spent by `deleteAccount()` to
+    /// revoke the token grant.
+    private var pendingAppleAuthorizationCode: String?
+
     private var db: Firestore {
         Firestore.firestore()
     }
@@ -435,5 +439,200 @@ final class AuthManager {
     
     func clearError() {
         errorMessage = nil
+    }
+
+    // MARK: - Account Deletion
+
+    /// Which credential the signed-in account uses. The delete flow needs this
+    /// because Firebase refuses to remove a user without a fresh sign-in, and
+    /// every provider reauthenticates differently.
+    enum AccountProvider {
+        case password
+        case google
+        case apple
+        case guest
+    }
+
+    var accountProvider: AccountProvider {
+        guard let firebaseUser = Auth.auth().currentUser else { return .guest }
+        if firebaseUser.isAnonymous { return .guest }
+        let providerIDs = firebaseUser.providerData.map(\.providerID)
+        if providerIDs.contains("apple.com") { return .apple }
+        if providerIDs.contains("google.com") { return .google }
+        return .password
+    }
+
+    /// Every subcollection we write under `users/{uid}`. Firestore does not
+    /// cascade, so each one has to be walked before the parent document goes,
+    /// otherwise the documents survive as orphans.
+    ///
+    /// The top-level `satExplanations` collection is deliberately absent: it
+    /// is a shared cache keyed by question id, holds nothing personal, and the
+    /// rules make it undeletable anyway.
+    private static let userSubcollections = [
+        "conversations", "flashcardSets", "studyGuides", "practiceTests", "studyPlans",
+        "satAttempts", "satTotals", "satProfile", "satSkills", "satBookmarks"
+    ]
+
+    func reauthenticate(password: String) async throws {
+        guard let firebaseUser = Auth.auth().currentUser, let email = firebaseUser.email else {
+            throw AuthError.credentialError
+        }
+
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            let credential = EmailAuthProvider.credential(withEmail: email, password: password)
+            try await firebaseUser.reauthenticate(with: credential)
+            isLoading = false
+        } catch {
+            isLoading = false
+            errorMessage = friendlyMessage(for: error)
+            throw error
+        }
+    }
+
+    func reauthenticateWithGoogle() async throws {
+        guard let firebaseUser = Auth.auth().currentUser else { throw AuthError.credentialError }
+
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: try rootViewController())
+            guard let idToken = result.user.idToken?.tokenString else {
+                throw AuthError.credentialError
+            }
+            let credential = GoogleAuthProvider.credential(
+                withIDToken: idToken,
+                accessToken: result.user.accessToken.tokenString
+            )
+            try await firebaseUser.reauthenticate(with: credential)
+            isLoading = false
+        } catch {
+            isLoading = false
+            errorMessage = friendlyMessage(for: error)
+            throw error
+        }
+    }
+
+    /// Reauthenticates with Apple and holds on to the one-time authorization
+    /// code, which `deleteAccount()` hands back to Apple to revoke the token
+    /// grant. Apple requires that revocation whenever a Sign in with Apple
+    /// account is deleted.
+    func reauthenticateWithApple() async throws {
+        guard let firebaseUser = Auth.auth().currentUser else { throw AuthError.credentialError }
+
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            let result = try await AppleSignInCoordinator().startSignIn()
+            guard let identityToken = result.credential.identityToken,
+                  let idTokenString = String(data: identityToken, encoding: .utf8) else {
+                throw AuthError.credentialError
+            }
+
+            let credential = OAuthProvider.appleCredential(
+                withIDToken: idTokenString,
+                rawNonce: result.nonce,
+                fullName: result.credential.fullName
+            )
+            try await firebaseUser.reauthenticate(with: credential)
+
+            if let codeData = result.credential.authorizationCode,
+               let code = String(data: codeData, encoding: .utf8) {
+                pendingAppleAuthorizationCode = code
+            }
+            isLoading = false
+        } catch {
+            isLoading = false
+            errorMessage = friendlyMessage(for: error)
+            throw error
+        }
+    }
+
+    /// Permanently deletes the account: every Firestore document we hold for
+    /// the user, the Apple token grant when there is one, the Firebase Auth
+    /// record itself, and the on-device leftovers. Nothing here is
+    /// recoverable, and nothing is left behind for a future sign-in to find.
+    ///
+    /// Callers must reauthenticate first (guests excepted, they have no
+    /// credential), otherwise Firebase rejects the delete as stale.
+    func deleteAccount() async throws {
+        guard let firebaseUser = Auth.auth().currentUser else { throw AuthError.credentialError }
+
+        isLoading = true
+        errorMessage = nil
+        let uid = firebaseUser.uid
+
+        do {
+            // Data first: the security rules only allow these writes while the
+            // user is still signed in, so the auth record has to outlive them.
+            try await deleteFirestoreData(uid: uid)
+
+            if let code = pendingAppleAuthorizationCode {
+                // Best effort. A failed revocation must not strand the user
+                // with wiped data and a live account.
+                try? await Auth.auth().revokeToken(withAuthorizationCode: code)
+                pendingAppleAuthorizationCode = nil
+            }
+
+            try await firebaseUser.delete()
+            clearLocalData(for: uid)
+
+            self.currentUser = nil
+            self.isAuthenticated = false
+            self.isGuestSession = false
+            isLoading = false
+        } catch {
+            isLoading = false
+            if let code = AuthErrorCode(rawValue: (error as NSError).code), code == .requiresRecentLogin {
+                errorMessage = "For your security, sign in again before deleting your account."
+            } else {
+                errorMessage = friendlyMessage(for: error)
+            }
+            throw error
+        }
+    }
+
+    private func deleteFirestoreData(uid: String) async throws {
+        let userDocument = db.collection("users").document(uid)
+
+        for name in Self.userSubcollections {
+            // Paged so a heavy account (hundreds of attempts) still clears
+            // inside Firestore's 500-write batch limit.
+            var snapshot = try await userDocument.collection(name).limit(to: 300).getDocuments()
+            while !snapshot.documents.isEmpty {
+                let batch = db.batch()
+                for document in snapshot.documents {
+                    batch.deleteDocument(document.reference)
+                }
+                try await batch.commit()
+                snapshot = try await userDocument.collection(name).limit(to: 300).getDocuments()
+            }
+        }
+
+        try await userDocument.delete()
+    }
+
+    private func clearLocalData(for uid: String) {
+        ProfileImageStore.shared.delete(for: uid)
+
+        let defaults = UserDefaults.standard
+        for key in ["FlashcardSets", "StudyGuides", "PracticeTests", "SavedTasks",
+                    "UserMood", "LastMoodCheckInDate", "MoodAutoPromptEnabled"] {
+            defaults.removeObject(forKey: key)
+        }
+    }
+
+    private func rootViewController() throws -> UIViewController {
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let rootViewController = windowScene.windows.first?.rootViewController else {
+            throw NSError(domain: "AuthManager", code: -1,
+                          userInfo: [NSLocalizedDescriptionKey: "Could not find root view controller"])
+        }
+        return rootViewController
     }
 }
