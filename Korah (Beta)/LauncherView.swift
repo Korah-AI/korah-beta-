@@ -18,7 +18,8 @@ struct LauncherView: View {
                 NotificationManager.shared.cancelStreakReminder()
                 // Schedule new streak reminder for 18 hours from now
                 NotificationManager.shared.scheduleStreakReminderNotification()
-
+                // Rotate today's SAT reminders and queue the come back nudge
+                NotificationManager.shared.refreshSchedule()
             }
             .onChange(of: scenePhase) { newPhase in
                 if newPhase == .active {
@@ -28,6 +29,8 @@ struct LauncherView: View {
                     NotificationManager.shared.cancelStreakReminder()
                     // Schedule new streak reminder for 18 hours from now
                     NotificationManager.shared.scheduleStreakReminderNotification()
+                    // Rotate today's SAT reminders and queue the come back nudge
+                    NotificationManager.shared.refreshSchedule()
                 }
             }
     }

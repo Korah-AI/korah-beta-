@@ -43,6 +43,8 @@ final class StudyPlanService {
             guard let self, let snapshot else { return }
             self.plan = snapshot.exists ? (try? snapshot.data(as: StudyPlan.self)) : nil
             self.loaded = true
+            // Study day reminders follow whatever the plan currently says.
+            NotificationManager.shared.scheduleStudyPlanNotifications(for: self.plan)
         }
     }
 
