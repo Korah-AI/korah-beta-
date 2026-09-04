@@ -22,6 +22,33 @@ enum StudyPlanGenerationError: LocalizedError {
 struct ExtractedScores {
     var mathScore: Int?
     var englishScore: Int?
+    /// Domain code -> 1 (needs work) ... 3 (strong), read off the report's
+    /// Knowledge and Skills breakdown. Empty when the report doesn't show one.
+    var domains: [String: Int] = [:]
+}
+
+/// Canonical domain codes, shared with the web app and with SATCatalog.
+enum StudyPlanDomains {
+    /// Math first, then Reading & Writing, matching the confidence step order.
+    static let ordered: [(code: String, name: String)] = [
+        ("H", "Algebra"),
+        ("P", "Advanced Math"),
+        ("Q", "Problem-Solving and Data Analysis"),
+        ("S", "Geometry and Trigonometry"),
+        ("INI", "Information and Ideas"),
+        ("CAS", "Craft and Structure"),
+        ("EOI", "Expression of Ideas"),
+        ("SEC", "Standard English Conventions"),
+    ]
+    static let names: [String: String] = Dictionary(
+        uniqueKeysWithValues: ordered.map { ($0.code, $0.name) }
+    )
+    /// 1...3, the same scale the self-rated confidence step uses.
+    static let levelLabels = ["", "needs work", "growing", "strong"]
+    static func displayLabel(_ level: Int) -> String {
+        guard (1...3).contains(level) else { return "" }
+        return levelLabels[level].capitalized
+    }
 }
 
 final class StudyPlanGenerationService: Sendable {
@@ -36,11 +63,26 @@ final class StudyPlanGenerationService: Sendable {
         }
         let system = """
         You read SAT practice score reports (College Board, Bluebook, Khan Academy and similar). \
-        Extract the section scores. Respond with ONLY a single valid JSON object, no code fences:
-        { "mathScore": number or null, "rwScore": number or null }
+        Extract the section scores AND the per-domain performance breakdown. Respond with ONLY a \
+        single valid JSON object, no code fences:
+        { "mathScore": number or null, "rwScore": number or null, "domains": [ { "code": "H", "level": 2 } ] }
         mathScore is the Math section score (200-800). rwScore is the Reading and Writing \
         section score (200-800). If the report shows only a total score out of 1600, split it \
         evenly. If you can't find a score, use null.
+        "domains" is the Knowledge and Skills / performance-by-category breakdown these reports \
+        show under the scores. Use these codes only:
+        H = Algebra, P = Advanced Math, Q = Problem-Solving and Data Analysis, \
+        S = Geometry and Trigonometry, INI = Information and Ideas, CAS = Craft and Structure, \
+        EOI = Expression of Ideas, SEC = Standard English Conventions.
+        level is 1, 2, or 3: 1 = weak (shown as "Needs work", an empty or nearly empty bar, or a \
+        low percent correct), 2 = middling (shown as "Growing", a half-filled bar, or a middling \
+        percent correct), 3 = strong (shown as "Strong", a full or nearly full bar, or a high \
+        percent correct).
+        Read the level off whatever the report actually shows: a written label, the fill of a bar, \
+        a percent correct, or a raw correct-out-of-total. If the report shows percent correct, use \
+        1 for under 60, 2 for 60 to 84, and 3 for 85 or more.
+        Only include a domain you can actually see in this image. Never guess a level from the \
+        section score alone. If the image has no breakdown at all, return an empty array.
         """
         let raw = try await KorahAIClient.shared.completeWithImage(
             system: system,
@@ -52,8 +94,27 @@ final class StudyPlanGenerationService: Sendable {
         }
         return ExtractedScores(
             mathScore: Self.clampScore(json["mathScore"]),
-            englishScore: Self.clampScore(json["rwScore"])
+            englishScore: Self.clampScore(json["rwScore"]),
+            domains: Self.domainLevels(json["domains"])
         )
+    }
+
+    /// The model returns an array of {code, level}; everything downstream wants
+    /// a map. Unknown codes and out-of-range levels are dropped rather than
+    /// allowed to reach the plan prompt.
+    private static func domainLevels(_ value: Any?) -> [String: Int] {
+        guard let rows = value as? [[String: Any]] else { return [:] }
+        var out: [String: Int] = [:]
+        for row in rows {
+            guard let code = (row["code"] as? String)?
+                    .trimmingCharacters(in: .whitespaces).uppercased(),
+                  StudyPlanDomains.names[code] != nil,
+                  let level = row["level"] as? Int ?? (row["level"] as? Double).map(Int.init),
+                  (1...3).contains(level)
+            else { continue }
+            out[code] = level
+        }
+        return out
     }
 
     private static func clampScore(_ value: Any?) -> Int? {
@@ -117,7 +178,14 @@ final class StudyPlanGenerationService: Sendable {
     - Start times between 15:30 and 20:00 unless weekends, where 09:00 to 20:00 is fine.
     - If the test is more than 10 weeks away, plan only the first 10 weeks.
     - skillName must be a real Digital SAT skill from the official domains (Algebra, Advanced Math, Problem-Solving and Data Analysis, Geometry and Trigonometry, Information and Ideas, Craft and Structure, Expression of Ideas, Standard English Conventions).
-    - Spend more time on the student's weakest areas, but keep at least a third of time maintaining strengths.
+    - Domain levels arrive in words. "needs work" and "shaky" mean weak, "growing" and "okay" mean middling, "strong" means strong.
+    - You will often get levels for only some of the eight domains, because a score report may only show part of the breakdown. Work with whatever you are given. Never drop a domain just because you have no data on it, and never fall back to giving everything equal time just because the data is incomplete.
+    - Settle every domain into weak, middling, or strong using the best evidence you have for that specific domain, in this order: a measured level from their score report, then their self-rating, then their score for that domain's section (under 600 is weak, 600 to 699 is middling, 700 or above is strong), then middling if you have nothing at all.
+    - A level you were given outranks one you inferred, so when two domains look equally weak, spend the time on the one you have real data on.
+    - Weight time by those levels. Each week, spend about 55% of total minutes on weak domains, about 30% on middling ones, and about 15% on strong ones. A weak domain should get roughly three times the minutes of a strong one.
+    - Never spread time evenly across all eight domains. Within a tier, split time evenly between the domains in that tier.
+    - Strong domains still get a hard floor: at least one short review session every two weeks, so they don't decay.
+    - Name the weak domains in feedback.priorities so the student knows why the plan looks the way it does.
     - activity is one short concrete line, e.g. "Practice set: 10 linear function questions" or "Timed reading drill: inferences".
     - Vary activities: practice sets, timed drills, review of missed questions, one full-length practice test roughly every 3 weeks (on a weekend day, 120 min is allowed for these only).
     - feedback is short and encouraging. Never use em dashes anywhere. Use contractions. Talk to "you".
@@ -144,18 +212,37 @@ final class StudyPlanGenerationService: Sendable {
         if let english = intake.englishScore {
             lines.append("Reading and Writing score: \(english)")
         }
+        // Measured performance from the score report. Stated before the
+        // self-rating and marked as measured, because the plan should trust it
+        // over a guess.
+        if !intake.domainPerformance.isEmpty {
+            let described = StudyPlanDomains.ordered.compactMap { code, name -> String? in
+                guard let level = intake.domainPerformance[code], (1...3).contains(level) else { return nil }
+                return "\(name): \(StudyPlanDomains.levelLabels[level])"
+            }
+            if !described.isEmpty {
+                lines.append("Measured performance per domain, read from their score report: "
+                             + described.joined(separator: "; "))
+                // Named explicitly so a domain missing from the list reads as
+                // "the report didn't show it" rather than "it was left out
+                // because it's fine".
+                let unread = StudyPlanDomains.ordered.compactMap { code, name -> String? in
+                    if let level = intake.domainPerformance[code], (1...3).contains(level) { return nil }
+                    return name
+                }
+                if !unread.isEmpty {
+                    lines.append("Their report did not show these domains, so infer those levels yourself: "
+                                 + unread.joined(separator: "; "))
+                }
+                lines.append("Treat the measured levels as the truth about what they struggle with, and budget time against them.")
+            }
+        }
         if !intake.confidence.isEmpty {
-            let names: [String: String] = [
-                "H": "Algebra", "P": "Advanced Math",
-                "Q": "Problem-Solving and Data Analysis", "S": "Geometry and Trigonometry",
-                "INI": "Information and Ideas", "CAS": "Craft and Structure",
-                "EOI": "Expression of Ideas", "SEC": "Standard English Conventions",
-            ]
             let levels = ["", "shaky", "okay", "strong"]
             let described = intake.confidence
                 .sorted { $0.key < $1.key }
                 .compactMap { code, level -> String? in
-                    guard let name = names[code], (1...3).contains(level) else { return nil }
+                    guard let name = StudyPlanDomains.names[code], (1...3).contains(level) else { return nil }
                     return "\(name): \(levels[level])"
                 }
             if !described.isEmpty {

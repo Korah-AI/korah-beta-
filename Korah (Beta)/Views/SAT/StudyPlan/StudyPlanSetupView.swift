@@ -30,6 +30,8 @@ struct StudyPlanSetupView: View {
     @State private var screenshotImage: UIImage?
     @State private var analyzingScreenshot = false
     @State private var screenshotNote: String?
+    /// Domain code -> 1...3, read off the uploaded report. Shown read-only.
+    @State private var extractedDomains: [String: Int] = [:]
 
     // Step 3 state
     @State private var customDate = false
@@ -217,6 +219,9 @@ struct StudyPlanSetupView: View {
             VStack(spacing: Spacing.md) {
                 screenshotPickerCard
                 scoresStep(title: screenshotImage == nil ? "What did you score?" : "Confirm your scores")
+                if !extractedDomains.isEmpty {
+                    topicBreakdownCard
+                }
             }
         default:
             confidenceStep
@@ -313,6 +318,7 @@ struct StudyPlanSetupView: View {
                 withAnimation(KAnimation.bouncy) {
                     if let m = scores.mathScore { mathScore = m }
                     if let e = scores.englishScore { englishScore = e }
+                    extractedDomains = scores.domains
                 }
                 if scores.mathScore == nil && scores.englishScore == nil {
                     screenshotNote = "Couldn't spot scores in that one. Set them below instead."
@@ -323,6 +329,57 @@ struct StudyPlanSetupView: View {
             } catch {
                 screenshotNote = "Couldn't read the report. Set your scores below instead."
             }
+        }
+    }
+
+    /// Read-only: what Korah read out of the report's Knowledge and Skills
+    /// breakdown. Surfaced so a misread domain is visible before it skews the
+    /// whole plan. The scores above stay the editable path.
+    private var topicBreakdownCard: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            Text("How you did by topic")
+                .font(.kTitle2)
+                .foregroundStyle(Color.kTextPrimary)
+                .frame(maxWidth: .infinity)
+                .multilineTextAlignment(.center)
+
+            Text("Korah spends the most time on what you struggled with.")
+                .font(.kCaption)
+                .foregroundStyle(Color.kTextPrimary)
+                .frame(maxWidth: .infinity)
+                .multilineTextAlignment(.center)
+
+            ForEach(StudyPlanDomains.ordered.filter { extractedDomains[$0.code] != nil }, id: \.code) { domain in
+                let level = extractedDomains[domain.code] ?? 2
+                HStack(spacing: Spacing.sm) {
+                    Text(domain.name)
+                        .font(.kSubheadline.weight(.semibold))
+                        .foregroundStyle(Color.kTextPrimary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Text(StudyPlanDomains.displayLabel(level))
+                        .font(.kCaption.weight(.bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(Self.levelTint(level)))
+                }
+                .padding(.vertical, 4)
+            }
+        }
+        .padding(Spacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: CornerRadius.lg, style: .continuous)
+                .fill(Color.kSurface)
+        )
+    }
+
+    /// Red / amber / green, the same meaning the wizard's rating chips carry.
+    private static func levelTint(_ level: Int) -> Color {
+        switch level {
+        case 1: return Color(red: 0.90, green: 0.30, blue: 0.28)
+        case 3: return Color(red: 0.20, green: 0.68, blue: 0.42)
+        default: return Color(red: 0.95, green: 0.62, blue: 0.20)
         }
     }
 
@@ -760,9 +817,11 @@ struct StudyPlanSetupView: View {
         if intake.source == "sat" || intake.source == "practice" {
             intake.mathScore = mathScore
             intake.englishScore = englishScore
+            intake.domainPerformance = extractedDomains
         } else {
             intake.mathScore = nil
             intake.englishScore = nil
+            intake.domainPerformance = [:]
         }
         phase = .generating
         Task { @MainActor in

@@ -65,6 +65,9 @@ struct StudyPlanIntake {
     var englishScore: Int?
     /// Domain code → confidence 1 (shaky) ... 3 (strong). Only for "self".
     var confidence: [String: Int] = [:]
+    /// Domain code → measured level 1 (needs work) ... 3 (strong), read off the
+    /// uploaded score report. Only for "sat" and "practice".
+    var domainPerformance: [String: Int] = [:]
     /// Free text: the specific feedback the student wants. Only for "self".
     var focusRequest: String = ""
     var testDate: Date = Date()
